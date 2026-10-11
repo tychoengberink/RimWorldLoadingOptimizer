@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>RimWorld Loading Optimizer (RLO)</name>
+  <author>Aruclya</author>
+  <packageId>aruclya.rimworldloadingoptimizer</packageId>
+  <modVersion>4.1.2</modVersion>
+  <supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+  <description>RimWorld Loading Optimizer makes RimWorld load faster and use less memory when you play with a lot of mods. It does not add, remove or change any content: your mods, defs and saves stay exactly the same.
+
+What it does:
+
+- Speeds up the part of loading where mods patch each other's files.
+- Reads textures from disk ahead of time, so the game does not have to wait for them.
+- Remembers work from the previous start (for example the combined texture sheets) and reuses it when nothing changed.
+- Frees textures that another mod replaces and that can never be shown.
+- Speeds up slow startup code in the base game and in a number of popular mods.
+- Shows a small bar on the loading screen while it is active.
+
+Every part can be switched off separately in Mod Settings. Mod Settings also has a button that measures the difference on your own PC (two restarts).
+
+Load RimWorld Loading Optimizer directly after Harmony.</description>
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+    </li>
+  </modDependencies>
+  <loadAfter>
+    <li>brrainz.harmony</li>
+  </loadAfter>
+  <loadBefore>
+    <li>ludeon.rimworld</li>
+    <li>taranchuk.fastergameloading</li>
+    <li>ilyvion.loadingprogress</li>
+  </loadBefore>
+</ModMetaData>

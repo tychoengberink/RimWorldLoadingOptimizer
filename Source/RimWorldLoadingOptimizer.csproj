@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>RimWorldLoadingOptimizer</AssemblyName>
+    <RootNamespace>RimWorldLoadingOptimizer</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <OutputPath>../1.6/Assemblies/</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <DebugType>none</DebugType>
+    <RimWorldManaged>$(HOME)/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app/Contents/Resources/Data/Managed</RimWorldManaged>
+    <HarmonyDll>$(HOME)/Library/Application Support/Steam/steamapps/workshop/content/294100/2009463077/Current/Assemblies/0Harmony.dll</HarmonyDll>
+    <FrameworkPathOverride>$(RimWorldManaged)</FrameworkPathOverride>
+    <NoStdLib>true</NoStdLib>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" HintPath="$(RimWorldManaged)/mscorlib.dll" Private="false" />
+    <Reference Include="System" HintPath="$(RimWorldManaged)/System.dll" Private="false" />
+    <Reference Include="System.Xml" HintPath="$(RimWorldManaged)/System.Xml.dll" Private="false" />
+    <Reference Include="System.Core" HintPath="$(RimWorldManaged)/System.Core.dll" Private="false" />
+    <Reference Include="netstandard" HintPath="$(RimWorldManaged)/netstandard.dll" Private="false" />
+    <Reference Include="Assembly-CSharp" HintPath="$(RimWorldManaged)/Assembly-CSharp.dll" Private="false" />
+    <Reference Include="UnityEngine.AudioModule" HintPath="$(RimWorldManaged)/UnityEngine.AudioModule.dll" Private="false" />
+    <Reference Include="UnityEngine.AssetBundleModule" HintPath="$(RimWorldManaged)/UnityEngine.AssetBundleModule.dll" Private="false" />
+    <Reference Include="UnityEngine.TextRenderingModule" HintPath="$(RimWorldManaged)/UnityEngine.TextRenderingModule.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(RimWorldManaged)/UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="UnityEngine.IMGUIModule" HintPath="$(RimWorldManaged)/UnityEngine.IMGUIModule.dll" Private="false" />
+    <Reference Include="0Harmony" HintPath="$(HarmonyDll)" Private="false" />
+    <Reference Include="0PrepatcherAPI" HintPath="$(HOME)/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app/Mods/2934420800/Assemblies/0PrepatcherAPI.dll" Private="false" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RloDll Condition="'$(RloDll)' == ''">../../../1.6/Assemblies/RimWorldLoadingOptimizer.dll</RloDll>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <OutputPath>../Assemblies/</OutputPath>
+    <AssemblyName>RimWorldLoadingOptimizer.MeleeAnimation</AssemblyName>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <DebugType>none</DebugType>
+    <RimWorldManaged>$(HOME)/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app/Contents/Resources/Data/Managed</RimWorldManaged>
+    <AMDll>$(HOME)/Library/Application Support/Steam/steamapps/workshop/content/294100/2944488802/1.6/Assemblies/AMRetextureSupport.dll</AMDll>
+    <HarmonyDll>$(HOME)/Library/Application Support/Steam/steamapps/workshop/content/294100/2009463077/Current/Assemblies/0Harmony.dll</HarmonyDll>
+    <FrameworkPathOverride>$(RimWorldManaged)</FrameworkPathOverride>
+    <NoStdLib>true</NoStdLib>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" HintPath="$(RimWorldManaged)/mscorlib.dll" Private="false" />
+    <Reference Include="System" HintPath="$(RimWorldManaged)/System.dll" Private="false" />
+    <Reference Include="System.Xml" HintPath="$(RimWorldManaged)/System.Xml.dll" Private="false" />
+    <Reference Include="System.Core" HintPath="$(RimWorldManaged)/System.Core.dll" Private="false" />
+    <Reference Include="netstandard" HintPath="$(RimWorldManaged)/netstandard.dll" Private="false" />
+    <Reference Include="Assembly-CSharp" HintPath="$(RimWorldManaged)/Assembly-CSharp.dll" Private="false" />
+    <Reference Include="UnityEngine.AssetBundleModule" HintPath="$(RimWorldManaged)/UnityEngine.AssetBundleModule.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(RimWorldManaged)/UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="AMRetextureSupport" HintPath="$(AMDll)" Private="false" />
+    <Reference Include="0Harmony" HintPath="$(HarmonyDll)" Private="false" />
+    <Reference Include="RimWorldLoadingOptimizer" HintPath="$(RloDll)" Private="false" />
+  </ItemGroup>
+</Project>

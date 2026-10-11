@@ -1,0 +1,98 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using HarmonyLib;
+using Verse;
+
+namespace RimWorldLoadingOptimizer
+{
+    public static class LunarConflicts
+    {
+        private static readonly MethodInfo GetPatchInfo = AccessTools.Method(typeof(Harmony), nameof(Harmony.GetPatchInfo));
+        private static readonly Dictionary<MethodBase, (byte[] bytes, Patches patches)> cache = new Dictionary<MethodBase, (byte[], Patches)>();
+        private static Dictionary<MethodBase, byte[]> state;
+        private static int methods, calls, hits, misses, checks, mismatches;
+
+        public static void Install(Harmony harmony)
+        {
+            state = AccessTools.Field(AccessTools.TypeByName("HarmonyLib.HarmonySharedState"), "state")?.GetValue(null) as Dictionary<MethodBase, byte[]>;
+            var group = ModTypes.Find("LunarFramework.Patching.PatchGroup");
+            var check = group == null ? null : AccessTools.Method(group, "CheckForConflicts", new[] { typeof(string), typeof(Action<MethodBase, Patch>) });
+            if (state == null || check == null)
+            {
+                return;
+            }
+            var sharedGet = AccessTools.Method(AccessTools.TypeByName("HarmonyLib.HarmonySharedState"), "GetPatchInfo");
+            var processorGet = AccessTools.Method(typeof(PatchProcessor), nameof(PatchProcessor.GetPatchInfo));
+            if (!Fingerprint.Matches("Lunar conflict check",
+                    Fingerprint.Known(check, "13B83E8A3F48C1FF"),
+                    Fingerprint.Known(GetPatchInfo, "5DD47414AB626F77"),
+                    Fingerprint.Known(processorGet, "3FBEB5C86979520A"),
+                    Fingerprint.Known(sharedGet, "FCBBA976F9FCCF54")))
+            {
+                return;
+            }
+            harmony.Patch(check, transpiler: new HarmonyMethod(typeof(LunarConflicts), nameof(Transpiler)));
+            Ctors2Mod.Reports.Add(Stats);
+        }
+
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        {
+            methods++;
+            return Ctors2Mod.Replace(instructions, GetPatchInfo, AccessTools.Method(typeof(LunarConflicts), nameof(Info)));
+        }
+
+        private static byte[] Bytes(MethodBase method)
+        {
+            lock (state)
+            {
+                return state.TryGetValue(method, out var bytes) ? bytes : null;
+            }
+        }
+
+        public static Patches Info(MethodBase method)
+        {
+            calls++;
+            if (method == null)
+            {
+                return Harmony.GetPatchInfo(method);
+            }
+            var before = Bytes(method);
+            if (before != null && cache.TryGetValue(method, out var entry) && ReferenceEquals(entry.bytes, before))
+            {
+                hits++;
+                if (Ctors2Mod.Verify)
+                {
+                    Compare(method, entry.patches, Harmony.GetPatchInfo(method));
+                }
+                return entry.patches;
+            }
+            misses++;
+            var patches = Harmony.GetPatchInfo(method);
+            if (before != null && patches != null && ReferenceEquals(before, Bytes(method)))
+            {
+                cache[method] = (before, patches);
+            }
+            return patches;
+        }
+
+        private static void Compare(MethodBase method, Patches cached, Patches fresh)
+        {
+            checks++;
+            bool Same(IEnumerable<Patch> a, IEnumerable<Patch> b) => a.Select(Key).SequenceEqual(b.Select(Key));
+            if (fresh == null || !Same(cached.Prefixes, fresh.Prefixes) || !Same(cached.Postfixes, fresh.Postfixes) || !Same(cached.Transpilers, fresh.Transpilers)
+                || !Same(cached.Finalizers, fresh.Finalizers) || !Same(cached.InnerPrefixes, fresh.InnerPrefixes) || !Same(cached.InnerPostfixes, fresh.InnerPostfixes))
+            {
+                if (++mismatches <= 10)
+                {
+                    Log.Warning($"[RLO] lunar verify mismatch for {method.FullDescription()}");
+                }
+            }
+        }
+
+        private static string Key(Patch p) => $"{p.index}|{p.owner}|{p.priority}|{string.Join(",", p.before ?? new string[0])}|{string.Join(",", p.after ?? new string[0])}|{p.debug}|{p.PatchMethod?.MetadataToken}|{p.PatchMethod?.Module.ModuleVersionId}";
+
+        public static string Stats() => $"lunar conflict check: {methods} methods, {calls} patch-info calls, {hits} served from cache, {misses} deserialized" + (Ctors2Mod.Verify ? $", verify checks {checks}, mismatches {mismatches}" : "");
+    }
+}
