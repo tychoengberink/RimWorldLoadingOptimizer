@@ -9,8 +9,6 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <DebugType>none</DebugType>
-    <RimWorldManaged>$(HOME)/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app/Contents/Resources/Data/Managed</RimWorldManaged>
-    <HarmonyDll>$(HOME)/Library/Application Support/Steam/steamapps/workshop/content/294100/2009463077/Current/Assemblies/0Harmony.dll</HarmonyDll>
     <FrameworkPathOverride>$(RimWorldManaged)</FrameworkPathOverride>
     <NoStdLib>true</NoStdLib>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
@@ -28,6 +26,6 @@
     <Reference Include="UnityEngine.CoreModule" HintPath="$(RimWorldManaged)/UnityEngine.CoreModule.dll" Private="false" />
     <Reference Include="UnityEngine.IMGUIModule" HintPath="$(RimWorldManaged)/UnityEngine.IMGUIModule.dll" Private="false" />
     <Reference Include="0Harmony" HintPath="$(HarmonyDll)" Private="false" />
-    <Reference Include="0PrepatcherAPI" HintPath="$(HOME)/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app/Mods/2934420800/Assemblies/0PrepatcherAPI.dll" Private="false" />
+    <Reference Include="0PrepatcherAPI" HintPath="$(PrepatcherDll)" Private="false" />
   </ItemGroup>
 </Project>

@@ -9,9 +9,6 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <DebugType>none</DebugType>
-    <RimWorldManaged>$(HOME)/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app/Contents/Resources/Data/Managed</RimWorldManaged>
-    <AMDll>$(HOME)/Library/Application Support/Steam/steamapps/workshop/content/294100/2944488802/1.6/Assemblies/AMRetextureSupport.dll</AMDll>
-    <HarmonyDll>$(HOME)/Library/Application Support/Steam/steamapps/workshop/content/294100/2009463077/Current/Assemblies/0Harmony.dll</HarmonyDll>
     <FrameworkPathOverride>$(RimWorldManaged)</FrameworkPathOverride>
     <NoStdLib>true</NoStdLib>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>

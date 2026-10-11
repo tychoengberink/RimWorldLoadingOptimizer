@@ -1,0 +1,23 @@
+<Project>
+  <!-- Paths to RimWorld and the mods we compile against. Every property can be overridden
+       with -p:Name=value or an environment variable of the same name. -->
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
+    <SteamApps Condition="'$(SteamApps)' == ''">C:/Program Files (x86)/Steam/steamapps</SteamApps>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(SteamApps)/common/RimWorld</RimWorldDir>
+    <RimWorldManaged Condition="'$(RimWorldManaged)' == ''">$(RimWorldDir)/RimWorldWin64_Data/Managed</RimWorldManaged>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
+    <SteamApps Condition="'$(SteamApps)' == ''">$(HOME)/Library/Application Support/Steam/steamapps</SteamApps>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(SteamApps)/common/RimWorld/RimWorldMac.app</RimWorldDir>
+    <RimWorldManaged Condition="'$(RimWorldManaged)' == ''">$(RimWorldDir)/Contents/Resources/Data/Managed</RimWorldManaged>
+  </PropertyGroup>
+  <PropertyGroup>
+    <WorkshopDir Condition="'$(WorkshopDir)' == ''">$(SteamApps)/workshop/content/294100</WorkshopDir>
+    <HarmonyDll Condition="'$(HarmonyDll)' == ''">$(WorkshopDir)/2009463077/Current/Assemblies/0Harmony.dll</HarmonyDll>
+    <!-- Prepatcher and Melee Animation: a local copy in the RimWorld Mods folder wins over the Workshop one -->
+    <PrepatcherDll Condition="'$(PrepatcherDll)' == '' and Exists('$(RimWorldDir)/Mods/2934420800/Assemblies/0PrepatcherAPI.dll')">$(RimWorldDir)/Mods/2934420800/Assemblies/0PrepatcherAPI.dll</PrepatcherDll>
+    <PrepatcherDll Condition="'$(PrepatcherDll)' == ''">$(WorkshopDir)/2934420800/Assemblies/0PrepatcherAPI.dll</PrepatcherDll>
+    <AMDll Condition="'$(AMDll)' == '' and Exists('$(RimWorldDir)/Mods/2944488802/1.6/Assemblies/AMRetextureSupport.dll')">$(RimWorldDir)/Mods/2944488802/1.6/Assemblies/AMRetextureSupport.dll</AMDll>
+    <AMDll Condition="'$(AMDll)' == ''">$(WorkshopDir)/2944488802/1.6/Assemblies/AMRetextureSupport.dll</AMDll>
+  </PropertyGroup>
+</Project>
