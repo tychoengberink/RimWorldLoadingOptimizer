@@ -1,8 +1,10 @@
+![RimWorld Loading Optimizer](About/Preview.png)
+
 # RimWorld Loading Optimizer
 
 Load-time and memory optimizer for RimWorld 1.6 with very large mod lists. It patches the base game and other mods' code paths; it does not change any def content.
 
-Version 5.0, measured on a Mac (Apple M5 Pro, 24 GB) with a 672-mod list and no Graphics Settings+: a cold start goes from **8:16 to 4:52 (−41%)** with only RimWorld Loading Optimizer's own features. With the defaults, which include the extra support for the mods in the list, a warm start of a 661-mod list goes from about **4:10 to 2:19**, and a cold start of a 1,490-mod list from **17:03 to 5:41 (−67%)**.
+Version 5.0 with its default settings, measured on a Mac (Apple M5 Pro, 24 GB): a cold start of a 672-mod list goes from **8:16 to 2:47 (−66%)**, a warm start of a 661-mod list from about **4:10 to 2:19**, and a cold start of a 1,490-mod list from **17:03 to 5:41 (−67%)**.
 
 Every speedup has a verification mode that recomputes the result the original way; all reported 0 mismatches in the 5.0 test starts.
 
@@ -12,28 +14,28 @@ Mac: Apple M5 Pro, 24 GB unified memory, internal SSD, macOS (Metal). Textures p
 
 ### The NYz Collection: Sci-Fi & Progression without Graphics Settings+ (672 mods), cold start
 
-| | Off | 5.0, mod support off | Change |
+| | Off | 5.0 defaults | Change |
 |---|---|---|---|
-| Time to main menu | 8:16 (495.7 s) | **4:52 (292.4 s)** | −41% |
-| Texture loading | 85.5 s | **30.1 s** | DDS buffers for the game's own loader |
-| XML patching | 217.7 s | **12.3 s** | fast XML patching |
-| Peak memory | 42.6 GB | **41.1 GB** | −1.5 GB |
+| Time to main menu | 8:16 (495.7 s) | **2:47 (166.9 s)** | −66% |
+| Texture loading | 85.5 s | **26.8 s** | DDS buffers for the game's own loader |
+| XML patching | 217.7 s | **9.1 s** | fast XML patching |
+| Peak memory | 42.6 GB | **41.4 GB** | −1.2 GB |
 
-The verification start compared all 83,778 textures loaded from RimWorld Loading Optimizer's buffers with what the game's own loader builds: 0 differences.
+A verification start compared all 83,778 textures loaded from RimWorld Loading Optimizer's buffers with what the game's own loader builds: 0 differences.
 
 ### The NYz Collection: Sci-Fi & Progression with Graphics Settings+ (661 mods + Loading Progress), warm start
 
-| | Off | 5.0, mod support off | 5.0 defaults (all mod support on) |
+| | Off | 5.0 defaults | Change |
 |---|---|---|---|
-| Time to main menu | 4:05 and 4:19 (2 starts) | 4:14 | **2:19** |
-| Texture loading | 74–77 s | 87 s | **29 s** |
-| Peak memory | 42.3–42.4 GB | **30.2 GB** | 40.7 GB |
+| Time to main menu | 4:05 and 4:19 (2 starts) | **2:19 (138.5 s)** | about −45% |
+| Texture loading | 74–77 s | **29 s** | Graphics Settings+ support |
+| Peak memory | 42.3–42.4 GB | **40.7 GB** | about −1.6 GB |
 
-With Graphics Settings+ installed, the texture speedup is part of the Graphics Settings+ support, so with mod support off texture loading is not faster on this list; memory is still 12 GB lower. With the defaults (all support on), the time saved comes mostly from Graphics Settings+, Melee Animation and Research Reinvented: Stepping Stones support.
+Most of the time saved on this list comes from the extra support for Graphics Settings+, Melee Animation and Research Reinvented: Stepping Stones.
 
 ### Progression packs 1 to 3 (1,490 mods), cold start
 
-| | Off | 5.0, all mod support on | Change |
+| | Off | 5.0 defaults | Change |
 |---|---|---|---|
 | Time to main menu | 17:03 (1023.5 s) | **5:41 (341.2 s)** | −67% |
 | XML patching | 528.9 s | **39.7 s** | −92% |
