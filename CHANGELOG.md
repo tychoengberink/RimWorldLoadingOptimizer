@@ -7,22 +7,22 @@
 - Graphics Settings+ and Missile Girl support no longer replace those mods' loaders: their own code runs, and RimWorld Loading Optimizer only hands Graphics Settings+ bytes it read ahead, or lets Missile Girl read its cache straight into the def document.
 - Children Wear Anything and Vehicle Framework support only route those mods' texture lookups through RimWorld Loading Optimizer's texture index.
 - Category sets now follow the "Category cache" setting.
-- The startup report shows one line per feature; feature names say what they act on (for example "vanilla facility link lookup").
-- When a speedup is skipped because its target changed, the log says why it can happen (another version of the mod, or another mod such as Performance Fish rewriting the method through Prepatcher) and that nothing is broken.
-- Times are shown as minutes:seconds, and "cold start" / "warm start" say whether an XML cache was used.
-- With Hyperdrive, RimWorld Loading Optimizer leaves `LoadModXML` to it, so Hyperdrive's parallel XML loading is no longer switched off.
-- Image Opt is recognised by its packageId (original and fork).
-- Warm and cold starts are told apart by whether Missile Girl actually used its XML cache, so a measurement is no longer marked unfair just because fast XML patching made patching quick.
+- The startup report shows one line per feature; feature names say what they act on (for example "vanilla facility link lookup"). (thanks @Jointboy)
+- When a speedup is skipped because its target changed, the log says why it can happen (another version of the mod, or another mod such as Performance Fish rewriting the method through Prepatcher) and that nothing is broken. (thanks @Jointboy)
+- Times are shown as minutes:seconds, and "cold start" / "warm start" say whether an XML cache was used. (thanks @Jointboy)
+- With Hyperdrive, RimWorld Loading Optimizer leaves `LoadModXML` to it, so Hyperdrive's parallel XML loading is no longer switched off. (thanks @Jointboy)
+- Image Opt is recognised by its packageId (original and fork). (thanks @Jointboy)
+- Warm and cold starts are told apart by whether Missile Girl actually used its XML cache, so a measurement is no longer marked unfair just because fast XML patching made patching quick. (thanks @Jointboy)
 - The atlas cache really switches itself off on systems where it cannot work, instead of hashing every texture and throwing the result away on every start.
 - More speedups check the original code first (recipe index, category cache, content lookups, Melee Animation, Faster Game Loading, Research Reinvented) and step aside when another mod patches the same method.
 - Patches on .NET methods are removed once the main menu opens, and the supported-mods list is logged at that point.
 
 ### Added
 - Without Graphics Settings+, DDS textures are read into memory on background threads for the game's own loader (texture loading 85 s to 30 s on a 667-mod list, verified identical for 83,778 textures).
-- The time to start is also recorded when the game goes straight into a save without showing the main menu.
-- The measurement history is also saved as a web page, with a button in Mod Settings.
-- Peak memory and memory at the main menu are recorded on Windows and Linux.
-- The log says when CombatAI's startup code ran before RimWorld Loading Optimizer could speed it up.
+- The time to start is also recorded when the game goes straight into a save without showing the main menu. (thanks @Jointboy)
+- The measurement history is also saved as a web page, with a button in Mod Settings. (thanks @Jointboy)
+- Peak memory and memory at the main menu are recorded on Windows and Linux. (thanks @Jointboy)
+- The log says when CombatAI's startup code ran before RimWorld Loading Optimizer could speed it up. (thanks @Jointboy)
 
 ### Fixed
 - XML Extensions settings that read text from the def XML keep working.
@@ -30,6 +30,9 @@
 ### Removed
 - Support for Giddy-Up, Vehicle Framework pattern rotation, TD Find Lib, Vanilla Trading Expanded, KCSG, Adaptive Storage and HugsLib, and the Colony Groups texture repair: these re-implemented parts of those mods' own code.
 - Pruning of Missile Girl's stale file hashes. This worked around a problem in Missile Girl; on some mod lists Missile Girl's cache now resets more often.
+
+### Thanks
+- Thanks @Jointboy on Discord for the bug reports.
 
 ## 4.1.2
 - Faster start-up for the code of many popular mods, including Vanilla Trading Expanded, TD Find Lib, Linkable Groups, KCSG, AV Mechanoid Skins and Lunar.
