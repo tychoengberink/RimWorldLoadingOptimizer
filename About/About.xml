@@ -3,7 +3,8 @@
   <name>RimWorld Loading Optimizer (RLO)</name>
   <author>Aruclya</author>
   <packageId>aruclya.rimworldloadingoptimizer</packageId>
-  <modVersion>4.1.2</modVersion>
+  <url>https://github.com/tychoengberink/RimWorldLoadingOptimizer</url>
+  <modVersion>5.0.0</modVersion>
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
@@ -15,7 +16,9 @@ What it does:
 - Reads textures from disk ahead of time, so the game does not have to wait for them.
 - Remembers work from the previous start (for example the combined texture sheets) and reuses it when nothing changed.
 - Frees textures that another mod replaces and that can never be shown.
-- Speeds up slow startup code in the base game and in a number of popular mods.
+- Streams medium-sized sound files from disk, as the game already does for large ones.
+- Speeds up slow startup code in the base game.
+- Extra support for a number of popular mods, which can be switched off per mod in Mod Settings.
 - Shows a small bar on the loading screen while it is active.
 
 Every part can be switched off separately in Mod Settings. Mod Settings also has a button that measures the difference on your own PC (two restarts).

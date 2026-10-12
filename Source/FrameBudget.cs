@@ -18,7 +18,7 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var target = AccessTools.Method(typeof(LongEventHandler), "UpdateCurrentEnumeratorEvent");
-            if (!Fingerprint.Matches("main phases frame budget", Fingerprint.Known(target, "A134D3C247E099D2", "0D0F8F066738F9F3")))
+            if (!Fingerprint.Matches("Loading frame budget", Fingerprint.Known(target, "A134D3C247E099D2", "0D0F8F066738F9F3")))
             {
                 return;
             }
@@ -30,16 +30,18 @@ namespace RimWorldLoadingOptimizer
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
+            var replaced = 0;
             foreach (var instruction in instructions)
             {
                 if (instruction.opcode == OpCodes.Ldc_R4 && instruction.operand is float f && f == Default)
                 {
-                    Replaced++;
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(FrameBudget), nameof(Budget))).MoveLabelsFrom(instruction);
+                    replaced++;
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(FrameBudget), nameof(Budget))).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
                     continue;
                 }
                 yield return instruction;
             }
+            Replaced = replaced;
         }
     }
 }

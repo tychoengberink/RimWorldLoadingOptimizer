@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using System.Xml;
 using HarmonyLib;
 using Verse;
@@ -15,29 +17,38 @@ namespace RimWorldLoadingOptimizer
         private static Harmony harmony;
         private static bool reusePatches, installed, loadPatched;
         private static MethodInfo loadMethod;
-        private static Func<string> unifiedPath;
-        private static Func<Dictionary<string, LoadableXmlAsset>> xmlAssets;
-        private static Func<ModContentPack> core;
         private static bool dummyAssetNeeded;
         [ThreadStatic] private static bool bypass;
         [ThreadStatic] private static ModContentPack loadingPatchesOf;
         private static bool collecting;
         private static readonly Dictionary<ModContentPack, LoadableXmlAsset[]> parsedPatches = new Dictionary<ModContentPack, LoadableXmlAsset[]>();
-        private static int loads, loadMismatches, reused, reuseMismatches, collected, dropped, pruned;
+        private static int loads, loadMismatches, reused, reuseMismatches, collected, dropped;
         private static double loadSeconds;
         private static string skippedNote = "";
 
-        public static void Install(Harmony harmony)
+        private static bool missileGirl;
+
+        public static void Install(Harmony harmony, bool parallelXmlLoader)
         {
             GagarinFast.harmony = harmony;
-            reusePatches = Fingerprint.Matches("Reuse of parsed patch files",
+            missileGirl = RLOMod.Settings.Supports("missilegirl");
+            reusePatches = !parallelXmlLoader && Fingerprint.Matches("Reuse of parsed patch files",
                 Fingerprint.Known(AccessTools.Method(typeof(ModContentPack), "LoadPatches"), "7BD200C227994829", "38D8E170612E6A8C"),
                 Fingerprint.Known(AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)), "443A7DDA2E4D9183", "B562C17CC83C679E"));
-            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML)),
-                prefix: new HarmonyMethod(typeof(GagarinFast), nameof(LoadModXMLPrefix)) { priority = Priority.First },
-                postfix: new HarmonyMethod(typeof(GagarinFast), nameof(LoadModXMLPostfix)) { priority = Priority.Last });
-            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML)),
-                postfix: new HarmonyMethod(typeof(GagarinFast), nameof(PruneStaleHashes)) { priority = Priority.First });
+            var loadModXml = AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML));
+            if (parallelXmlLoader)
+            {
+                if (missileGirl)
+                {
+                    harmony.Patch(loadModXml, postfix: new HarmonyMethod(typeof(GagarinFast), nameof(LoadGagarinOnce)) { priority = Priority.First });
+                }
+            }
+            else
+            {
+                harmony.Patch(loadModXml,
+                    prefix: new HarmonyMethod(typeof(GagarinFast), nameof(LoadModXMLPrefix)) { priority = Priority.First },
+                    postfix: new HarmonyMethod(typeof(GagarinFast), nameof(LoadModXMLPostfix)) { priority = Priority.Last });
+            }
             if (reusePatches)
             {
                 harmony.Patch(AccessTools.Method(typeof(ModContentPack), "LoadPatches"),
@@ -55,7 +66,12 @@ namespace RimWorldLoadingOptimizer
         public static void LoadModXMLPrefix()
         {
             collecting = reusePatches;
-            if (loadPatched)
+            LoadGagarinOnce();
+        }
+
+        public static void LoadGagarinOnce()
+        {
+            if (loadPatched || !missileGirl)
             {
                 return;
             }
@@ -75,46 +91,16 @@ namespace RimWorldLoadingOptimizer
             collecting = false;
         }
 
-        public static void PruneStaleHashes()
-        {
-            var context = AccessTools.TypeByName("Gagarin.Context");
-            var usingCache = context == null ? null : AccessTools.PropertyGetter(context, "IsUsingCache");
-            if (usingCache == null || (bool)usingCache.Invoke(null, null)
-                || !(AccessTools.Field(context, "Assets")?.GetValue(null) is HashSet<string> assets)
-                || !(AccessTools.Field(context, "AssetsHashes")?.GetValue(null) is Dictionary<string, string> hashes)
-                || !(AccessTools.Field(context, "AssetsHashesInt")?.GetValue(null) is Dictionary<string, ulong> hashesInt))
-            {
-                return;
-            }
-            lock (hashes)
-            {
-                foreach (var key in hashes.Keys.Where(k => !assets.Contains(k)).ToList())
-                {
-                    hashes.Remove(key);
-                    pruned++;
-                }
-                foreach (var key in hashesInt.Keys.Where(k => !assets.Contains(k)).ToList())
-                {
-                    hashesInt.Remove(key);
-                }
-            }
-        }
-
         private static void PatchGagarin()
         {
             var helper = AccessTools.TypeByName("Gagarin.CachedDefHelper");
-            var context = AccessTools.TypeByName("Gagarin.Context");
-            var env = AccessTools.TypeByName("Gagarin.GagarinEnvironmentInfo");
-            if (helper == null || context == null || env == null)
+            if (helper == null)
             {
                 skippedNote = "gagarin absent";
                 return;
             }
             loadMethod = AccessTools.Method(helper, "Load", new[] { typeof(XmlDocument), typeof(Dictionary<XmlNode, LoadableXmlAsset>) });
-            var pathGetter = AccessTools.PropertyGetter(env, "UnifiedXmlFilePath");
-            var assetsField = AccessTools.Field(context, "XmlAssets");
-            var coreField = AccessTools.Field(context, "Core");
-            if (loadMethod == null || pathGetter == null || assetsField == null || coreField == null)
+            if (loadMethod == null)
             {
                 skippedNote = "gagarin members changed";
                 return;
@@ -124,11 +110,13 @@ namespace RimWorldLoadingOptimizer
                 skippedNote = "gagarin cache loader changed";
                 return;
             }
-            unifiedPath = () => (string)pathGetter.Invoke(null, null);
-            xmlAssets = () => (Dictionary<string, LoadableXmlAsset>)assetsField.GetValue(null);
-            core = () => (ModContentPack)coreField.GetValue(null);
-            var ctor = AccessTools.Constructor(typeof(LoadableXmlAsset), new[] { typeof(FileInfo), typeof(ModContentPack) });
-            var info = Harmony.GetPatchInfo(ctor);
+            var code = PatchProcessor.GetOriginalInstructions(loadMethod);
+            if (code.Count(i => i.Calls(DocumentLoad)) != 1 || code.Count(i => i.Calls(ImportNode)) != 1 || code.Count(i => i.opcode == OpCodes.Newobj && Equals(i.operand, AssetConstructor)) != 1)
+            {
+                skippedNote = "gagarin cache loader reads its cache another way";
+                return;
+            }
+            var info = Harmony.GetPatchInfo(AssetConstructor);
             var foreign = info == null ? new List<Patch>() : info.Prefixes.Concat(info.Postfixes).Concat(info.Transpilers).Concat(info.Finalizers)
                 .Where(p => p.PatchMethod.DeclaringType?.Assembly != helper.Assembly).ToList();
             dummyAssetNeeded = foreign.Count > 0;
@@ -136,75 +124,88 @@ namespace RimWorldLoadingOptimizer
             {
                 skippedNote = "unused cache asset still built (patched by " + string.Join(", ", foreign.Select(p => p.owner)) + ")";
             }
-            harmony.Patch(loadMethod, prefix: new HarmonyMethod(typeof(GagarinFast), nameof(LoadPrefix)));
+            harmony.Patch(loadMethod, prefix: new HarmonyMethod(typeof(GagarinFast), nameof(LoadStart)), postfix: new HarmonyMethod(typeof(GagarinFast), nameof(LoadEnd)),
+                transpiler: new HarmonyMethod(typeof(GagarinFast), nameof(LoadTranspiler)));
         }
 
-        public static bool LoadPrefix(XmlDocument document, Dictionary<XmlNode, LoadableXmlAsset> assets)
+        private static readonly MethodInfo DocumentLoad = AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.Load), new[] { typeof(XmlReader) });
+        private static readonly MethodInfo ImportNode = AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.ImportNode), new[] { typeof(XmlNode), typeof(bool) });
+        private static readonly MethodInfo DocumentElementGetter = AccessTools.PropertyGetter(typeof(XmlDocument), nameof(XmlDocument.DocumentElement));
+        private static readonly ConstructorInfo AssetConstructor = AccessTools.Constructor(typeof(LoadableXmlAsset), new[] { typeof(FileInfo), typeof(ModContentPack) });
+        private static readonly ConditionalWeakTable<XmlDocument, XmlElement> readRoots = new ConditionalWeakTable<XmlDocument, XmlElement>();
+
+        public static IEnumerable<CodeInstruction> LoadTranspiler(IEnumerable<CodeInstruction> instructions)
+        {
+            foreach (var instruction in instructions)
+            {
+                if (instruction.Calls(DocumentLoad))
+                {
+                    yield return new CodeInstruction(OpCodes.Ldarg_0).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GagarinFast), nameof(ReadInto)));
+                }
+                else if (instruction.Calls(ImportNode))
+                {
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GagarinFast), nameof(Adopt))).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
+                }
+                else if (instruction.Calls(DocumentElementGetter))
+                {
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GagarinFast), nameof(DocumentElementOf))).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
+                }
+                else if (instruction.opcode == OpCodes.Newobj && Equals(instruction.operand, AssetConstructor))
+                {
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GagarinFast), nameof(CacheAsset))).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
+                }
+                else
+                {
+                    yield return instruction;
+                }
+            }
+        }
+
+        public static void ReadInto(XmlDocument cache, XmlReader reader, XmlDocument target)
         {
             if (bypass)
             {
-                return true;
+                cache.Load(reader);
+                return;
             }
-            var watch = Stopwatch.StartNew();
-            var settings = new XmlReaderSettings
+            reader.MoveToContent();
+            readRoots.Remove(cache);
+            readRoots.Add(cache, (XmlElement)target.ReadNode(reader));
+        }
+
+        public static XmlElement DocumentElementOf(XmlDocument document) => readRoots.TryGetValue(document, out var root) ? root : document.DocumentElement;
+
+        public static XmlNode Adopt(XmlDocument target, XmlNode node, bool deep)
+        {
+            if (bypass || node.OwnerDocument != target)
             {
-                IgnoreComments = true,
-                IgnoreWhitespace = true,
-                CheckCharacters = false
-            };
-            var path = unifiedPath();
-            using (var input = new StringReader(File.ReadAllText(path)))
-            using (var reader = XmlReader.Create(input, settings))
-            {
-                if (dummyAssetNeeded)
-                {
-                    new LoadableXmlAsset(new FileInfo(path), core());
-                }
-                assets.Clear();
-                document.RemoveAll();
-                document.Load(reader);
-                var storage = document.DocumentElement;
-                document.RemoveAll();
-                var defs = document.CreateElement("Defs");
-                document.AppendChild(defs);
-                var lookup = xmlAssets();
-                var items = new List<XmlElement>(storage.ChildNodes.Count);
-                foreach (XmlElement item in storage.ChildNodes)
-                {
-                    items.Add(item);
-                }
-                foreach (var item in items)
-                {
-                    var def = item.FirstChild;
-                    if (def == null)
-                    {
-                        def = document.ImportNode(def, true);
-                    }
-                    item.RemoveChild(def);
-                    MarkEmpty(def);
-                    if (lookup.TryGetValue(item.GetAttribute("path"), out var asset))
-                    {
-                        assets[def] = asset;
-                    }
-                    defs.AppendChild(def);
-                }
+                return target.ImportNode(node, deep);
             }
-            watch.Stop();
+            node.ParentNode?.RemoveChild(node);
+            MarkEmpty(node);
+            return node;
+        }
+
+        public static LoadableXmlAsset CacheAsset(FileInfo file, ModContentPack mod) => bypass || dummyAssetNeeded ? new LoadableXmlAsset(file, mod) : null;
+
+        public static void LoadStart(out Stopwatch __state)
+        {
+            __state = bypass ? null : Stopwatch.StartNew();
+        }
+
+        public static void LoadEnd(XmlDocument document, Dictionary<XmlNode, LoadableXmlAsset> assets, Stopwatch __state)
+        {
+            if (__state == null)
+            {
+                return;
+            }
             loads++;
-            loadSeconds += watch.Elapsed.TotalSeconds;
-            if (Prefs.LogVerbose)
-            {
-                Log.Warning($"GAGARIN: <color=green>Loaded from cache!</color> Loading cache took <color=red>{watch.ElapsedMilliseconds / 1000} seconds</color>");
-            }
-            else
-            {
-                Log.Warning("GARGARIN: <color=green>Finished loading XML from cache!</color>");
-            }
+            loadSeconds += __state.Elapsed.TotalSeconds;
             if (RLOMod.Verify)
             {
                 VerifyLoad(document, assets);
             }
-            return false;
         }
 
         private static void MarkEmpty(XmlNode root)
@@ -353,9 +354,9 @@ namespace RimWorldLoadingOptimizer
         {
             if (!installed)
             {
-                return "gagarin: off";
+                return "Missile Girl cache helpers: off";
             }
-            return $"gagarin cache loads: {loads} in {loadSeconds:F2} s, {loadMismatches} verify mismatches{(skippedNote.Length > 0 ? " (" + skippedNote + ")" : "")}; patch files reused for {reused} of {collected} mods ({dropped} unused), {reuseMismatches} verify mismatches; {pruned} stale asset hashes pruned before the cache rebuild";
+            return $"Missile Girl cache loads: {loads} in {loadSeconds:F2} s, {loadMismatches} verify mismatches{(skippedNote.Length > 0 ? " (" + skippedNote + ")" : "")}\npatch files parsed once and reused within this start (not Missile Girl's cache) for {reused} of {collected} mods ({dropped} unused), {reuseMismatches} verify mismatches";
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using HarmonyLib;
@@ -20,13 +21,27 @@ namespace RimWorldLoadingOptimizer
 
         private static ConcurrentDictionary<ThingCategoryDef, Entry> cache = new ConcurrentDictionary<ThingCategoryDef, Entry>();
 
+        private static MethodBase getter;
+        private static int state;
+
+        public static bool Installed { get; private set; }
+
         public static int Hits;
         public static int Builds;
 
         public static void Install(Harmony harmony)
         {
-            harmony.Patch(AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.DescendantThingDefs)),
-                prefix: new HarmonyMethod(typeof(CategoryCache), nameof(Prefix)));
+            getter = AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.DescendantThingDefs));
+            var children = AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.ThisAndChildCategoryDefs));
+            if (!Fingerprint.Matches("Category cache",
+                Fingerprint.Known(getter, "591A2633DA38C9F9"),
+                Fingerprint.Known(AccessTools.EnumeratorMoveNext(getter), "3FC97BBCFF7FBC1D"),
+                Fingerprint.Known(AccessTools.EnumeratorMoveNext(children), "2A83B3162CE0B4B3")))
+            {
+                return;
+            }
+            harmony.Patch(getter, prefix: new HarmonyMethod(typeof(CategoryCache), nameof(Prefix)));
+            Installed = true;
             harmony.Patch(AccessTools.Method(typeof(ThingCategoryNodeDatabase), nameof(ThingCategoryNodeDatabase.Clear)),
                 postfix: new HarmonyMethod(typeof(CategoryCache), nameof(Reset)));
         }
@@ -39,6 +54,14 @@ namespace RimWorldLoadingOptimizer
         public static bool Prefix(ThingCategoryDef __instance, ref IEnumerable<ThingDef> __result)
         {
             if (!ThingCategoryNodeDatabase.initialized)
+            {
+                return true;
+            }
+            if (state == 0)
+            {
+                state = Fingerprint.OnlyOurs(getter) ? 1 : 2;
+            }
+            if (state != 1)
             {
                 return true;
             }

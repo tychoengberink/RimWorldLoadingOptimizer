@@ -26,7 +26,9 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             installed = true;
-            harmony.Patch(AccessTools.Method(typeof(Assembly), nameof(Assembly.GetTypes), Type.EmptyTypes), prefix: new HarmonyMethod(typeof(TypesCache), nameof(Prefix)));
+            var getTypes = AccessTools.Method(typeof(Assembly), nameof(Assembly.GetTypes), Type.EmptyTypes);
+            harmony.Patch(getTypes, prefix: new HarmonyMethod(typeof(TypesCache), nameof(Prefix)));
+            MainMenu.UnpatchAfterStartup(getTypes);
             LeanFixes.Reports.Add(() => $"assembly type cache: {early} calls before the mod constructors, {hits} hits, {misses} assemblies read, {uncacheable.Count} uncacheable, {mismatches} verify mismatches");
         }
 
@@ -49,7 +51,7 @@ namespace RimWorldLoadingOptimizer
                 {
                     status = "off";
                 }
-                else if (!Fingerprint.Matches("early assembly type cache",
+                else if (!Fingerprint.Matches("Early assembly type cache",
                     Fingerprint.Known(allTypes, "5C5C18E824D5F949", "D271D237CCDA378F"),
                     Fingerprint.Known(usable, "AA9E7301887E8506", "F303DE8C8E0D0191")))
                 {
@@ -70,7 +72,7 @@ namespace RimWorldLoadingOptimizer
                         {
                             var access = Traverse.Create(instruction);
                             var operand = access.Property("Operand").GetValue();
-                            if (operand == null || !operand.GetType().Name.StartsWith("Method"))
+                            if (operand == null || !operand.GetType().Name.StartsWith("Method", StringComparison.Ordinal))
                             {
                                 continue;
                             }

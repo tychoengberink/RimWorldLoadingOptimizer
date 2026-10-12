@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection.Emit;
 using System.Threading;
 using System.Xml;
@@ -40,41 +41,44 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            if (!Fingerprint.Matches("Gagarin async save", Fingerprint.Known(save, "0F967FD16F60343F", "B7DCAD4B24AB6AAC"), Fingerprint.Known(clean, "0303C036B1E2BC7E", "0BFD6EB9F6900BC0")))
+            if (!Fingerprint.Matches("Missile Girl background cache write", Fingerprint.Known(save, "0F967FD16F60343F", "B7DCAD4B24AB6AAC"), Fingerprint.Known(clean, "0303C036B1E2BC7E", "0BFD6EB9F6900BC0")))
             {
                 return;
             }
-            harmony.Patch(save, transpiler: new HarmonyMethod(typeof(GagarinAsync), nameof(Transpiler)));
-            harmony.Patch(clean, prefix: new HarmonyMethod(typeof(GagarinAsync), nameof(Wait)));
-            installed = true;
+            try
+            {
+                harmony.Patch(save, transpiler: new HarmonyMethod(typeof(GagarinAsync), nameof(Transpiler)));
+                if (!installed)
+                {
+                    return;
+                }
+                harmony.Patch(clean, prefix: new HarmonyMethod(typeof(GagarinAsync), nameof(Wait)));
+            }
+            catch (Exception e)
+            {
+                installed = false;
+                harmony.Unpatch(save, HarmonyPatchType.Transpiler, harmony.Id);
+                Log.Warning("[RLO] Gagarin async save left unchanged: " + e);
+            }
         }
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             var create = AccessTools.Method(typeof(XmlWriter), nameof(XmlWriter.Create), new[] { typeof(string), typeof(XmlWriterSettings) });
             var docSave = AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.Save), new[] { typeof(XmlWriter) });
-            var replaced = 0;
-            foreach (var instruction in instructions)
+            var original = instructions.ToList();
+            if (original.Count(i => i.Calls(create)) != 1 || original.Count(i => i.Calls(docSave)) != 1)
             {
-                if (instruction.Calls(create))
-                {
-                    replaced++;
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GagarinAsync), nameof(CreateWriter))).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
-                }
-                else if (instruction.Calls(docSave))
-                {
-                    replaced++;
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GagarinAsync), nameof(SaveAsync))).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
-                }
-                else
-                {
-                    yield return instruction;
-                }
+                installed = false;
+                Log.Warning("[RLO] Gagarin async save left unchanged: Save no longer has one writer and one document save");
+                return original;
             }
-            if (replaced != 2)
-            {
-                throw new InvalidOperationException($"[RLO] Gagarin Save shape changed ({replaced} call sites)");
-            }
+            installed = true;
+            return original.Select(instruction => instruction.Calls(create)
+                ? new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GagarinAsync), nameof(CreateWriter))).WithLabels(instruction.labels).WithBlocks(instruction.blocks)
+                : instruction.Calls(docSave)
+                    ? new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GagarinAsync), nameof(SaveAsync))).WithLabels(instruction.labels).WithBlocks(instruction.blocks)
+                    : instruction).ToList();
         }
 
         public static XmlWriter CreateWriter(string file, XmlWriterSettings writerSettings)
@@ -91,7 +95,7 @@ namespace RimWorldLoadingOptimizer
                 File.Delete(path);
             }
             var file = path;
-            var temporary = path + ".rimory-tmp";
+            var temporary = path + ".rlo-tmp";
             writer = new Thread(() =>
             {
                 var stopwatch = Stopwatch.StartNew();

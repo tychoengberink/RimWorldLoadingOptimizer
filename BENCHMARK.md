@@ -8,13 +8,13 @@ The 661 Workshop mods are exactly the Steam collection **[The NYz Collection: Sc
 
 ## Hardware
 
-| | Mac (all full measurements) | Windows (measurements follow) |
-|---|---|---|
-| CPU | Apple M5 Pro | AMD Ryzen 7 5800X3D |
-| Memory | 24 GB unified (shared with the GPU) | 32 GB DDR4-3200 |
-| GPU | Apple M5 Pro (Metal) | NVIDIA GeForce RTX 5080 16 GB (Direct3D 11) |
-| Storage | internal SSD | NVMe SSD |
-| OS | macOS | Windows |
+| | Mac (all measurements) |
+|---|---|
+| CPU | Apple M5 Pro |
+| Memory | 24 GB unified (shared with the GPU) |
+| GPU | Apple M5 Pro (Metal) |
+| Storage | internal SSD |
+| OS | macOS |
 
 RimWorld 1.6.4871, all five DLCs, Harmony 2.4.1.
 
@@ -102,8 +102,7 @@ RimWorld Loading Optimizer can run the same A/B comparison on any PC: Mod Settin
 
 ## Not verified yet
 
-- Windows: measurements follow.
-- Other mod lists, other hardware, Linux.
+- Other mod lists, other hardware, Windows, Linux.
 
 ## Full mod list (load order)
 

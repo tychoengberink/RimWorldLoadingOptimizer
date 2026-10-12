@@ -28,7 +28,7 @@ namespace RimWorldLoadingOptimizer
         {
             var raw = AccessTools.Method(typeof(GenTypes), "GetTypeInAnyAssemblyRaw");
             var getter = AccessTools.PropertyGetter(typeof(GenTypes), "AllActiveAssemblies");
-            if (!Fingerprint.Matches("type name index", Fingerprint.Known(raw, "DF60D54276C7BDD1", "592CFBFFBEAD7F19"), Fingerprint.Known(AccessTools.EnumeratorMoveNext(getter), "FDCF63F8727F0C37", "DE6251F281093029")))
+            if (!Fingerprint.Matches("Def type name lookups", Fingerprint.Known(raw, "DF60D54276C7BDD1", "592CFBFFBEAD7F19"), Fingerprint.Known(AccessTools.EnumeratorMoveNext(getter), "FDCF63F8727F0C37", "DE6251F281093029")))
             {
                 return;
             }
@@ -75,20 +75,22 @@ namespace RimWorldLoadingOptimizer
             return list.ToArray();
         }
 
-        private static bool SameOrder(Assembly[] a, Assembly[] b)
+        private static bool IsCurrentOrder(Assembly[] a)
         {
-            if (a == null || a.Length != b.Length)
+            if (a == null || a.Length < 2 || a[0] != typeof(GenTypes).Assembly)
             {
                 return false;
             }
-            for (var i = 0; i < a.Length; i++)
+            var i = 1;
+            foreach (var assembly in allActive())
             {
-                if (a[i] != b[i])
+                if (i >= a.Length - 1 || a[i] != assembly)
                 {
                     return false;
                 }
+                i++;
             }
-            return true;
+            return i == a.Length - 1 && a[i] == typeof(object).Assembly;
         }
 
         private static readonly Dictionary<Assembly, Dictionary<string, (Type type, bool ambiguous)>> perAssembly = new Dictionary<Assembly, Dictionary<string, (Type, bool)>>();
@@ -239,15 +241,14 @@ namespace RimWorldLoadingOptimizer
                 return true;
             }
             var start = Stopwatch.GetTimestamp();
-            var current = CurrentOrder();
             Assembly[] assemblies;
             Dictionary<string, Entry> map;
             int[] skipped;
             lock (gate)
             {
-                if (!SameOrder(order, current))
+                if (!IsCurrentOrder(order))
                 {
-                    Build(current);
+                    Build(CurrentOrder());
                 }
                 assemblies = order;
                 map = index;

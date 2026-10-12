@@ -51,6 +51,23 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
+        public static bool CallsAny(MethodInfo method, params MethodBase[] targets) => Decide(method, v => v is MethodBase m && targets.Contains(m));
+
+        public static IEnumerable<CodeInstruction> Replace(IEnumerable<CodeInstruction> instructions, MethodBase from, MethodInfo to)
+        {
+            foreach (var instruction in instructions)
+            {
+                if (instruction.operand is MethodBase m && m == from && (instruction.opcode == OpCodes.Call || instruction.opcode == OpCodes.Callvirt))
+                {
+                    yield return new CodeInstruction(OpCodes.Call, to).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
+                }
+                else
+                {
+                    yield return instruction;
+                }
+            }
+        }
+
         public static bool Decide(MethodInfo method, Func<object, bool> match)
         {
             if (!FasterCtors.Enabled("ilscan"))

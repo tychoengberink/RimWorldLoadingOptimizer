@@ -13,13 +13,15 @@ namespace RimWorldLoadingOptimizer
         private static readonly Color Accent = new Color(0.45f, 0.9f, 0.6f);
         private static bool active;
         private static bool featuresOff;
+        private static float refreshedAt = float.MinValue;
+        private static string live = "", summary = "";
 
         public static void Install(Harmony harmony, bool off)
         {
             featuresOff = off;
             active = true;
             harmony.Patch(AccessTools.Method(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsOnGUI)), postfix: new HarmonyMethod(typeof(LoadingBanner), nameof(Draw)));
-            harmony.Patch(AccessTools.Method(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI)), prefix: new HarmonyMethod(typeof(LoadingBanner), nameof(Hide)));
+            MainMenu.Then(Hide);
         }
 
         public static void Hide() => active = false;
@@ -35,18 +37,12 @@ namespace RimWorldLoadingOptimizer
             var color = GUI.color;
             try
             {
-                var supported = featuresOff ? 0 : Compatibility.ExtraSupport().Count();
-                var others = featuresOff ? 0 : Compatibility.Alongside().Count();
-                var parts = new List<string>();
-                if (supported > 0)
+                if (Time.realtimeSinceStartup - refreshedAt >= 0.5f)
                 {
-                    parts.Add($"Extra support for <b>{supported}</b> {(supported == 1 ? "mod" : "mods")}");
+                    refreshedAt = Time.realtimeSinceStartup;
+                    live = Live();
+                    summary = Summary();
                 }
-                if (others > 0)
-                {
-                    parts.Add($"running alongside <b>{others}</b> other {(others == 1 ? "optimizer" : "optimizers")}");
-                }
-                var summary = parts.Count > 0 ? string.Join("  ·  ", parts) + "  ·  full list in the log" : "";
                 var height = summary.Length > 0 ? 74f : 54f;
                 Widgets.DrawBoxSolid(new Rect(0f, 0f, UI.screenWidth, height), Background);
                 Widgets.DrawBoxSolid(new Rect(0f, height - 2f, UI.screenWidth, 2f), Accent);
@@ -56,16 +52,17 @@ namespace RimWorldLoadingOptimizer
                 Widgets.Label(new Rect(0f, 2f, UI.screenWidth, 30f), featuresOff ? "<b>RIMWORLD LOADING OPTIMIZER IS OFF FOR THIS MEASUREMENT START</b>" : "<b>RIMWORLD LOADING OPTIMIZER ACTIVE</b>");
                 Text.Font = GameFont.Small;
                 GUI.color = Color.white;
-                Widgets.Label(new Rect(0f, 30f, UI.screenWidth, 20f), Live());
+                Widgets.Label(new Rect(0f, 30f, UI.screenWidth, 20f), live);
                 if (summary.Length > 0)
                 {
                     GUI.color = new Color(0.8f, 0.85f, 0.9f);
                     Widgets.Label(new Rect(0f, 50f, UI.screenWidth, 20f), summary);
                 }
             }
-            catch
+            catch (System.Exception e)
             {
                 active = false;
+                Log.Warning($"[RLO] loading banner switched off: {e.Message}");
             }
             finally
             {
@@ -75,9 +72,25 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
+        private static string Summary()
+        {
+            var supported = featuresOff ? 0 : Compatibility.ExtraSupport().Count();
+            var others = featuresOff ? 0 : Compatibility.Alongside().Count();
+            var parts = new List<string>();
+            if (supported > 0)
+            {
+                parts.Add($"Extra support for <b>{supported}</b> {(supported == 1 ? "mod" : "mods")}");
+            }
+            if (others > 0)
+            {
+                parts.Add($"running alongside <b>{others}</b> other {(others == 1 ? "optimizer" : "optimizers")}");
+            }
+            return string.Join("  ·  ", parts);
+        }
+
         private static string Live()
         {
-            var parts = new List<string> { $"{Time.realtimeSinceStartup:F0} s since start" };
+            var parts = new List<string> { $"{Measurement.Duration(Time.realtimeSinceStartup)} since start" };
             if (featuresOff)
             {
                 return parts[0];

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Xml;
@@ -27,27 +28,84 @@ namespace RimWorldLoadingOptimizer
                 prefix: new HarmonyMethod(typeof(XmlRelease), nameof(SkipWhenUnused)));
             harmony.Patch(AccessTools.Method(typeof(TKeySystem), nameof(TKeySystem.BuildMappings)),
                 postfix: new HarmonyMethod(typeof(XmlRelease), nameof(ReleaseAfterMappings)));
-            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ApplyPatches)),
-                finalizer: new HarmonyMethod(typeof(XmlRelease), nameof(ReleaseXmlExtensionsDocument)) { priority = Priority.Last });
+            installed = true;
         }
 
-        public static Exception ReleaseXmlExtensionsDocument(Exception __exception)
+        private static bool installed;
+
+        [StaticConstructorOnStartup]
+        public static class AfterStaticConstructors
+        {
+            static AfterStaticConstructors()
+            {
+                if (installed)
+                {
+                    LongEventHandler.ExecuteWhenFinished(ReleaseXmlExtensionsDocument);
+                }
+            }
+        }
+
+        private static void ReleaseXmlExtensionsDocument()
         {
             try
             {
                 var manager = AccessTools.Field(AccessTools.TypeByName("XmlExtensions.PatchManager"), "XmlDocs")?.GetValue(null);
                 var main = manager == null ? null : AccessTools.Property(manager.GetType(), "MainDocument");
-                if (main != null && main.GetValue(manager) != null)
+                if (main == null || main.GetValue(manager) == null || SettingsReadDocument(manager.GetType().Assembly))
                 {
-                    main.SetValue(manager, null);
-                    ReleasedXmlExtensionsDocument = true;
+                    return;
                 }
+                main.SetValue(manager, null);
+                ReleasedXmlExtensionsDocument = true;
             }
             catch (Exception e)
             {
                 Log.Warning($"[RLO] could not release XML Extensions' document reference: {e.Message}");
             }
-            return __exception;
+        }
+
+        private static bool SettingsReadDocument(Assembly xmlExtensions)
+        {
+            var text = xmlExtensions.GetType("XmlExtensions.Setting.Text");
+            var xpath = text == null ? null : AccessTools.Field(text, "xpath");
+            var menuDef = xmlExtensions.GetType("XmlExtensions.SettingsMenuDef");
+            if (xpath == null || menuDef == null)
+            {
+                return true;
+            }
+            var seen = new HashSet<object>(ReferenceComparer<object>.Instance);
+            var pending = new Stack<object>(GenDefDatabase.GetAllDefsInDatabaseForDef(menuDef));
+            while (pending.Count > 0)
+            {
+                var current = pending.Pop();
+                if (current == null || current is string || !seen.Add(current))
+                {
+                    continue;
+                }
+                if (text.IsInstanceOfType(current) && xpath.GetValue(current) != null)
+                {
+                    return true;
+                }
+                if (current is IEnumerable items)
+                {
+                    foreach (var item in items)
+                    {
+                        pending.Push(item);
+                    }
+                    continue;
+                }
+                for (var type = current.GetType(); type != null && type.Assembly == xmlExtensions; type = type.BaseType)
+                {
+                    foreach (var field in AccessTools.GetDeclaredFields(type))
+                    {
+                        if (!field.IsStatic && !field.FieldType.IsValueType)
+                        {
+                            pending.Push(field.GetValue(current));
+                        }
+                    }
+                }
+            }
+            return false;
         }
 
         private static bool? usesHardcodedMapping;

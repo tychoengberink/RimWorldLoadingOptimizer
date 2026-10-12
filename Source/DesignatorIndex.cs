@@ -21,7 +21,7 @@ namespace RimWorldLoadingOptimizer
         {
             var target = AccessTools.Method(typeof(DesignationCategoryDef), "ResolveDesignators");
             var lambda = AccessTools.Method(typeof(DesignationCategoryDef), "<ResolveDesignators>b__24_0");
-            if (!Fingerprint.Matches("main phases designator index", Fingerprint.Known(target, "449408DE610261C1", "76F6E33AE59F1DC3"), Fingerprint.Known(lambda, "3DAF10F9A009DA50", "8020BE24A816E57E")))
+            if (!Fingerprint.Matches("Designator index", Fingerprint.Known(target, "449408DE610261C1", "76F6E33AE59F1DC3"), Fingerprint.Known(lambda, "3DAF10F9A009DA50", "8020BE24A816E57E")))
             {
                 return;
             }

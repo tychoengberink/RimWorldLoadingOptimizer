@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
 using HarmonyLib;
 using UnityEngine;
 using Verse;
@@ -31,6 +30,16 @@ namespace RimWorldLoadingOptimizer
 
         public static void Install(Harmony harmony, bool textureLookup)
         {
+            if (!Fingerprint.Matches("Fast content lookups",
+                Fingerprint.Known(OriginalGet, "D4D313BA56F77956"),
+                Fingerprint.Known(OriginalFolder, "989773FE5AF81641"),
+                Fingerprint.Known(AccessTools.EnumeratorMoveNext(OriginalFolder), "96B68A4A067048DD"),
+                Fingerprint.Known(AccessTools.EnumeratorMoveNext(OriginalAudioFolder), "96B68A4A067048DD")))
+            {
+                return;
+            }
+            harmony.Patch(AccessTools.Method(typeof(ModContentPack), "ReloadContentInt"), postfix: new HarmonyMethod(typeof(FastContent), nameof(ForgetKeys)));
+            harmony.Patch(AccessTools.Method(typeof(ModContentPack), nameof(ModContentPack.ClearDestroy)), postfix: new HarmonyMethod(typeof(FastContent), nameof(ForgetKeys)));
             redirectGet = textureLookup ? LookupGet : AccessTools.Method(typeof(FastContent), nameof(Get));
             if (textureLookup && LookupGet != null && OriginalGet != null)
             {
@@ -81,6 +90,11 @@ namespace RimWorldLoadingOptimizer
             LeanFixes.Reports.Add(Stats);
         }
 
+        public static void ForgetKeys()
+        {
+            keys.Clear();
+        }
+
         private static void PatchCallers(Harmony harmony, Type type, MethodInfo target, HarmonyMethod transpiler, Func<MethodInfo, bool> filter)
         {
             if (!AssemblySafety.CanScan(type) || type.ContainsGenericParameters)
@@ -89,7 +103,7 @@ namespace RimWorldLoadingOptimizer
             }
             foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
-                if (method.IsAbstract || method.ContainsGenericParameters || (filter != null && !filter(method)) || !Calls(method, target))
+                if (method.IsAbstract || method.ContainsGenericParameters || (filter != null && !filter(method)) || !IlScan.CallsAny(method, target))
                 {
                     continue;
                 }
@@ -105,34 +119,18 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        private static bool Calls(MethodInfo method, MethodInfo target) => IlScan.Decide(method, v => v is MethodInfo m && m == target);
-
-        private static IEnumerable<CodeInstruction> Replace(IEnumerable<CodeInstruction> instructions, MethodInfo from, MethodInfo to)
-        {
-            foreach (var instruction in instructions)
-            {
-                if (instruction.Calls(from))
-                {
-                    yield return new CodeInstruction(OpCodes.Call, to).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
-                }
-                else
-                {
-                    yield return instruction;
-                }
-            }
-        }
 
         public static IEnumerable<CodeInstruction> MissTranspiler(IEnumerable<CodeInstruction> instructions) =>
-            Replace(instructions, OriginalGet, AccessTools.Method(typeof(FastContent), nameof(Get)));
+            IlScan.Replace(instructions, OriginalGet, AccessTools.Method(typeof(FastContent), nameof(Get)));
 
         public static IEnumerable<CodeInstruction> FolderTranspiler(IEnumerable<CodeInstruction> instructions) =>
-            Replace(instructions, OriginalFolder, AccessTools.Method(typeof(FastContent), nameof(GetAllInFolder)));
+            IlScan.Replace(instructions, OriginalFolder, AccessTools.Method(typeof(FastContent), nameof(GetAllInFolder)));
 
         public static IEnumerable<CodeInstruction> AudioTranspiler(IEnumerable<CodeInstruction> instructions) =>
-            Replace(instructions, OriginalAudioFolder, AccessTools.Method(typeof(FastContent), nameof(GetAllInAudioFolder)));
+            IlScan.Replace(instructions, OriginalAudioFolder, AccessTools.Method(typeof(FastContent), nameof(GetAllInAudioFolder)));
 
         public static IEnumerable<CodeInstruction> LookupTranspiler(IEnumerable<CodeInstruction> instructions) =>
-            Replace(instructions, OriginalGet, redirectGet);
+            IlScan.Replace(instructions, OriginalGet, redirectGet);
 
         public static string Stats() => $"fast content: {Methods} methods, {Misses} misses resolved, {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches} verify mismatches";
 

@@ -30,7 +30,7 @@ namespace RimWorldLoadingOptimizer
                 Interlocked.Increment(ref CategorySet.Checks);
                 if (result != base.Contains(item) && Interlocked.Increment(ref CategorySet.Mismatches) <= 10)
                 {
-                    Log.Warning($"[RLO] categoryset verify mismatch for {item}");
+                    Log.Warning($"[RLO] Category sets verify mismatch for {item}");
                 }
             }
             return result;
@@ -47,6 +47,10 @@ namespace RimWorldLoadingOptimizer
 
         public static void Install(Harmony harmony)
         {
+            if (!CategoryCache.Installed)
+            {
+                return;
+            }
             harmony.Patch(AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.DescendantThingDefs)),
                 postfix: new HarmonyMethod(typeof(CategorySet), nameof(Postfix)) { priority = Priority.Last });
             installed = true;
@@ -60,6 +64,6 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static string Stats() => !installed ? "categoryset: not active" : $"categoryset: hashed sets built {Sets}" + (RLOMod.Verify ? $", verify checks {Checks}, mismatches {Mismatches}" : "");
+        public static string Stats() => !installed ? "Category sets: not active (needs Category cache)" : $"Category sets: hashed sets built {Sets}" + (RLOMod.Verify ? $", verify checks {Checks}, mismatches {Mismatches}" : "");
     }
 }

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Threading;
 using HarmonyLib;
 using Verse;
 
@@ -28,8 +29,11 @@ namespace RimWorldLoadingOptimizer
 
         public static void Release()
         {
-            checkedTypes += declares.Count;
-            declares.Clear();
+            lock (declares)
+            {
+                checkedTypes += declares.Count;
+                declares.Clear();
+            }
         }
 
         public static void Install(Harmony harmony)
@@ -40,7 +44,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var patch = AccessTools.Method(type, "Patch");
-            if (!Fingerprint.Matches("cai", Fingerprint.Known(patch, "4AFC1A6F561B10B6", "447114DFA2CDCEC8")))
+            if (!Fingerprint.Matches("CombatAI label scan", Fingerprint.Known(patch, "4AFC1A6F561B10B6", "447114DFA2CDCEC8")))
             {
                 return;
             }
@@ -50,11 +54,11 @@ namespace RimWorldLoadingOptimizer
             installed = replaced == 1;
             if (!installed)
             {
-                Log.Warning($"[RLO] cai: expected 1 GetMethods call, found {replaced}");
+                Log.Warning($"[RLO] CombatAI label scan: expected 1 GetMethods call, found {replaced}");
             }
             if (patchCalls != 1)
             {
-                Log.Warning($"[RLO] cai: expected 1 Harmony.Patch call, found {patchCalls}; label patches are not moved to the main thread");
+                Log.Warning($"[RLO] CombatAI label scan: expected 1 Harmony.Patch call, found {patchCalls}; label patches are not moved to the main thread");
             }
         }
 
@@ -86,7 +90,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return harmony.Patch(original, prefix, postfix, transpiler, finalizer);
             }
-            deferred++;
+            Interlocked.Increment(ref deferred);
             LongEventHandler.ExecuteWhenFinished(() =>
             {
                 try
@@ -95,7 +99,7 @@ namespace RimWorldLoadingOptimizer
                 }
                 catch (Exception e)
                 {
-                    Log.Warning($"ISMA: Failed to patch {original.DeclaringType?.FullName}.{original.Name}: {e.Message}");
+                    Log.Warning($"[RLO] CombatAI label scan: CombatAI could not patch {original.DeclaringType?.FullName}.{original.Name}: {e.Message}");
                 }
             });
             return null;
@@ -103,11 +107,11 @@ namespace RimWorldLoadingOptimizer
 
         public static void Start(out long __state) => __state = Stopwatch.GetTimestamp();
 
-        public static void Stop(long __state) => ticks += Stopwatch.GetTimestamp() - __state;
+        public static void Stop(long __state) => Interlocked.Add(ref ticks, Stopwatch.GetTimestamp() - __state);
 
         public static MethodInfo[] Methods(Type type, BindingFlags flags)
         {
-            types++;
+            Interlocked.Increment(ref types);
             bool candidate;
             try
             {
@@ -121,7 +125,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return type.GetMethods(flags);
             }
-            skipped++;
+            Interlocked.Increment(ref skipped);
             if (RLOMod.Verify)
             {
                 CheckSkipped(type, flags);
@@ -141,9 +145,9 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var hit = all.FirstOrDefault(m => names.Contains(m.Name) && Candidate(m));
-            if (hit != null && mismatches++ < 10)
+            if (hit != null && Interlocked.Increment(ref mismatches) <= 10)
             {
-                Log.Warning($"[RLO] cai verify mismatch: {type.FullName}.{hit.Name} was skipped");
+                Log.Warning($"[RLO] CombatAI label scan verify mismatch: {type.FullName}.{hit.Name} was skipped");
             }
         }
 
@@ -161,15 +165,29 @@ namespace RimWorldLoadingOptimizer
 
         private static bool Declares(Type type)
         {
-            if (declares.TryGetValue(type, out var result))
+            lock (declares)
             {
-                return result;
+                if (declares.TryGetValue(type, out var known))
+                {
+                    return known;
+                }
             }
-            result = FasterCtors.Enabled("cai")
+            var result = FasterCtors.Enabled("cai")
                 ? names.Any(name => type.GetMember(name, MemberTypes.Method, Declared).Any(Candidate))
                 : names.Any(name => type.GetMember(name, MemberTypes.Method, Declared).Length > 0);
-            declares[type] = result;
+            lock (declares)
+            {
+                declares[type] = result;
+            }
             return result;
+        }
+
+        private static int DeclaresCount()
+        {
+            lock (declares)
+            {
+                return declares.Count;
+            }
         }
 
         private static bool Candidate(MemberInfo member)
@@ -184,6 +202,6 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static string Stats() => !installed ? "cai: not active" : $"cai: label scan {LeanFixes.Seconds(ticks):F2} s, types {types}, skipped {skipped}, distinct types checked {checkedTypes + declares.Count}, patches moved to the main thread {deferred}" + (RLOMod.Verify ? $", verify mismatches {mismatches}" : "");
+        public static string Stats() => !installed ? "CombatAI label scan: not active" : types == 0 ? "CombatAI label scan: CombatAI's scan did not run after RimWorld Loading Optimizer was set up (it may be switched off in CombatAI, or CombatAI loads before RimWorld Loading Optimizer)" : $"CombatAI label scan: {LeanFixes.Seconds(ticks):F2} s, types {types}, skipped {skipped}, distinct types checked {checkedTypes + DeclaresCount()}, patches moved to the main thread {deferred}" + (RLOMod.Verify ? $", verify mismatches {mismatches}" : "");
     }
 }

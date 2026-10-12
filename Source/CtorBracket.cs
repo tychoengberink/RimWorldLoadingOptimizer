@@ -12,8 +12,15 @@ namespace RimWorldLoadingOptimizer
         public static event Action<Type> Started;
         public static event Action<Type> Ended;
 
+        private static bool installed;
+
         public static void InstallEarly(Harmony harmony)
         {
+            if (installed)
+            {
+                return;
+            }
+            installed = true;
             harmony.Patch(AccessTools.Method(typeof(RuntimeHelpers), nameof(RuntimeHelpers.RunClassConstructor), new[] { typeof(RuntimeTypeHandle) }),
                 prefix: new HarmonyMethod(typeof(CtorBracket), nameof(Start)),
                 finalizer: new HarmonyMethod(typeof(CtorBracket), nameof(End)));

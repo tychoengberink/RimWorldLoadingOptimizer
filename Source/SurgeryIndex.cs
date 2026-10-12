@@ -17,7 +17,7 @@ namespace RimWorldLoadingOptimizer
             var unlocked = AccessTools.PropertyGetter(typeof(ResearchProjectDef), nameof(ResearchProjectDef.UnlockedDefs));
             var surgery = AccessTools.PropertyGetter(typeof(RecipeDef), nameof(RecipeDef.IsSurgery));
             var users = AccessTools.EnumeratorMoveNext(AccessTools.PropertyGetter(typeof(RecipeDef), nameof(RecipeDef.AllRecipeUsers)));
-            if (!Fingerprint.Matches("surgery index", Fingerprint.Known(unlocked, "44C6E6A900DE84FC", "7E7F4A04B95ADF25"), Fingerprint.Known(surgery, "5E3C9FE2FC98FDDE", "7B035F4EE8F7FCBA"), Fingerprint.Known(users, "2F9D95E7037F88F6", "8854E37F42492D34")))
+            if (!Fingerprint.Matches("Surgery index", Fingerprint.Known(unlocked, "44C6E6A900DE84FC", "7E7F4A04B95ADF25"), Fingerprint.Known(surgery, "5E3C9FE2FC98FDDE", "7B035F4EE8F7FCBA"), Fingerprint.Known(users, "2F9D95E7037F88F6", "8854E37F42492D34")))
             {
                 return;
             }

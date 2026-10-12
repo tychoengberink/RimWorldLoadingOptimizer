@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using HarmonyLib;
 using Verse;
 
@@ -9,6 +10,12 @@ namespace RimWorldLoadingOptimizer
         private static Harmony harmony;
 
         public static bool Enabled => harmony != null;
+
+        private static readonly string[] Mods = { "whatsthatmod", "steppingstones", "lunar" };
+
+        public static bool Needed(RLOSettings settings) => Mods.Any(settings.Supports);
+
+        private static bool On(string id) => RLOMod.Settings.Supports(id);
 
         public static void InstallEarly(Harmony h)
         {
@@ -21,28 +28,17 @@ namespace RimWorldLoadingOptimizer
             LongEventHandler.ExecuteWhenFinished(() =>
             {
                 var interject = AccessTools.Method(AccessTools.TypeByName("ilyvion.LoadingProgress.StaticConstructorOnStartupUtilityReplacement"), "Interject");
-                if (interject != null)
+                if (interject != null && On("loadingprogress"))
                 {
                     Try("Loading Progress hook", () => harmony.Patch(interject, prefix: new HarmonyMethod(typeof(CtorFixes), nameof(BeforeStaticConstructors)) { priority = Priority.First }));
                 }
             });
-            Try("Children Wear Anything", () => CwaTextures.InstallEarly(harmony));
-            Try("What's That Mod", () => WtmPatchScan.InstallEarly(harmony));
+            Try("What's That Mod", On("whatsthatmod"), () => WtmPatchScan.InstallEarly(harmony));
         }
 
-        private static void Try(string fix, Action install)
-        {
-            try
-            {
-                install();
-            }
-            catch (Exception e)
-            {
-                Log.Error($"[RLO] {fix} speedup could not be enabled and was skipped: {e}");
-            }
-        }
+        private static void Try(string fix, Action install) => RLOMod.Try(fix + " speedup", true, install);
 
-        public static string Stats() => $"{CwaTextures.Stats()}; {RrssRecipes.Stats()}; {VehiclePatterns.Stats()}; {LunarInlining.Stats()}; {GiddyOffsets.Stats()}; {WtmPatchScan.Stats()}";
+        private static void Try(string fix, bool enabled, Action install) => RLOMod.Try(fix + " speedup", enabled, install);
 
         private static bool lateInstalled;
 
@@ -58,12 +54,9 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             lateInstalled = true;
-            Try("Children Wear Anything", () => CwaTextures.Install(harmony));
-            Try("Research Reinvented: Stepping Stones", () => RrssRecipes.Install(harmony));
-            Try("Vehicle Framework", () => VehiclePatterns.Install(harmony));
-            Try("Lunar inlining fixer", () => LunarInlining.Install(harmony));
-            Try("Giddy-Up", () => GiddyOffsets.Install(harmony));
-            Try("What's That Mod", () => WtmPatchScan.InstallLate(harmony));
+            Try("Research Reinvented: Stepping Stones", On("steppingstones"), () => RrssRecipes.Install(harmony));
+            Try("Lunar inlining fixer", On("lunar"), () => LunarInlining.Install(harmony));
+            Try("What's That Mod", On("whatsthatmod"), () => WtmPatchScan.InstallLate(harmony));
         }
 
         [StaticConstructorOnStartup]

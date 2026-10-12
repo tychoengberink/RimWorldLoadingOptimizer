@@ -14,10 +14,12 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var runtimeType = typeof(Type).Assembly.GetType("System.RuntimeType");
-            harmony.Patch(AccessTools.PropertyGetter(runtimeType, nameof(Type.ContainsGenericParameters)),
-                prefix: new HarmonyMethod(typeof(ReflCache), nameof(ContainsPrefix)), postfix: new HarmonyMethod(typeof(ReflCache), nameof(ContainsPostfix)));
-            harmony.Patch(AccessTools.Method(runtimeType, nameof(Type.GetGenericArguments), Type.EmptyTypes),
-                prefix: new HarmonyMethod(typeof(ReflCache), nameof(ArgsPrefix)), postfix: new HarmonyMethod(typeof(ReflCache), nameof(ArgsPostfix)));
+            var containsGenericParameters = AccessTools.PropertyGetter(runtimeType, nameof(Type.ContainsGenericParameters));
+            var getGenericArguments = AccessTools.Method(runtimeType, nameof(Type.GetGenericArguments), Type.EmptyTypes);
+            harmony.Patch(containsGenericParameters, prefix: new HarmonyMethod(typeof(ReflCache), nameof(ContainsPrefix)), postfix: new HarmonyMethod(typeof(ReflCache), nameof(ContainsPostfix)));
+            harmony.Patch(getGenericArguments, prefix: new HarmonyMethod(typeof(ReflCache), nameof(ArgsPrefix)), postfix: new HarmonyMethod(typeof(ReflCache), nameof(ArgsPostfix)));
+            MainMenu.UnpatchAfterStartup(containsGenericParameters);
+            MainMenu.UnpatchAfterStartup(getGenericArguments);
             LeanFixes.Reports.Add(() => $"reflection cache: ContainsGenericParameters {cgHits} hits / {containsGeneric.Count} types, GetGenericArguments {gaHits} hits / {genericArgs.Count} types" + (RLOMod.Verify ? $", verify mismatches {mismatches}" : ""));
         }
 
@@ -31,8 +33,12 @@ namespace RimWorldLoadingOptimizer
             return true;
         }
 
-        public static void ContainsPostfix(object __instance, bool __result)
+        public static void ContainsPostfix(object __instance, bool __result, bool __runOriginal)
         {
+            if (!__runOriginal)
+            {
+                return;
+            }
             if (containsGeneric.TryGetValue(__instance, out var cached))
             {
                 Interlocked.Increment(ref cgHits);
@@ -56,9 +62,9 @@ namespace RimWorldLoadingOptimizer
             return true;
         }
 
-        public static void ArgsPostfix(object __instance, Type[] __result)
+        public static void ArgsPostfix(object __instance, Type[] __result, bool __runOriginal)
         {
-            if (__result == null || __result.Length == 0)
+            if (!__runOriginal || __result == null || __result.Length == 0)
             {
                 return;
             }

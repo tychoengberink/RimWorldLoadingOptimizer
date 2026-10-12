@@ -6,10 +6,15 @@
     <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(SteamApps)/common/RimWorld</RimWorldDir>
     <RimWorldManaged Condition="'$(RimWorldManaged)' == ''">$(RimWorldDir)/RimWorldWin64_Data/Managed</RimWorldManaged>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
     <SteamApps Condition="'$(SteamApps)' == ''">$(HOME)/Library/Application Support/Steam/steamapps</SteamApps>
     <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(SteamApps)/common/RimWorld/RimWorldMac.app</RimWorldDir>
     <RimWorldManaged Condition="'$(RimWorldManaged)' == ''">$(RimWorldDir)/Contents/Resources/Data/Managed</RimWorldManaged>
+  </PropertyGroup>
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+    <SteamApps Condition="'$(SteamApps)' == ''">$(HOME)/.local/share/Steam/steamapps</SteamApps>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(SteamApps)/common/RimWorld</RimWorldDir>
+    <RimWorldManaged Condition="'$(RimWorldManaged)' == ''">$(RimWorldDir)/RimWorldLinux_Data/Managed</RimWorldManaged>
   </PropertyGroup>
   <PropertyGroup>
     <WorkshopDir Condition="'$(WorkshopDir)' == ''">$(SteamApps)/workshop/content/294100</WorkshopDir>

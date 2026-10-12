@@ -17,13 +17,14 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var manager = ModTypes.Find("AV_MechanoidSkins.MechSkinManager");
-            if (manager == null || LookupGet == null)
+            if (manager == null || !TextureLookup.Installed)
             {
                 return;
             }
-            var targets = AccessTools.GetDeclaredMethods(manager).Where(m => Names.Contains(m.Name) && !m.ContainsGenericParameters && Ctors2Mod.Calls(m, OriginalGet)).ToList();
+            var targets = AccessTools.GetDeclaredMethods(manager).Where(m => Names.Contains(m.Name) && !m.ContainsGenericParameters && IlScan.CallsAny(m, OriginalGet)).ToList();
             var known = targets.Select(m => Fingerprint.Known(m, "7A65E0C1F1FFE990", "6D1DF63CFB3866ED", "14DFFC847596B7A9")).ToArray();
-            if (targets.Count != 3 || !Fingerprint.Matches("AV Mechanoid Skins texture checks", known))
+            if (targets.Count != 3 || !Fingerprint.Matches("AV Mechanoid Skins texture checks", known)
+                || known.Select(k => Fingerprint.MatchedHash(k.Item1, k.Item2)).Distinct().Count() != targets.Count)
             {
                 return;
             }
@@ -32,9 +33,9 @@ namespace RimWorldLoadingOptimizer
                 harmony.Patch(method, transpiler: new HarmonyMethod(typeof(AvSkins), nameof(Transpiler)));
                 methods++;
             }
-            Ctors2Mod.Reports.Add(() => $"av mechanoid skins: {methods} methods redirected to RLO's texture lookup");
+            Ctors2Mod.Reports.Add(() => $"AV Mechanoid Skins texture checks: {methods} methods redirected to RLO's texture lookup");
         }
 
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) => Ctors2Mod.Replace(instructions, OriginalGet, LookupGet);
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) => IlScan.Replace(instructions, OriginalGet, LookupGet);
     }
 }

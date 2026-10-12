@@ -15,7 +15,7 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
     public static class MeleeAnimationIndex
     {
         private const string TypeName = "AM.Retexture.RetextureUtility";
-        private static readonly bool verify = Environment.GetEnvironmentVariable("LEANMEMORY_VERIFY") == "1";
+        private static readonly bool verify = RLOMod.Verify;
         private static readonly List<(ModContentPack, Texture2D, string)> none = new List<(ModContentPack, Texture2D, string)>();
         private static Func<IEnumerable<(ModContentPack, Texture2D, string)>> original;
         private static Dictionary<string, List<(ModContentPack, Texture2D, string)>> index;
@@ -27,7 +27,7 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
 
         static MeleeAnimationIndex()
         {
-            if (RLOMod.Settings?.compatFixes == false || AccessTools.TypeByName(TypeName) == null)
+            if (RLOMod.Settings?.Supports("meleeanimation") == false || AccessTools.TypeByName(TypeName) == null)
             {
                 return;
             }
@@ -44,9 +44,18 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
         private static void Install()
         {
             var type = typeof(RetextureUtility);
-            original = AccessTools.MethodDelegate<Func<IEnumerable<(ModContentPack, Texture2D, string)>>>(AccessTools.Method(type, "GetAllModTextures"));
+            var report = AccessTools.Method(type, nameof(RetextureUtility.GetTextureReport));
+            var scan = AccessTools.Method(type, "GetAllModTextures");
+            if (!Fingerprint.Matches("Melee Animation retexture scan index",
+                Fingerprint.Known(report, "031A432060E19808"),
+                Fingerprint.Known(scan, "60638841598E4B70"),
+                Fingerprint.Known(AccessTools.EnumeratorMoveNext(scan), "AFEBCFAC0730547C")))
+            {
+                return;
+            }
+            original = AccessTools.MethodDelegate<Func<IEnumerable<(ModContentPack, Texture2D, string)>>>(scan);
             var harmony = new Harmony("aruclya.rimworldloadingoptimizer.meleeanimation");
-            harmony.Patch(AccessTools.Method(type, nameof(RetextureUtility.GetTextureReport)), transpiler: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(Transpiler)));
+            harmony.Patch(report, transpiler: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(Transpiler)));
             harmony.Patch(AccessTools.Method(type, nameof(RetextureUtility.PreCacheAllTextureReports)), postfix: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(PreCachePostfix)));
             Log.Message("[RLO] Melee Animation: retexture scan index installed" + (verify ? " (verify mode)" : ""));
         }

@@ -21,6 +21,25 @@ namespace RimWorldLoadingOptimizer
                 finalizer: new HarmonyMethod(typeof(DdsFallback), nameof(Finalizer)));
         }
 
+        private static string Png(string ddsPath)
+        {
+            var directory = Path.GetDirectoryName(ddsPath);
+            if (directory == null || !Directory.Exists(directory))
+            {
+                return null;
+            }
+            var stem = Path.GetFileNameWithoutExtension(ddsPath);
+            foreach (var candidate in Directory.GetFiles(directory, stem + ".*"))
+            {
+                if (string.Equals(Path.GetExtension(candidate), ".png", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(Path.GetFileNameWithoutExtension(candidate), stem, StringComparison.Ordinal))
+                {
+                    return candidate;
+                }
+            }
+            return null;
+        }
+
         public static Exception Finalizer(Exception __exception, VirtualFile file, ref Texture2D __result)
         {
             if (__exception == null || file == null || LoadPng == null || FileCtor == null)
@@ -29,12 +48,8 @@ namespace RimWorldLoadingOptimizer
             }
             try
             {
-                var png = Path.ChangeExtension(file.FullPath, ".png");
-                if (!File.Exists(png))
-                {
-                    png = Path.ChangeExtension(file.FullPath, ".PNG");
-                }
-                if (!File.Exists(png))
+                var png = Png(file.FullPath);
+                if (png == null)
                 {
                     return __exception;
                 }
