@@ -131,7 +131,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            Log.Message($"[RLO] atlas cache: {bakeCalls} atlases: hits {hits}, misses {misses}, saved {saved} ({savedBytes / 1048576} MB), failures {failures}, unknown textures {unknownTextures}; "
+            Log.Message($"[RLO] atlas cache: {bakeCalls} atlases: hits {hits}, misses {misses}, saved {saved} ({savedBytes / 1048576} MB), failures {failures}, {unknownTextures} textures from no mod file (their atlases are not cached); "
                 + $"loaded {loadedBytes / 1048576} MB in {loadSeconds:F2} s, saved in {saveSeconds:F2} s, keys {keySeconds:F2} s; BakeStaticAtlases total {total.Elapsed.TotalSeconds:F2} s"
                 + (notReadable > 0 ? $"; {notReadable} atlases not readable after compression on this system, caching switched off until settings or mods change" : "")
                 + (skippedUncacheable > 0 ? $"; {skippedUncacheable} atlases skipped (not cacheable on this system)" : "")
@@ -301,12 +301,12 @@ namespace RimWorldLoadingOptimizer
                 }
                 var sw = Stopwatch.StartNew();
                 WriteMeta(meta);
-                File.Move(RawPath(p.key, 0) + ".tmp", RawPath(p.key, 0));
+                MoveOver(RawPath(p.key, 0));
                 if (mask != null)
                 {
-                    File.Move(RawPath(p.key, 1) + ".tmp", RawPath(p.key, 1));
+                    MoveOver(RawPath(p.key, 1));
                 }
-                File.Move(MetaPath(p.key) + ".tmp", MetaPath(p.key));
+                MoveOver(MetaPath(p.key));
                 saveSeconds += sw.Elapsed.TotalSeconds;
                 saved++;
                 savedBytes += p.rawLengths[0] + p.rawLengths[1];
@@ -625,6 +625,15 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
+        private static void MoveOver(string path)
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+            File.Move(path + ".tmp", path);
+        }
+
         private static void Delete(string key)
         {
             foreach (var path in new[] { MetaPath(key), RawPath(key, 0), RawPath(key, 1) })
@@ -657,7 +666,7 @@ namespace RimWorldLoadingOptimizer
                 {
                     var name = Path.GetFileName(file);
                     var dot = name.IndexOf('.');
-                    if (dot > 0 && !usedKeys.Contains(name.Substring(0, dot)))
+                    if (dot > 0 && file != MarkerPath && !usedKeys.Contains(name.Substring(0, dot)))
                     {
                         File.Delete(file);
                     }
@@ -698,26 +707,31 @@ namespace RimWorldLoadingOptimizer
                 {
                     return null;
                 }
-                Identify(sb, t);
+                if (!Identify(sb, t))
+                {
+                    return null;
+                }
                 if (masks.TryGetValue(t, out var m) && m != null)
                 {
                     sb.Append(" mask ");
-                    Identify(sb, m);
+                    if (!Identify(sb, m))
+                    {
+                        return null;
+                    }
                 }
                 sb.Append('\n');
             }
             return Hash(sb.ToString());
         }
 
-        private static void Identify(StringBuilder sb, Texture2D t)
+        private static bool Identify(StringBuilder sb, Texture2D t)
         {
             sb.Append(t.width).Append('x').Append(t.height).Append(' ').Append((int)t.graphicsFormat).Append(' ').Append(t.mipmapCount)
-                .Append(' ').Append((int)t.filterMode).Append((int)t.wrapMode).Append(' ');
+                .Append(' ').Append((int)t.filterMode).Append(' ').Append((int)t.wrapMode).Append(' ');
             if (!owners.TryGetValue(t, out var owner))
             {
                 unknownTextures++;
-                sb.Append("?").Append(t.name);
-                return;
+                return false;
             }
             sb.Append(owner.mod.PackageId).Append(':').Append(owner.path);
             var rel = owner.path.Replace('\\', '/');
@@ -735,6 +749,7 @@ namespace RimWorldLoadingOptimizer
                     }
                 }
             }
+            return true;
         }
 
         private static Dictionary<string, FileInfo> DirFiles(string dir)
@@ -760,7 +775,7 @@ namespace RimWorldLoadingOptimizer
             var sb = new StringBuilder();
             sb.Append(Magic).Append('|').Append(VersionControl.CurrentVersionStringWithRev).Append('|').Append(Application.unityVersion)
                 .Append('|').Append(SystemInfo.graphicsDeviceType).Append('|').Append(SystemInfo.graphicsDeviceName).Append('|').Append(SystemInfo.graphicsDeviceVersion)
-                .Append('|').Append(UnityData.ComputeShadersSupported).Append('|').Append(Prefs.TextureCompression).Append('|').Append(File.GetLastWriteTimeUtc(typeof(AtlasCache).Assembly.Location).Ticks);
+                .Append('|').Append(UnityData.ComputeShadersSupported).Append('|').Append(Prefs.TextureCompression).Append('|').Append(typeof(AtlasCache).Assembly.ManifestModule.ModuleVersionId);
             var fgl = AccessTools.TypeByName("FasterGameLoading.FasterGameLoadingSettings");
             foreach (var name in FasterGameLoadingAtlasSettings)
             {

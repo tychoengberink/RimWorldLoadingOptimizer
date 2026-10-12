@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Security.Cryptography;
 using System.Text;
+using HarmonyLib;
 using Verse;
 
 namespace RimWorldLoadingOptimizer
@@ -13,27 +14,8 @@ namespace RimWorldLoadingOptimizer
     public static class Fingerprint
     {
         private static readonly bool ignore = Environment.GetEnvironmentVariable("LEANMEMORY_IGNORE_FINGERPRINTS") == "1";
-        private static readonly OpCode?[] oneByte = new OpCode?[256];
-        private static readonly OpCode?[] twoByte = new OpCode?[256];
 
         public static readonly List<string> Changed = new List<string>();
-
-        static Fingerprint()
-        {
-            foreach (var field in typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static))
-            {
-                var op = (OpCode)field.GetValue(null);
-                var value = (ushort)op.Value;
-                if (op.Size == 1)
-                {
-                    oneByte[value] = op;
-                }
-                else
-                {
-                    twoByte[value & 0xFF] = op;
-                }
-            }
-        }
 
         public static string Of(MethodBase method)
         {
@@ -83,7 +65,9 @@ namespace RimWorldLoadingOptimizer
             while (pos < il.Length)
             {
                 offsets.Add(pos);
-                var op = il[pos] == 0xFE ? twoByte[il[pos + 1]] : oneByte[il[pos]];
+                var op = il[pos] == 0xFE
+                    ? (pos + 1 < il.Length && IlScan.TwoKnown[il[pos + 1]] ? IlScan.TwoByte[il[pos + 1]] : (OpCode?)null)
+                    : IlScan.OneKnown[il[pos]] ? IlScan.OneByte[il[pos]] : (OpCode?)null;
                 if (op == null)
                 {
                     return null;
@@ -251,38 +235,75 @@ namespace RimWorldLoadingOptimizer
             return string.IsNullOrEmpty(type.Namespace) ? type.Name : type.Namespace + "." + type.Name;
         }
 
+        public static string MatchedHash(MethodBase method, string[] known)
+        {
+            var hash = Of(method);
+            if (hash != null && known.Contains(hash))
+            {
+                return hash;
+            }
+            var normalized = Normalized(method);
+            return normalized != null && known.Contains(normalized) ? normalized : null;
+        }
+
         public static bool Matches(string feature, params (MethodBase method, string[] known)[] targets)
         {
             foreach (var (method, known) in targets)
             {
                 if (method == null)
                 {
+                    Skip(feature, "a method it needs no longer exists");
                     return false;
                 }
+                if (MatchedHash(method, known) != null)
+                {
+                    continue;
+                }
                 var hash = Of(method);
-                if (hash != null && known.Contains(hash))
-                {
-                    continue;
-                }
                 var normalized = Normalized(method);
-                if (normalized != null && known.Contains(normalized))
-                {
-                    continue;
-                }
                 var where = $"{method.DeclaringType?.FullName}.{method.Name}";
                 if (ignore)
                 {
                     Log.Warning($"[RLO] {feature}: {where} changed (il {hash}, normalized {normalized}), used anyway because LEANMEMORY_IGNORE_FINGERPRINTS=1");
                     continue;
                 }
-                lock (Changed)
-                {
-                    Changed.Add(feature);
-                }
-                Log.Message($"[RLO] {feature}: {where} has changed since this RLO version was verified (il {hash}, normalized {normalized}); the speedup stays off and the original code runs until RLO is updated.");
+                Skip(feature, $"{where} is not the version RimWorld Loading Optimizer was checked against ({LikelyCause(method)}; il {hash}, normalized {normalized})");
                 return false;
             }
             return true;
+        }
+
+        private static void Skip(string feature, string reason)
+        {
+            lock (Changed)
+            {
+                Changed.Add(feature);
+            }
+            Log.Message($"[RLO] {feature}: {reason}. This speedup is skipped and the original code runs; nothing is broken.");
+        }
+
+        private static string LikelyCause(MethodBase method)
+        {
+            var assembly = method.DeclaringType?.Assembly;
+            var owner = assembly == typeof(Def).Assembly ? "another RimWorld version" : assembly == typeof(Harmony).Assembly ? "another Harmony version" : "another version of that mod";
+            bool prepatcher;
+            try
+            {
+                prepatcher = RLOMod.Running("zetrith.prepatcher") != null;
+            }
+            catch (Exception)
+            {
+                prepatcher = false;
+            }
+            return prepatcher
+                ? $"{owner}, or a mod that uses Prepatcher, such as Performance Fish, rewrote the method"
+                : $"{owner}, or another mod rewrote the method";
+        }
+
+        public static bool OnlyOurs(MethodBase method)
+        {
+            var info = Harmony.GetPatchInfo(method);
+            return info == null || info.Owners.All(o => o == RLOMod.HarmonyId);
         }
 
         public static (MethodBase, string[]) Known(MethodBase method, params string[] known) => (method, known);

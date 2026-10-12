@@ -23,7 +23,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (!Fingerprint.Matches("Linkable Groups facility links",
                     Fingerprint.Known(loader.TypeInitializer, "4D66BE97D1E8EE98"),
-                    Fingerprint.Known(resolve, "5B71AA1F8A5BD7EB")) || !Ctors2Mod.OnlyOurs(resolve))
+                    Fingerprint.Known(resolve, "5B71AA1F8A5BD7EB")) || !Fingerprint.OnlyOurs(resolve))
             {
                 return;
             }
@@ -102,6 +102,6 @@ namespace RimWorldLoadingOptimizer
             return result;
         }
 
-        public static string Stats() => $"linkable groups: {windows} windows, {calls} facility resolves, {served} served from the index" + (Ctors2Mod.Verify ? $", verify checks {checks}, mismatches {mismatches}" : "");
+        public static string Stats() => $"Linkable Groups mod facility index: {windows} windows, {calls} facility resolves, {served} served from the index" + (Ctors2Mod.Verify ? $", verify checks {checks}, mismatches {mismatches}" : "");
     }
 }

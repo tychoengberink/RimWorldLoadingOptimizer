@@ -40,7 +40,7 @@ namespace RimWorldLoadingOptimizer
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             methods++;
-            return Ctors2Mod.Replace(instructions, GetPatchInfo, AccessTools.Method(typeof(LunarConflicts), nameof(Info)));
+            return IlScan.Replace(instructions, GetPatchInfo, AccessTools.Method(typeof(LunarConflicts), nameof(Info)));
         }
 
         private static byte[] Bytes(MethodBase method)

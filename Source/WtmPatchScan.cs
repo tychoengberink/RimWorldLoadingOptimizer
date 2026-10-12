@@ -14,6 +14,7 @@ namespace RimWorldLoadingOptimizer
         private static MethodInfo tryResolvePatches;
         private static Dictionary<string, ModContentPack> probablyAddedBy;
         private static bool precomputed, skipping, consumed, lateInstalled;
+        private static bool? verified;
         private static int mismatches = -1, entries;
         private static long precomputeTicks, verifyTicks;
 
@@ -25,9 +26,7 @@ namespace RimWorldLoadingOptimizer
 
         public static void InstallLate(Harmony harmony)
         {
-            if (!Resolve() || !Fingerprint.Matches("What's That Mod patch scan",
-                Fingerprint.Known(AccessTools.Method(modCore, "DefWriter"), "4E13A7480F7666F5"),
-                Fingerprint.Known(tryResolvePatches, "5647A9F09195401A")))
+            if (!Verified())
             {
                 return;
             }
@@ -59,6 +58,17 @@ namespace RimWorldLoadingOptimizer
             return true;
         }
 
+        private static bool Verified()
+        {
+            if (verified == null)
+            {
+                verified = Resolve() && Fingerprint.Matches("What's That Mod patch scan",
+                    Fingerprint.Known(AccessTools.Method(modCore, "DefWriter"), "4E13A7480F7666F5"),
+                    Fingerprint.Known(tryResolvePatches, "5647A9F09195401A"));
+            }
+            return verified.Value;
+        }
+
         private static bool DetectPatched()
         {
             var instance = AccessTools.Property(modCore, "Instance")?.GetValue(null) as Mod;
@@ -81,7 +91,7 @@ namespace RimWorldLoadingOptimizer
                 }
                 catch (TargetInvocationException e)
                 {
-                    Log.Error(e.InnerException.ToString());
+                    Log.Error($"[RLO] What's That Mod patch scan failed for {mod.PackageIdPlayerFacing}: {e.InnerException ?? e}");
                 }
             }
         }
@@ -94,7 +104,7 @@ namespace RimWorldLoadingOptimizer
             }
             try
             {
-                if (!Resolve() || !DetectPatched())
+                if (!Verified() || !DetectPatched())
                 {
                     return;
                 }

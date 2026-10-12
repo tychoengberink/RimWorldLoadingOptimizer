@@ -18,29 +18,12 @@ namespace RimWorldLoadingOptimizer
         {
             target = AccessTools.Method(typeof(CompProperties_Facility), nameof(CompProperties_Facility.ResolveReferences));
             getComp = AccessTools.Method(typeof(ThingDef), nameof(ThingDef.GetCompProperties));
-            if (!Fingerprint.Matches("facility links", Fingerprint.Known(target, "4049308670CED946", "5B71AA1F8A5BD7EB"), Fingerprint.Known(getComp, "215F91C53DE88854", "0960DBC5C1F68151")))
+            if (!Fingerprint.Matches("Facility link lookup", Fingerprint.Known(target, "4049308670CED946", "5B71AA1F8A5BD7EB"), Fingerprint.Known(getComp, "215F91C53DE88854", "0960DBC5C1F68151")))
             {
                 return;
             }
             harmony.Patch(target, prefix: new HarmonyMethod(typeof(FacilityFast), nameof(Prefix)) { priority = Priority.Low });
             LeanFixes.Reports.Add(Stats);
-        }
-
-        private static bool OnlyMine(MethodBase method)
-        {
-            var info = Harmony.GetPatchInfo(method);
-            if (info == null)
-            {
-                return true;
-            }
-            foreach (var prefix in info.Prefixes)
-            {
-                if (prefix.PatchMethod.DeclaringType != typeof(FacilityFast) && prefix.PatchMethod.DeclaringType != typeof(LinkableFacilities))
-                {
-                    return false;
-                }
-            }
-            return info.Postfixes.Count == 0 && info.Transpilers.Count == 0 && info.Finalizers.Count == 0;
         }
 
         public static bool Prefix(CompProperties_Facility __instance, ThingDef parentDef, bool __runOriginal)
@@ -51,7 +34,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (state == 0)
             {
-                state = OnlyMine(target) && OnlyMine(getComp) && OnlyMine(getComp.MakeGenericMethod(typeof(CompProperties_AffectedByFacilities))) ? 1 : 2;
+                state = Fingerprint.OnlyOurs(target) && Fingerprint.OnlyOurs(getComp) && Fingerprint.OnlyOurs(getComp.MakeGenericMethod(typeof(CompProperties_AffectedByFacilities))) ? 1 : 2;
             }
             if (state != 1)
             {
@@ -113,6 +96,6 @@ namespace RimWorldLoadingOptimizer
             return false;
         }
 
-        public static string Stats() => $"facility links: {calls} calls in {LeanFixes.Seconds(ticks):F2} s" + (state == 2 ? " (left to vanilla: other patches present)" : "") + (RLOMod.Verify ? $", verify mismatches {mismatches}" : "");
+        public static string Stats() => $"facility link lookup: {calls} calls in {LeanFixes.Seconds(ticks):F2} s" + (state == 2 ? " (left to vanilla: other patches present)" : "") + (RLOMod.Verify ? $", verify mismatches {mismatches}" : "");
     }
 }

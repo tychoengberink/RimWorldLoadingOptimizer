@@ -32,7 +32,9 @@ namespace RimWorldLoadingOptimizer
         {
             var type = typeof(XmlNode).Assembly.GetType("System.Xml.XmlChildNodes", true);
             containerRef = AccessTools.FieldRefAccess<XmlNode>(type, "container");
-            harmony.Patch(AccessTools.Method(type, "Item", new[] { typeof(int) }), prefix: new HarmonyMethod(typeof(ChildCursor), nameof(ItemPrefix)) { priority = Priority.Last });
+            var item = AccessTools.Method(type, "Item", new[] { typeof(int) });
+            harmony.Patch(item, prefix: new HarmonyMethod(typeof(ChildCursor), nameof(ItemPrefix)) { priority = Priority.Last });
+            MainMenu.UnpatchAfterStartup(item);
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
                 prefix: new HarmonyMethod(typeof(ChildCursor), nameof(WindowPrefix)),
                 finalizer: new HarmonyMethod(typeof(ChildCursor), nameof(WindowFinalizer)));

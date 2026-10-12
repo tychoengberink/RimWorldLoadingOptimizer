@@ -15,7 +15,8 @@ namespace RimWorldLoadingOptimizer
             var loader = AccessTools.TypeByName("FasterGameLoading.EarlyModContentLoader");
             var budget = AccessTools.PropertyGetter(delayedActions, "MaxImpactThisFrame");
             var update = AccessTools.Method(loader, "Update");
-            if (budget == null || update == null || AccessTools.Field(loader, "skipFrames") == null)
+            if (budget == null || update == null || AccessTools.Field(loader, "skipFrames") == null
+                || !Fingerprint.Matches("Faster early content loading", Fingerprint.Known(budget, "C982B568223F7021"), Fingerprint.Known(update, "AC691945C40EBB0E")))
             {
                 return;
             }

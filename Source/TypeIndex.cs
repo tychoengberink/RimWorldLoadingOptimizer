@@ -21,7 +21,7 @@ namespace RimWorldLoadingOptimizer
 
         public static void Install(Harmony harmony)
         {
-            if (!Fingerprint.Matches("Type name index",
+            if (!Fingerprint.Matches("TypeByName index",
                 Fingerprint.Known(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.TypeByName)), "624D91367FA5A6CB", "5DB8125A670F78A7"),
                 Fingerprint.Known(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllTypes)), "E5988DC554860258", "4865BF6750797681"),
                 Fingerprint.Known(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllAssemblies)), "5A35D5946C2A7BFC", "6C8092C81C75E970")))
@@ -33,7 +33,7 @@ namespace RimWorldLoadingOptimizer
 
         private static void Add(Assembly assembly)
         {
-            if (indexed.Contains(assembly) || assembly.FullName.StartsWith("Microsoft.VisualStudio"))
+            if (indexed.Contains(assembly) || assembly.FullName.StartsWith("Microsoft.VisualStudio", StringComparison.Ordinal))
             {
                 return;
             }
@@ -125,7 +125,7 @@ namespace RimWorldLoadingOptimizer
                     }
                 }
             }
-            if (type != null)
+            if (type != null && type.FullName == name)
             {
                 lock (gate)
                 {

@@ -25,8 +25,15 @@ namespace RimWorldLoadingOptimizer
             {
                 try
                 {
-                    var pack = LoadedModManager.RunningModsListForReading.FirstOrDefault(m => m.assemblies.loadedAssemblies.Contains(typeof(FasterCtors).Assembly));
-                    var settings = pack == null ? new RLOSettings() : LoadedModManager.ReadModSettings<RLOSettings>(pack.FolderName, nameof(RLOMod));
+                    var pack = LoadedModManager.RunningModsListForReading.FirstOrDefault(m => m.assemblies.loadedAssemblies.Contains(typeof(FasterCtors).Assembly))
+                        ?? RLOMod.Running("aruclya.rimworldloadingoptimizer");
+                    if (pack == null)
+                    {
+                        UnityEngine.Debug.Log("[RLO] pass 1: could not find RimWorld Loading Optimizer's mod folder to read its settings, free patches stay off");
+                        passOne = false;
+                        return false;
+                    }
+                    var settings = LoadedModManager.ReadModSettings<RLOSettings>(pack.FolderName, nameof(RLOMod));
                     passOne = settings.fasterModConstructors && settings.measureStep != Measurement.MeasureOff;
                 }
                 catch (Exception e)

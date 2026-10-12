@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
 using UnityEngine;
@@ -31,14 +30,21 @@ namespace RimWorldLoadingOptimizer
         public static int Mismatches;
         public static int PatchedMethods;
 
+        public static bool Installed { get; private set; }
+
         public static void Install(Harmony harmony)
         {
+            if (!Fingerprint.Matches("Texture lookup index", Fingerprint.Known(Original, "D4D313BA56F77956")))
+            {
+                return;
+            }
+            Installed = true;
             var transpiler = new HarmonyMethod(typeof(TextureLookup), nameof(Transpiler)) { priority = Priority.Last };
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ClearDestroy)),
                 postfix: new HarmonyMethod(typeof(TextureLookup), nameof(Reset)));
             harmony.Patch(AccessTools.Method(typeof(PlayDataLoader), nameof(PlayDataLoader.ClearAllPlayData)),
                 postfix: new HarmonyMethod(typeof(TextureLookup), nameof(Reset)));
-            var namedTargets = new[] { "ChildClothingUnrestricted.TextureRouting.TexturePathResolver" }
+            var namedTargets = (RLOMod.Settings.Supports("childrenwearanything") ? new[] { "ChildClothingUnrestricted.TextureRouting.TexturePathResolver" } : new string[0])
                 .Select(AccessTools.TypeByName)
                 .Where(t => t != null);
             foreach (var type in GenTypes.AllSubclasses(typeof(Graphic)).Concat(new[] { typeof(Graphic) }).Concat(namedTargets))
@@ -49,7 +55,7 @@ namespace RimWorldLoadingOptimizer
                 }
                 foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
                 {
-                    if (method.IsAbstract || method.ContainsGenericParameters || !Calls(method))
+                    if (method.IsAbstract || method.ContainsGenericParameters || !IlScan.CallsAny(method, Original))
                     {
                         continue;
                     }
@@ -73,23 +79,8 @@ namespace RimWorldLoadingOptimizer
             signature = -1;
         }
 
-        private static bool Calls(MethodInfo method) => IlScan.Decide(method, v => v is MethodInfo m && m == Original);
-
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
-        {
-            var replacement = AccessTools.Method(typeof(TextureLookup), nameof(Get));
-            foreach (var instruction in instructions)
-            {
-                if (instruction.Calls(Original))
-                {
-                    yield return new CodeInstruction(OpCodes.Call, replacement).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
-                }
-                else
-                {
-                    yield return instruction;
-                }
-            }
-        }
+        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) =>
+            IlScan.Replace(instructions, Original, AccessTools.Method(typeof(TextureLookup), nameof(Get)));
 
         public static Texture2D Get(string itemPath, bool reportFailure)
         {

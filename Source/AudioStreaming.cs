@@ -14,16 +14,23 @@ namespace RimWorldLoadingOptimizer
         [ThreadStatic] private static int yieldUntil;
         [ThreadStatic] private static bool yieldArmed;
 
+        private static readonly Type FilesystemFile = AccessTools.TypeByName("RimWorld.IO.FilesystemFile");
+
         public static int YieldedWaits;
         public static int Streamed;
         public static long StreamedBytes;
 
         public static void Install(Harmony harmony)
         {
+            if (FilesystemFile == null)
+            {
+                return;
+            }
             var target = AccessTools.Method(typeof(ModContentLoader<AudioClip>), "ShouldStreamAudioClipFromFile");
             harmony.Patch(target, postfix: new HarmonyMethod(typeof(AudioStreaming), nameof(Postfix)));
-            harmony.Patch(AccessTools.Method(typeof(Thread), nameof(Thread.Sleep), new[] { typeof(int) }),
-                prefix: new HarmonyMethod(typeof(AudioStreaming), nameof(SleepPrefix)));
+            var sleep = AccessTools.Method(typeof(Thread), nameof(Thread.Sleep), new[] { typeof(int) });
+            harmony.Patch(sleep, prefix: new HarmonyMethod(typeof(AudioStreaming), nameof(SleepPrefix)));
+            MainMenu.UnpatchAfterStartup(sleep);
         }
 
         public static bool SleepPrefix(int millisecondsTimeout)
@@ -32,7 +39,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return true;
             }
-            YieldedWaits++;
+            Interlocked.Increment(ref YieldedWaits);
             Thread.Yield();
             return false;
         }
@@ -41,7 +48,7 @@ namespace RimWorldLoadingOptimizer
         {
             yieldUntil = unchecked(Environment.TickCount + 250);
             yieldArmed = true;
-            if (__result || file.GetType().Name != "FilesystemFile" || !file.Exists || !file.Name.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase))
+            if (__result || !FilesystemFile.IsInstanceOfType(file) || !file.Exists || !file.Name.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
@@ -49,8 +56,8 @@ namespace RimWorldLoadingOptimizer
             if (length >= MinStreamBytes)
             {
                 __result = true;
-                Streamed++;
-                StreamedBytes += length;
+                Interlocked.Increment(ref Streamed);
+                Interlocked.Add(ref StreamedBytes, length);
             }
         }
     }

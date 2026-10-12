@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -64,7 +65,7 @@ namespace RimWorldLoadingOptimizer
             {
                 foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
                 {
-                    if (method.IsAbstract || method.ContainsGenericParameters || type.ContainsGenericParameters || !CallsAny(method, XmlSelectNodes, XmlSelectSingleNode))
+                    if (method.IsAbstract || method.ContainsGenericParameters || type.ContainsGenericParameters || !IlScan.CallsAny(method, XmlSelectNodes, XmlSelectSingleNode))
                     {
                         continue;
                     }
@@ -107,7 +108,6 @@ namespace RimWorldLoadingOptimizer
             return types;
         }
 
-        private static bool CallsAny(MethodInfo method, params MethodInfo[] targets) => IlScan.Decide(method, v => v is MethodInfo m && targets.Contains(m));
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
@@ -243,10 +243,15 @@ namespace RimWorldLoadingOptimizer
                 Fallback("(index unavailable) " + xpath);
                 return false;
             }
+            var n = 0;
+            if (position.Success && !int.TryParse(position.Groups["n"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out n))
+            {
+                Fallback("(position out of range) " + xpath);
+                return false;
+            }
             Hits++;
             if (position.Success)
             {
-                var n = int.Parse(position.Groups["n"].Value);
                 defs = n >= 1 && n <= defs.Count ? new List<XmlElement> { defs[n - 1] } : new List<XmlElement>();
             }
             if (preds.Length == 0 && rest == null)
@@ -316,11 +321,11 @@ namespace RimWorldLoadingOptimizer
 
         private static string Rewrite(DefIndex index, string xpath)
         {
-            if (!xpath.StartsWith("//"))
+            if (!xpath.StartsWith("//", StringComparison.Ordinal))
             {
                 return xpath;
             }
-            if (xpath.StartsWith("//Defs/"))
+            if (xpath.StartsWith("//Defs/", StringComparison.Ordinal))
             {
                 return index.OnlyRootIsNamed("Defs") ? xpath.Substring(1) : null;
             }
@@ -340,7 +345,7 @@ namespace RimWorldLoadingOptimizer
         private static bool TryByTag(DefIndex index, string xpath, string original, out XmlNodeList result)
         {
             result = null;
-            var i = xpath.StartsWith("/") ? 1 : 0;
+            var i = xpath.StartsWith("/", StringComparison.Ordinal) ? 1 : 0;
             if (string.CompareOrdinal(xpath, i, "Defs/", 0, 5) == 0)
             {
                 i += 5;

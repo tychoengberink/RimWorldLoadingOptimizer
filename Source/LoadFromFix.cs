@@ -31,7 +31,7 @@ namespace RimWorldLoadingOptimizer
                 {
                     status = "off";
                 }
-                else if (original == null || !Fingerprint.Matches("faster mod assembly loading",
+                else if (original == null || !Fingerprint.Matches("Faster mod assembly loading",
                     Fingerprint.Known(original, "A43CD2139DE39401", "92A9831495730C60"),
                     Fingerprint.Known(reloadAll, "5AE51417B2EE8201", "A7C249B93DA1940C")))
                 {
@@ -81,7 +81,7 @@ namespace RimWorldLoadingOptimizer
                 if (found == null)
                 {
                     fallbacks++;
-                    return Original(filePath);
+                    return Original(filePath, name);
                 }
                 hits++;
                 if (RLOMod.Verify)
@@ -90,7 +90,7 @@ namespace RimWorldLoadingOptimizer
                     if (!ReferenceEquals(expected, found))
                     {
                         mismatches++;
-                        return Original(filePath);
+                        return Original(filePath, name);
                     }
                 }
                 return found;
@@ -114,6 +114,7 @@ namespace RimWorldLoadingOptimizer
                     try
                     {
                         AppDomain.CurrentDomain.AssemblyLoad += OnLoad;
+                        MainMenu.Then(Forget);
                         var index = new Dictionary<string, Assembly>(StringComparer.Ordinal);
                         foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
                         {
@@ -132,6 +133,15 @@ namespace RimWorldLoadingOptimizer
                     }
                 }
                 return byName.TryGetValue(name, out var found) && !found.ReflectionOnly ? found : null;
+            }
+        }
+
+        private static void Forget()
+        {
+            lock (gate)
+            {
+                AppDomain.CurrentDomain.AssemblyLoad -= OnLoad;
+                byName = null;
             }
         }
 
@@ -158,10 +168,9 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        private static Assembly Original(string filePath)
+        private static Assembly Original(string filePath, string name)
         {
-            var asmName = AssemblyName.GetAssemblyName(filePath);
-            var assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == asmName.Name);
+            var assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == name);
             if (assembly != null)
             {
                 return assembly;

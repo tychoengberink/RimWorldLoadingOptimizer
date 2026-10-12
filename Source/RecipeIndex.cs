@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
 using Verse;
@@ -18,14 +19,21 @@ namespace RimWorldLoadingOptimizer
         private static long identity = -1;
         private static int identityCheckedAt = int.MinValue;
 
+        private static MethodBase getter;
+        private static int state;
+
         public static int Mismatches;
         public static int Served;
         public static int Rebuilds;
 
         public static void Install(Harmony harmony)
         {
-            harmony.Patch(AccessTools.PropertyGetter(typeof(ThingDef), nameof(ThingDef.AllRecipes)),
-                prefix: new HarmonyMethod(typeof(RecipeIndex), nameof(Prefix)));
+            getter = AccessTools.PropertyGetter(typeof(ThingDef), nameof(ThingDef.AllRecipes));
+            if (!Fingerprint.Matches("Recipe index", Fingerprint.Known(getter, "BFFB5F09B346E1F5")))
+            {
+                return;
+            }
+            harmony.Patch(getter, prefix: new HarmonyMethod(typeof(RecipeIndex), nameof(Prefix)));
             harmony.Patch(AccessTools.Method(typeof(PlayDataLoader), nameof(PlayDataLoader.ClearAllPlayData)),
                 postfix: new HarmonyMethod(typeof(RecipeIndex), nameof(Reset)));
         }
@@ -42,6 +50,14 @@ namespace RimWorldLoadingOptimizer
 
         public static bool Prefix(ThingDef __instance, ref List<RecipeDef> __result)
         {
+            if (state == 0)
+            {
+                state = Fingerprint.OnlyOurs(getter) ? 1 : 2;
+            }
+            if (state != 1)
+            {
+                return true;
+            }
             var cached = Cached(__instance);
             if (cached != null)
             {

@@ -17,20 +17,25 @@ namespace RimWorldLoadingOptimizer
 
         public static void Install(Harmony harmony)
         {
-            AppDomain.CurrentDomain.AssemblyLoad += (s, e) =>
-            {
-                lock (gate)
-                {
-                    generation++;
-                    list = null;
-                }
-            };
-            harmony.Patch(AccessTools.Method(typeof(AppDomain), nameof(AppDomain.GetAssemblies), Type.EmptyTypes),
-                prefix: new HarmonyMethod(typeof(AsmCache), nameof(ListPrefix)) { priority = Priority.First });
+            AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoad;
+            var getAssemblies = AccessTools.Method(typeof(AppDomain), nameof(AppDomain.GetAssemblies), Type.EmptyTypes);
+            harmony.Patch(getAssemblies, prefix: new HarmonyMethod(typeof(AsmCache), nameof(ListPrefix)) { priority = Priority.First });
             var runtimeAssembly = typeof(Assembly).Assembly.GetType("System.Reflection.RuntimeAssembly");
-            harmony.Patch(AccessTools.PropertyGetter(runtimeAssembly, nameof(Assembly.FullName)),
-                prefix: new HarmonyMethod(typeof(AsmCache), nameof(NamePrefix)), postfix: new HarmonyMethod(typeof(AsmCache), nameof(NamePostfix)));
+            var fullName = AccessTools.PropertyGetter(runtimeAssembly, nameof(Assembly.FullName));
+            harmony.Patch(fullName, prefix: new HarmonyMethod(typeof(AsmCache), nameof(NamePrefix)), postfix: new HarmonyMethod(typeof(AsmCache), nameof(NamePostfix)));
+            MainMenu.UnpatchAfterStartup(getAssemblies);
+            MainMenu.UnpatchAfterStartup(fullName);
+            MainMenu.Then(() => AppDomain.CurrentDomain.AssemblyLoad -= OnAssemblyLoad);
             LeanFixes.Reports.Add(() => $"assembly list cache: GetAssemblies {listHits} hits, {listBuilds} builds; Assembly.FullName {nameHits} hits / {fullNames.Count} assemblies" + (RLOMod.Verify ? $", verify mismatches {mismatches}" : ""));
+        }
+
+        private static void OnAssemblyLoad(object sender, AssemblyLoadEventArgs args)
+        {
+            lock (gate)
+            {
+                generation++;
+                list = null;
+            }
         }
 
         public static bool ListPrefix(AppDomain __instance, ref Assembly[] __result)
@@ -92,9 +97,9 @@ namespace RimWorldLoadingOptimizer
             return true;
         }
 
-        public static void NamePostfix(Assembly __instance, string __result)
+        public static void NamePostfix(Assembly __instance, string __result, bool __runOriginal)
         {
-            if (__result == null)
+            if (!__runOriginal || __result == null)
             {
                 return;
             }
