@@ -85,7 +85,7 @@ namespace RimWorldLoadingOptimizer
             {
                 parts.Add($"running alongside <b>{others}</b> other {(others == 1 ? "optimizer" : "optimizers")}");
             }
-            return parts.Count > 0 ? string.Join("  ·  ", parts) + "  ·  names are listed in the log when the main menu opens" : "";
+            return string.Join("  ·  ", parts);
         }
 
         private static string Live()
