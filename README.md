@@ -4,15 +4,15 @@
 
 Load-time and memory optimizer for RimWorld 1.6 with very large mod lists. It patches the base game and other mods' code paths; it does not change any def content.
 
-Version 5.0 with its default settings, measured on a Mac (Apple M5 Pro, 24 GB): a cold start of a 672-mod list goes from **8:16 to 2:47 (−66%)**, a warm start of a 661-mod list from about **4:10 to 2:19**, and a cold start of a 1,490-mod list from **17:03 to 5:41 (−67%)**.
+Version 5.0 with its default settings, measured on a Mac (Apple M5 Pro, 24 GB): a cold start of a 667-mod list goes from **8:16 to 2:47 (−66%)**, a warm start of a 668-mod list from about **4:10 to 2:19**, and a cold start of a 1,490-mod list from **17:03 to 5:41 (−67%)**.
 
 Every speedup has a verification mode that recomputes the result the original way; all reported 0 mismatches in the 5.0 test starts.
 
 ## Benchmarks (5.0)
 
-Mac: Apple M5 Pro, 24 GB unified memory, internal SSD, macOS (Metal). Textures pre-converted to DDS with todds (RimSort). Faster Game Loading, Loading Progress and Missile Girl active. One start per scenario, measured on 2026-10-12. "Off" = every RimWorld Loading Optimizer feature switched off (`LEANMEMORY_ALLOFF=1`). Warm = Missile Girl's XML cache was used; cold = it was not (first start after a mod or mod-list change). Time to the main menu comes from the log line `main menu reached at … s`. Results of earlier versions are in [BENCHMARK.md](BENCHMARK.md).
+Mac: Apple M5 Pro, 24 GB unified memory, internal SSD, macOS (Metal). Textures pre-converted to DDS with todds (RimSort). Faster Game Loading, Loading Progress and Missile Girl active. One start per scenario, measured on 2026-10-12. "Off" = every RimWorld Loading Optimizer feature switched off (`LEANMEMORY_ALLOFF=1`). Warm = Missile Girl's XML cache was used; cold = it was not (first start after a mod or mod-list change). Time to the main menu comes from the log line `main menu reached at … s`. Mod counts include Core and the DLCs. Results of earlier versions are in [BENCHMARK.md](BENCHMARK.md).
 
-### The NYz Collection: Sci-Fi & Progression without Graphics Settings+ (672 mods), cold start
+### The NYz Collection: Sci-Fi & Progression without Graphics Settings+ (667 mods), cold start
 
 | | Off | 5.0 defaults | Change |
 |---|---|---|---|
@@ -23,7 +23,7 @@ Mac: Apple M5 Pro, 24 GB unified memory, internal SSD, macOS (Metal). Textures p
 
 A verification start compared all 83,778 textures loaded from RimWorld Loading Optimizer's buffers with what the game's own loader builds: 0 differences.
 
-### The NYz Collection: Sci-Fi & Progression with Graphics Settings+ (661 mods + Loading Progress), warm start
+### The NYz Collection: Sci-Fi & Progression with Graphics Settings+ (668 mods), warm start
 
 | | Off | 5.0 defaults | Change |
 |---|---|---|---|
@@ -89,7 +89,7 @@ Each of these targets one mod, can be switched off separately in Mod Settings, a
 
 | Mod | What RimWorld Loading Optimizer does |
 |---|---|
-| Graphics Settings+ | Hands its own DDS loader the file bytes that were read ahead into memory (texture loading ~66 s to ~10 s on the 661-mod list) |
+| Graphics Settings+ | Hands its own DDS loader the file bytes that were read ahead into memory (texture loading ~66 s to ~10 s on the 668-mod list) |
 | Missile Girl | Lets its own cache loader read the cache straight into the def document instead of copying every def, and skips an unused second read of the cache file |
 | Melee Animation | Indexes its retexture scan (−27 s) |
 | Research Reinvented: Stepping Stones | Indexed recipe-user lookups |

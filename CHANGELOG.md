@@ -18,7 +18,7 @@
 - Patches on .NET methods are removed once the main menu opens, and the supported-mods list is logged at that point.
 
 ### Added
-- Without Graphics Settings+, DDS textures are read into memory on background threads for the game's own loader (texture loading 85 s to 30 s on a 672-mod list, verified identical for 83,778 textures).
+- Without Graphics Settings+, DDS textures are read into memory on background threads for the game's own loader (texture loading 85 s to 30 s on a 667-mod list, verified identical for 83,778 textures).
 - The time to start is also recorded when the game goes straight into a save without showing the main menu.
 - The measurement history is also saved as a web page, with a button in Mod Settings.
 - Peak memory and memory at the main menu are recorded on Windows and Linux.
