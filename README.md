@@ -10,7 +10,7 @@ Every speedup has a verification mode that recomputes the result the original wa
 
 ## Benchmarks (5.0)
 
-Mac: Apple M5 Pro, 24 GB unified memory, internal SSD, macOS (Metal). Textures pre-converted to DDS with todds (RimSort). Faster Game Loading, Loading Progress and Missile Girl active. One start per scenario, measured on 2026-10-12. "Off" = every RimWorld Loading Optimizer feature switched off (`LEANMEMORY_ALLOFF=1`). Warm = Missile Girl's XML cache was used; cold = it was not (first start after a mod or mod-list change). Time to the main menu comes from the log line `main menu reached at … s`. Mod counts include Core and the DLCs. Results of earlier versions are in [BENCHMARK.md](BENCHMARK.md).
+Mac: Apple M5 Pro, 24 GB unified memory, internal SSD, macOS (Metal). Textures pre-converted to DDS with todds (RimSort). Faster Game Loading, Loading Progress and Missile Girl active. One start per scenario, measured on 2026-10-12. "Off" = every RimWorld Loading Optimizer feature switched off (`LEANMEMORY_ALLOFF=1`). Warm = Missile Girl's XML cache was used; cold = it was not (first start after a mod or mod-list change). Time to the main menu comes from the log line `main menu reached at … s`. Mod counts include Core and the DLCs. The full test setup is in [BENCHMARK.md](BENCHMARK.md).
 
 ### The NYz Collection: Sci-Fi & Progression without Graphics Settings+ (667 mods), cold start
 
