@@ -42,7 +42,7 @@ Most of the time saved on this list comes from the extra support for Graphics Se
 | Texture loading | 99.0 s | **26.7 s** | −73% |
 | Peak memory | 54.3 GB | **53.7 GB** | −0.6 GB |
 
-This list does not use Graphics Settings+, so its texture speedup comes from the DDS buffers for the game's own loader.
+Warm starts could not be measured on this list: Missile Girl resets its own XML cache on every start here ("Total number of files changed. Reseting cache"), with or without RimWorld Loading Optimizer.
 
 ## Measure it on your own PC
 
