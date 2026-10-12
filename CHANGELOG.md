@@ -3,7 +3,7 @@
 ## 5.0
 
 ### Changed
-- Extra support for other mods now has one setting per mod, and every one is **off by default**. Each one relies on that mod's internals, switches itself off when the mod changes, and may need an RLO update after the mod updates. Turn on the ones for mods you use in Mod Settings.
+- Extra support for other mods now has one setting per mod (all on by default), so you can switch off the support for a single mod in Mod Settings. Each one relies on that mod's internals, switches itself off when the mod changes, and may need an RLO update after the mod updates.
 - Graphics Settings+ and Missile Girl support no longer replace those mods' loaders: their own code runs, and RimWorld Loading Optimizer only hands Graphics Settings+ bytes it read ahead, or lets Missile Girl read its cache straight into the def document.
 - Children Wear Anything and Vehicle Framework support only route those mods' texture lookups through RimWorld Loading Optimizer's texture index.
 - Category sets now follow the "Category cache" setting.

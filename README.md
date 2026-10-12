@@ -2,7 +2,7 @@
 
 Load-time and memory optimizer for RimWorld 1.6 with very large mod lists. It patches the base game and other mods' code paths; it does not change any def content.
 
-Version 5.0, measured on a Mac (Apple M5 Pro, 24 GB) with a 672-mod list and no Graphics Settings+: a cold start goes from **8:16 to 4:52 (−41%)** with only RimWorld Loading Optimizer's own features. With the extra support for the mods in the list switched on, a warm start of a 661-mod list goes from about **4:10 to 2:19**, and a cold start of a 1,490-mod list from **17:03 to 5:41 (−67%)**.
+Version 5.0, measured on a Mac (Apple M5 Pro, 24 GB) with a 672-mod list and no Graphics Settings+: a cold start goes from **8:16 to 4:52 (−41%)** with only RimWorld Loading Optimizer's own features. With the defaults, which include the extra support for the mods in the list, a warm start of a 661-mod list goes from about **4:10 to 2:19**, and a cold start of a 1,490-mod list from **17:03 to 5:41 (−67%)**.
 
 Every speedup has a verification mode that recomputes the result the original way; all reported 0 mismatches in the 5.0 test starts.
 
@@ -12,7 +12,7 @@ Mac: Apple M5 Pro, 24 GB unified memory, internal SSD, macOS (Metal). Textures p
 
 ### The NYz Collection: Sci-Fi & Progression without Graphics Settings+ (672 mods), cold start
 
-| | Off | 5.0 defaults | Change |
+| | Off | 5.0, mod support off | Change |
 |---|---|---|---|
 | Time to main menu | 8:16 (495.7 s) | **4:52 (292.4 s)** | −41% |
 | Texture loading | 85.5 s | **30.1 s** | DDS buffers for the game's own loader |
@@ -23,13 +23,13 @@ The verification start compared all 83,778 textures loaded from RimWorld Loading
 
 ### The NYz Collection: Sci-Fi & Progression with Graphics Settings+ (661 mods + Loading Progress), warm start
 
-| | Off | 5.0 defaults (mod support off) | 5.0, all mod support on |
+| | Off | 5.0, mod support off | 5.0 defaults (all mod support on) |
 |---|---|---|---|
 | Time to main menu | 4:05 and 4:19 (2 starts) | 4:14 | **2:19** |
 | Texture loading | 74–77 s | 87 s | **29 s** |
 | Peak memory | 42.3–42.4 GB | **30.2 GB** | 40.7 GB |
 
-With Graphics Settings+ installed, the texture speedup is part of the Graphics Settings+ support, so with the defaults (support off) texture loading is not faster on this list; memory is still 12 GB lower. With all support on, the remaining time saved comes mostly from Graphics Settings+, Melee Animation and Research Reinvented: Stepping Stones support.
+With Graphics Settings+ installed, the texture speedup is part of the Graphics Settings+ support, so with mod support off texture loading is not faster on this list; memory is still 12 GB lower. With the defaults (all support on), the time saved comes mostly from Graphics Settings+, Melee Animation and Research Reinvented: Stepping Stones support.
 
 ### Progression packs 1 to 3 (1,490 mods), cold start
 
@@ -81,9 +81,9 @@ Put RimWorld Loading Optimizer directly after Harmony (its About.xml asks to loa
 | Patch file reuse | `ModContentPack.LoadPatches`, `DirectXmlLoader.XmlAssetsInModFolder` | Patch files parsed during def loading are reused instead of parsed a second time |
 | Startup report | `RuntimeHelpers.RunClassConstructor` | Logs the slowest mod static constructors |
 
-### Extra support for other mods (off by default)
+### Extra support for other mods (on by default)
 
-Each of these targets one mod, is switched on separately in Mod Settings, and only acts when that mod is active. None of them re-implements the mod's own code: the mod's code still runs, and RimWorld Loading Optimizer only adds an index, a cache or a redirect around it. Each checks a fingerprint of the code it touches and switches itself off when that mod changes.
+Each of these targets one mod, can be switched off separately in Mod Settings, and only acts when that mod is active. None of them re-implements the mod's own code: the mod's code still runs, and RimWorld Loading Optimizer only adds an index, a cache or a redirect around it. Each checks a fingerprint of the code it touches and switches itself off when that mod changes.
 
 | Mod | What RimWorld Loading Optimizer does |
 |---|---|
