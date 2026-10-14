@@ -2,12 +2,7 @@
 
 The numbers on the Workshop page and in the README come from **one specific setup**, described here so anyone can check them or compare with their own. Your results will differ with other mods, other hardware and other settings.
 
-## Mod lists
-
-- **The NYz Collection: Sci-Fi & Progression**: the Steam collection **[The NYz Collection: Sci-Fi & Progression (1.6)](https://steamcommunity.com/sharedfiles/filedetails/?id=3618911061)** plus **[Loading Progress](https://steamcommunity.com/sharedfiles/filedetails/?id=3535481557)**: 667 mods without Graphics Settings+, 668 with it.
-- **Progression packs 1 to 3**: the three Progression pack collections ([1/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521297585), [2/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521319712), [3/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3637541646)), 1,490 mods, Prepatcher active. The list was saved in the order Load Them Last wants, so the game does not restart itself during the run.
-
-Mod counts include Core and the DLCs. RimWorld Loading Optimizer was loaded directly after Harmony in every list.
+RimWorld 1.6 and 1.7 run different builds of RimWorld Loading Optimizer with different speedups (see the [changelog](CHANGELOG.md)), so their results are listed separately and should not be compared with each other.
 
 ## Hardware
 
@@ -19,11 +14,28 @@ Mod counts include Core and the DLCs. RimWorld Loading Optimizer was loaded dire
 | Storage | internal SSD |
 | OS | macOS |
 
-RimWorld 1.6 with all five DLCs.
+## Method (both versions)
 
-## What else was in place (important)
+- Time to the main menu is taken from RimWorld Loading Optimizer's own log line `main menu reached at … s`, counted from process start.
+- "Off" is the same mod list with every RimWorld Loading Optimizer feature switched off (`LEANMEMORY_ALLOFF=1`), so only RimWorld Loading Optimizer differs between the two columns.
+- Warm = Missile Girl's XML cache was used (a normal start). Cold = it was not (the first start after a mod update or a change to the mod list).
+- One start per scenario unless noted, so expect a spread of several seconds.
+- Mod counts include Core and the DLCs. RimWorld Loading Optimizer was loaded directly after Harmony in every list.
+- Correctness: every speedup has a verification mode (`LEANMEMORY_VERIFY=1`) that recomputes the result the original way.
 
-These are part of the setup and strongly affect the results:
+## RimWorld 1.6
+
+### Setup
+
+- RimWorld 1.6 with all five DLCs.
+- RimWorld Loading Optimizer 5.0 with its default settings, measured on 2026-10-12. 5.1 does not change anything on 1.6, so these results still apply.
+
+Mod lists:
+
+- **The NYz Collection: Sci-Fi & Progression**: the Steam collection **[The NYz Collection: Sci-Fi & Progression (1.6)](https://steamcommunity.com/sharedfiles/filedetails/?id=3618911061)** plus **[Loading Progress](https://steamcommunity.com/sharedfiles/filedetails/?id=3535481557)**: 667 mods without Graphics Settings+, 668 with it.
+- **Progression packs 1 to 3**: the three Progression pack collections ([1/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521297585), [2/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521319712), [3/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3637541646)), 1,490 mods, Prepatcher active. The list was saved in the order Load Them Last wants, so the game does not restart itself during the run.
+
+What else was in place (important). These are part of the setup and strongly affect the results:
 
 1. **All mod textures were pre-converted to DDS** with todds (the converter bundled with RimSort), and non-UI textures larger than 2048 px were downscaled to 2048. Command used, run on the Workshop content folder:
    ```
@@ -33,18 +45,11 @@ These are part of the setup and strongly affect the results:
 2. **Other performance mods were active**: Faster Game Loading, Loading Progress and Missile Girl (its XML cache is what makes a warm start warm). RimWorld Loading Optimizer's numbers are measured **on top of** these, not instead of them.
 3. In-game texture compression on (default).
 
-## Method
+All speedups reported 0 mismatches in the verification starts. A verification start compared all 83,778 textures loaded from RimWorld Loading Optimizer's buffers with what the game's own loader builds: 0 differences.
 
-- RimWorld Loading Optimizer 5.0 with its default settings, measured on 2026-10-12.
-- Time to the main menu is taken from RimWorld Loading Optimizer's own log line `main menu reached at … s`, counted from process start.
-- "Off" is the same mod list with every RimWorld Loading Optimizer feature switched off (`LEANMEMORY_ALLOFF=1`), so only RimWorld Loading Optimizer differs between the two columns.
-- Warm = Missile Girl's XML cache was used (a normal start). Cold = it was not (the first start after a mod update or a change to the mod list).
-- One start per scenario unless noted, so expect a spread of several seconds.
-- Correctness: every speedup has a verification mode that recomputes the result the original way; all reported 0 mismatches in these test starts. A verification start compared all 83,778 textures loaded from RimWorld Loading Optimizer's buffers with what the game's own loader builds: 0 differences.
+### Results (Mac, 1.6, 5.0)
 
-## Results (Mac, 5.0)
-
-### The NYz Collection: Sci-Fi & Progression without Graphics Settings+ (667 mods), cold start
+#### The NYz Collection: Sci-Fi & Progression without Graphics Settings+ (667 mods), cold start
 
 | | Off | 5.0 defaults | Change |
 |---|---|---|---|
@@ -53,7 +58,7 @@ These are part of the setup and strongly affect the results:
 | XML patching | 217.7 s | **9.1 s** | fast XML patching |
 | Peak memory | 42.6 GB | **41.4 GB** | −1.2 GB |
 
-### The NYz Collection: Sci-Fi & Progression with Graphics Settings+ (668 mods), warm start
+#### The NYz Collection: Sci-Fi & Progression with Graphics Settings+ (668 mods), warm start
 
 | | Off | 5.0 defaults | Change |
 |---|---|---|---|
@@ -63,7 +68,7 @@ These are part of the setup and strongly affect the results:
 
 Most of the time saved on this list comes from the extra support for Graphics Settings+, Melee Animation and Research Reinvented: Stepping Stones.
 
-### Progression packs 1 to 3 (1,490 mods), cold start
+#### Progression packs 1 to 3 (1,490 mods), cold start
 
 | | Off | 5.0 defaults | Change |
 |---|---|---|---|
@@ -74,10 +79,53 @@ Most of the time saved on this list comes from the extra support for Graphics Se
 
 Warm starts could not be measured on this list: Missile Girl resets its own XML cache on every start here ("Total number of files changed. Reseting cache"), with or without RimWorld Loading Optimizer.
 
+## RimWorld 1.7
+
+**Not measured yet.** The tables below are placeholders for the 5.1 measurements.
+
+### Setup
+
+- RimWorld 1.7 (build: _to fill in_) with all five DLCs.
+- RimWorld Loading Optimizer 5.1 with its default settings, measured on _to fill in_. "Merge repeated Harmony rebuilds" is a test option and stays off, as in the defaults.
+- Mod lists: _to fill in_. Use the 1.7 versions of the 1.6 lists where they exist, and note every mod that is missing or replaced.
+- Textures pre-converted to DDS and other performance mods: _to fill in_ (same as 1.6 where those mods exist for 1.7).
+- On 1.7 the atlas cache and audio streaming switch themselves off, because the game does that work itself.
+
+### Results (Mac, 1.7, 5.1)
+
+#### Mod list A (_n_ mods), cold start
+
+| | Off | 5.1 defaults | Change |
+|---|---|---|---|
+| Time to main menu | – | – | – |
+| XML patching | – | – | – |
+| Texture loading | – | – | – |
+| Peak memory | – | – | – |
+
+#### Mod list A (_n_ mods), warm start
+
+| | Off | 5.1 defaults | Change |
+|---|---|---|---|
+| Time to main menu | – | – | – |
+| Texture loading | – | – | – |
+| Peak memory | – | – | – |
+
+#### Mod list B (_n_ mods), cold start
+
+| | Off | 5.1 defaults | Change |
+|---|---|---|---|
+| Time to main menu | – | – | – |
+| XML patching | – | – | – |
+| Texture loading | – | – | – |
+| Peak memory | – | – | – |
+
+Pre-compiling patched methods and the background JIT profile only help from the second start on, so measure the 5.1 column after at least one earlier start with the same mod list.
+
 ## Measure it yourself
 
 RimWorld Loading Optimizer can run the same A/B comparison on any PC: Mod Settings → RimWorld Loading Optimizer → "Measure how much RimWorld Loading Optimizer saves on your PC". It needs two restarts and writes every start to `RimWorldLoadingOptimizer/measurements.csv` in the RimWorld save data folder. See the README for details.
 
 ## Not verified yet
 
+- RimWorld 1.7 on any mod list.
 - Other mod lists, other hardware, Windows, Linux.
