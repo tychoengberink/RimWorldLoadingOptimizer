@@ -34,9 +34,21 @@ namespace RimWorldLoadingOptimizer
             getter = AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.DescendantThingDefs));
             var children = AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.ThisAndChildCategoryDefs));
             if (!Fingerprint.Matches("Category cache",
+#if RW17
+                Fingerprint.Known(getter, "591A2633DA38C9F9", "CCDE11F650DE24DF"),
+#else
                 Fingerprint.Known(getter, "591A2633DA38C9F9"),
+#endif
+#if RW17
+                Fingerprint.Known(AccessTools.EnumeratorMoveNext(getter), "3FC97BBCFF7FBC1D", "2991503FAE8B1F09"),
+#else
                 Fingerprint.Known(AccessTools.EnumeratorMoveNext(getter), "3FC97BBCFF7FBC1D"),
+#endif
+#if RW17
+                Fingerprint.Known(AccessTools.EnumeratorMoveNext(children), "2A83B3162CE0B4B3", "D2519FD28522DB53")))
+#else
                 Fingerprint.Known(AccessTools.EnumeratorMoveNext(children), "2A83B3162CE0B4B3")))
+#endif
             {
                 return;
             }

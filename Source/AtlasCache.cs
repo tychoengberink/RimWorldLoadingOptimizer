@@ -108,6 +108,13 @@ namespace RimWorldLoadingOptimizer
             {
                 throw new Exception("BuildMeshesForUvs not found");
             }
+#if RW17
+            if (AccessTools.Method(typeof(StaticTextureAtlas), "ApplyTextureCompression") == null)
+            {
+                Log.Message("[RLO] atlas cache: not available on this RimWorld version (it caches baked atlases itself); skipped");
+                return;
+            }
+#endif
             harmony.Patch(AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases)),
                 prefix: new HarmonyMethod(typeof(AtlasCache), nameof(BakeAllPrefix)) { priority = Priority.First },
                 postfix: new HarmonyMethod(typeof(AtlasCache), nameof(BakeAllPostfix)) { priority = Priority.Last });
@@ -513,7 +520,11 @@ namespace RimWorldLoadingOptimizer
                     {
                         int n = (int)Math.Min(Math.Min(Chunk, raw.Length - off), fs.Length - off);
                         var mine = n == Chunk ? buffer : new byte[n];
+#if RW17
+                        NativeArray<byte>.Copy(raw, off, mine, 0, n);
+#else
                         raw.GetSubArray(off, n).CopyTo(mine);
+#endif
                         int read = 0;
                         while (read < n)
                         {
@@ -539,7 +550,11 @@ namespace RimWorldLoadingOptimizer
                 {
                     int n = Math.Min(Chunk, raw.Length - off);
                     var chunk = n == Chunk ? buffer : new byte[n];
+#if RW17
+                    NativeArray<byte>.Copy(raw, off, chunk, 0, n);
+#else
                     raw.GetSubArray(off, n).CopyTo(chunk);
+#endif
                     sum = Checksum(chunk, n, sum);
                     fs.Write(chunk, 0, n);
                 }

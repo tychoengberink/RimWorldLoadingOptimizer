@@ -31,6 +31,11 @@ namespace RimWorldLoadingOptimizer
             new Support { Id = "graphicssettings", Name = "Graphics Settings+", Description = "Hands Graphics Settings+'s own DDS loader file bytes that were read ahead in memory (otherwise only the file cache is warmed).", Type = "GraphicSetter.DDSLoader", Feature = "Graphics Settings+ texture buffers (falls back to read-ahead)" },
             new Support { Id = "combatai", Name = "CombatAI", Description = "Faster CombatAI label scan; also moves its label patches to the main thread.", Type = "CombatAI.Patches.LabelSuppressor_Patch", Feature = "CombatAI label scan" },
             new Support { Id = "linkablegroups", Name = "Linkable Groups", Description = "Indexed facility links for Linkable Groups.", Type = "LinkableGroups.LinkableGroupsLoader", Feature = "Linkable Groups facility links" },
+#if RW17
+            new Support { Id = "giddyup", Name = "Giddy-Up 2", Description = "Remembers Giddy-Up's rider draw offsets between starts, keyed on the exact texture content, instead of reading every animal texture back from the graphics card on every start.", Type = "GiddyUp.TextureUtility", Feature = GiddyUpOffsets.Feature },
+            new Support { Id = "miningoutpost", Name = "Worksites Expanded", Description = "Answers Worksites Expanded's tome-trader check directly while no game is loaded, where the original check can only fail with an error that is caught, tens of thousands of times per start.", Type = "MiningOutpost.Loot.LootRarity", Feature = WorksitesTraders.Feature },
+            new Support { Id = "alienworlds", Name = "Alien Worlds Framework", Description = "Reuses the Worldbuilder preset images Alien Worlds Framework wrote last start when their source textures are unchanged, instead of rendering and encoding them again.", Type = "AlienWorlds.WorldbuilderCompat", Feature = AlienWorldsPresets.Feature },
+#endif
             new Support { Id = "avmechanoidskins", Name = "AV Mechanoid Skins", Description = "Faster texture checks for AV Mechanoid Skins.", Type = "AV_MechanoidSkins.MechSkinManager", Feature = "AV Mechanoid Skins texture checks" },
         };
 

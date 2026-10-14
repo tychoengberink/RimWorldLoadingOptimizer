@@ -34,7 +34,11 @@ namespace RimWorldLoadingOptimizer
 
         public static void Install(Harmony harmony)
         {
+#if RW17
+            if (!Fingerprint.Matches("Texture lookup index", Fingerprint.Known(Original, "D4D313BA56F77956", "B802294668DE64B1")))
+#else
             if (!Fingerprint.Matches("Texture lookup index", Fingerprint.Known(Original, "D4D313BA56F77956")))
+#endif
             {
                 return;
             }

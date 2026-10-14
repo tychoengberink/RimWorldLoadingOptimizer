@@ -5,7 +5,9 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using HarmonyLib;
+#if !RW17
 using Prepatcher;
+#endif
 using Verse;
 
 namespace RimWorldLoadingOptimizer
@@ -39,6 +41,7 @@ namespace RimWorldLoadingOptimizer
             return Prefix(assembly, ref result) ? assembly.GetTypes() : result;
         }
 
+#if !RW17
         [FreePatch]
         private static void Redirect(object module)
         {
@@ -95,6 +98,7 @@ namespace RimWorldLoadingOptimizer
             }
             UnityEngine.Debug.Log("[RLO] pass 1 free patch: earlytypes " + status);
         }
+#endif
 
         public static bool Prefix(Assembly __instance, ref Type[] __result)
         {

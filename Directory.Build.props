@@ -1,4 +1,19 @@
 <Project>
+  <PropertyGroup>
+    <RwVersion Condition="'$(RwVersion)' == ''">1.6</RwVersion>
+    <BaseIntermediateOutputPath>obj/$(RwVersion)/</BaseIntermediateOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RwVersion)' != '1.6' and '$(OS)' == 'Windows_NT'">
+    <SteamApps Condition="'$(SteamApps)' == ''">C:/Program Files (x86)/Steam/steamapps</SteamApps>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(SteamApps)/common/RimWorld</RimWorldDir>
+    <RimWorldManaged Condition="'$(RimWorldManaged)' == ''">$(RimWorldDir)</RimWorldManaged>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RwVersion)' != '1.6' and $([MSBuild]::IsOSPlatform('OSX'))">
+    <SteamApps Condition="'$(SteamApps)' == ''">$(HOME)/Library/Application Support/Steam/steamapps</SteamApps>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">$(SteamApps)/common/RimWorld</RimWorldDir>
+    <RimWorldManaged Condition="'$(RimWorldManaged)' == ''">$(RimWorldDir)/RimWorld.app/Contents/MacOS</RimWorldManaged>
+  </PropertyGroup>
   <!-- Paths to RimWorld and the mods we compile against. Every property can be overridden
        with -p:Name=value or an environment variable of the same name. -->
   <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
@@ -18,6 +33,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <WorkshopDir Condition="'$(WorkshopDir)' == ''">$(SteamApps)/workshop/content/294100</WorkshopDir>
+    <HarmonyDll Condition="'$(HarmonyDll)' == '' and Exists('$(WorkshopDir)/2009463077/$(RwVersion)/Assemblies/0Harmony.dll')">$(WorkshopDir)/2009463077/$(RwVersion)/Assemblies/0Harmony.dll</HarmonyDll>
     <HarmonyDll Condition="'$(HarmonyDll)' == ''">$(WorkshopDir)/2009463077/Current/Assemblies/0Harmony.dll</HarmonyDll>
     <!-- Prepatcher and Melee Animation: a local copy in the RimWorld Mods folder wins over the Workshop one -->
     <PrepatcherDll Condition="'$(PrepatcherDll)' == '' and Exists('$(RimWorldDir)/Mods/2934420800/Assemblies/0PrepatcherAPI.dll')">$(RimWorldDir)/Mods/2934420800/Assemblies/0PrepatcherAPI.dll</PrepatcherDll>

@@ -29,7 +29,11 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             getter = AccessTools.PropertyGetter(typeof(ThingDef), nameof(ThingDef.AllRecipes));
+#if RW17
+            if (!Fingerprint.Matches("Recipe index", Fingerprint.Known(getter, "BFFB5F09B346E1F5", "04C7808287A8B54D")))
+#else
             if (!Fingerprint.Matches("Recipe index", Fingerprint.Known(getter, "BFFB5F09B346E1F5")))
+#endif
             {
                 return;
             }

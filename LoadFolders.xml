@@ -5,4 +5,8 @@
     <li>1.6</li>
     <li IfModActive="co.uk.epicguru.meleeanimation">Compat/MeleeAnimation</li>
   </v1.6>
+  <v1.7>
+    <li>/</li>
+    <li>1.7</li>
+  </v1.7>
 </loadFolders>

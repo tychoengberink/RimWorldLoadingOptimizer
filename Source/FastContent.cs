@@ -31,10 +31,26 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony, bool textureLookup)
         {
             if (!Fingerprint.Matches("Fast content lookups",
+#if RW17
+                Fingerprint.Known(OriginalGet, "D4D313BA56F77956", "B802294668DE64B1"),
+#else
                 Fingerprint.Known(OriginalGet, "D4D313BA56F77956"),
+#endif
+#if RW17
+                Fingerprint.Known(OriginalFolder, "989773FE5AF81641", "1BF1D81A23779287"),
+#else
                 Fingerprint.Known(OriginalFolder, "989773FE5AF81641"),
+#endif
+#if RW17
+                Fingerprint.Known(AccessTools.EnumeratorMoveNext(OriginalFolder), "96B68A4A067048DD", "698878502D9AFD33"),
+#else
                 Fingerprint.Known(AccessTools.EnumeratorMoveNext(OriginalFolder), "96B68A4A067048DD"),
+#endif
+#if RW17
+                Fingerprint.Known(AccessTools.EnumeratorMoveNext(OriginalAudioFolder), "96B68A4A067048DD", "79A23DF611EA101D")))
+#else
                 Fingerprint.Known(AccessTools.EnumeratorMoveNext(OriginalAudioFolder), "96B68A4A067048DD")))
+#endif
             {
                 return;
             }
@@ -170,7 +186,11 @@ namespace RimWorldLoadingOptimizer
             {
                 return loaded;
             }
+#if NATIVE_ASSETS
+            return ContentFinder<Texture2D>.TryFindAssetInModBundles(itemPath);
+#else
             return Bundles(itemPath);
+#endif
         }
 
         private static Texture2D Bundles(string itemPath)

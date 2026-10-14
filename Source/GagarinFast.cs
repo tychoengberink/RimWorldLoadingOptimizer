@@ -34,7 +34,11 @@ namespace RimWorldLoadingOptimizer
             missileGirl = RLOMod.Settings.Supports("missilegirl");
             reusePatches = !parallelXmlLoader && Fingerprint.Matches("Reuse of parsed patch files",
                 Fingerprint.Known(AccessTools.Method(typeof(ModContentPack), "LoadPatches"), "7BD200C227994829", "38D8E170612E6A8C"),
+#if RW17
+                Fingerprint.Known(AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)), "443A7DDA2E4D9183", "B562C17CC83C679E", "760A5C052131CDB0", "C466BF8CB37814BD"));
+#else
                 Fingerprint.Known(AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)), "443A7DDA2E4D9183", "B562C17CC83C679E"));
+#endif
             var loadModXml = AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML));
             if (parallelXmlLoader)
             {
