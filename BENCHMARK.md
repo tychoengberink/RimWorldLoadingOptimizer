@@ -6,18 +6,18 @@ All numbers come from the Progression packs 1–3 mod list, described below, so 
 
 ### RimWorld 1.6
 
-| Machine | Mod list | Start | Off | On | Change | Peak memory (off → on) |
-|---|---|---|---|---|---|---|
-| Mac | Progression packs 1–3, 1,490 mods | cold | 17:03 | **5:41** | −67% | 54.3 → 53.7 GB |
+| Machine | Start | Off | On | Change | Peak memory (off → on) |
+|---|---|---|---|---|---|
+| Mac | cold | 17:03 | **5:41** | −67% | 54.3 → 53.7 GB |
 
 ### RimWorld 1.7
 
-| Machine | Mod list | Start | Off | On | Change | Peak memory (off → on) |
-|---|---|---|---|---|---|---|
-| Windows | Progression packs 1–3, 1,484 mods | cold | 6:37 | **4:11** | −37% | 19.0 → 18.8 GB |
-| Windows | Progression packs 1–3, 1,484 mods | warm | – | **3:33** | – | – → 17.1 GB |
-| Mac | Progression packs 1–3, 1,477 mods ¹ | warm | 3:42 | **2:19** | −37% | 26.9 → 27.5 GB |
-| Mac | Progression packs 1–3, 1,477 mods ¹ | cold | – | **2:35** | – | – → 27.1 GB |
+| Machine | Start | Off | On | Change | Peak memory (off → on) |
+|---|---|---|---|---|---|
+| Windows | cold | 6:37 | **4:11** | −37% | 19.0 → 18.8 GB |
+| Windows | warm | – | **3:33** | – | – → 17.1 GB |
+| Mac ¹ | warm | 3:42 | **2:19** | −37% | 26.9 → 27.5 GB |
+| Mac ¹ | cold | – | **2:35** | – | – → 27.1 GB |
 
 Times are to the main menu. "–" means not measured.
 
@@ -36,9 +36,9 @@ Times are to the main menu. "–" means not measured.
 ## Method
 
 - Time is RimWorld Loading Optimizer's own log line `main menu reached at … s`, counted from process start.
-- "Off" is the same mod list with every feature switched off (`LEANMEMORY_ALLOFF=1`), so only RimWorld Loading Optimizer differs.
+- "Off" is the same mod list with every speedup switched off (`LEANMEMORY_ALLOFF=1`), so only the speedups differ. The mod stays loaded for the measurement and the log reports, which run in both columns.
 - Warm = Missile Girl's XML cache was used (a normal start). Cold = it was not (first start after a mod update or a mod list change).
-- One start per scenario unless noted. Mod counts include Core and the DLCs. RimWorld Loading Optimizer sits directly after Harmony.
+- One start per scenario unless noted. RimWorld Loading Optimizer sits directly after Harmony.
 - Correctness: every speedup has a verification mode (`LEANMEMORY_VERIFY=1`) that recomputes the result the original way.
 - Other performance mods were active in every list: Faster Game Loading, Loading Progress and Missile Girl. The numbers are measured **on top of** these.
 
@@ -59,7 +59,7 @@ On 1.7 the atlas cache and audio streaming switch themselves off, because the ga
 ### Windows, 5.1
 
 - RimWorld 1.7.4976 (rev1043) with all five DLCs, RimWorld Loading Optimizer 5.1 development build with default settings, 2026-10-14. Numbers from `measurements.csv`.
-- Progression packs 1–3 (1,484 mods on 1.7) in Load Them Last's order, no Prepatcher, Graphics Settings+ or Melee Animation. Extra support used: Giddy-Up 2 and Alien Worlds Framework.
+- Progression packs 1–3 in Load Them Last's order, no Prepatcher, Graphics Settings+ or Melee Animation. Extra support used: Giddy-Up 2 and Alien Worlds Framework.
 - Cold: average of 2 starts per column. XML patching went from 9.4 to 11.7 s, most likely because mod sounds and textures now load at the same time. The first "on" start after the "off" starts took 5:18 and is left out: pre-compiling patched methods and the JIT profile only help from the second start.
 - Warm: average of 3 starts. No warm "off" start was measured; compared with the cold "off" starts it is −46%, which includes Missile Girl's cache.
 
@@ -67,7 +67,7 @@ On 1.7 the atlas cache and audio streaming switch themselves off, because the ga
 
 These starts tested correctness and TPS rather than load time, so they differ from the method above:
 
-- RimWorld 1.7.4977 (rev926), Progression packs 1–3 (1,477 mods) plus three test mods (def hashes, TPS, running with Steam closed), 2026-10-13.
+- RimWorld 1.7.4977 (rev926), Progression packs 1–3 plus three test mods (def hashes, TPS, running with Steam closed), 2026-10-13.
 - A 5.1 development build with every feature compiled in (the ones that do not apply to 1.7 switch themselves off), not the exact build in this repository.
 - The game went straight into a save, so the time is the `startup finished … at … s` line, up to the moment the save starts loading.
 - Warm: off 225.6, 221.1, 219.5 and 223.8 s; on 147.1, 137.7, 140.2, 135.5 and 136.6 s. Cold: one start with RimWorld Loading Optimizer on.
