@@ -1,5 +1,26 @@
 # Changelog
 
+## 5.1
+
+### Added
+- RimWorld 1.7 support. On 1.6 nothing changes; everything below is for 1.7 only.
+- Mod sounds and textures load while the game reads and patches the XML, instead of after it. A second bar on the loading screen shows the progress.
+- Mod sound files are opened and decoded on a background thread while mod data loads (at most 256 MB extra memory during loading).
+- The forced full memory clean-up just before the main menu is skipped; the runtime cleans up as usual while you play.
+- Code that mods patched is compiled on spare CPU cores early in the next start, and a background JIT profile lets the runtime compile startup code ahead of time from the second start on.
+- Faster Harmony patching: the stored patch list and loaded assembly names are no longer worked out again for every patched method.
+- Merge repeated Harmony rebuilds when one mod patches the same method from several classes (test, off by default).
+- Overridden textures that can never be shown are not loaded onto the graphics card; if a mod still asks for one, it is loaded the first time it is drawn.
+- Cached texture atlas pages reuse one buffer instead of a new 85 MB block per page.
+- Missile Girl's cache files are read ahead from disk on a background thread when the mod list is unchanged.
+- Giddy-Up 2: rider draw offsets are remembered between starts, keyed on the exact texture content, instead of being read back from the graphics card every start. Giddy-Up's own code still runs.
+- Worksites Expanded: its tome-trader check is answered directly while no game is loaded, instead of failing and being caught tens of thousands of times per start.
+- Alien Worlds Framework: Worldbuilder preset images from the last start are reused when their source textures are unchanged.
+- The startup report adds memory clean-ups per loading phase, Harmony rebuild timing, atlas cache misses and JIT/GC totals.
+
+### Changed
+- On 1.7 the atlas cache and audio streaming switch themselves off: the game now caches baked atlases and loads sounds without the old wait loop itself.
+
 ## 5.0
 
 ### Changed
