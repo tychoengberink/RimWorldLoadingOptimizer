@@ -29,7 +29,28 @@ namespace RimWorldLoadingOptimizer
         private static bool rebuilt, pruned, modListWritten;
         private static int prunedCount;
 
+        private static Harmony harmony;
+        private static bool attempted;
+
+        // Missile Girl loads Gagarin.dll itself after RimWorld Loading Optimizer's constructor, so the patch is installed
+        // when the defs are parsed (StartUpFinished runs later, with the static constructors).
         public static void Install(Harmony harmony)
+        {
+            GagarinCacheKeep.harmony = harmony;
+            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)), prefix: new HarmonyMethod(typeof(GagarinCacheKeep), nameof(ParsePrefix)));
+        }
+
+        public static void ParsePrefix()
+        {
+            if (attempted)
+            {
+                return;
+            }
+            attempted = true;
+            RLOMod.Try(Feature, true, InstallNow);
+        }
+
+        private static void InstallNow()
         {
             var context = AccessTools.TypeByName("Gagarin.Context");
             var env = AccessTools.TypeByName("Gagarin.GagarinEnvironmentInfo");
