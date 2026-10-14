@@ -50,7 +50,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            if (!Fingerprint.Matches("Skip the load-end memory clean-up (Loading Progress)", Fingerprint.Known(method, "098D3D0C587B916C")))
+            if (!Fingerprint.Matches("Skip the load-end memory clean-up (Loading Progress)", Fingerprint.Known(method, "098D3D0C587B916C", "DB95EE909FFA75E7", "987485635198FB92")))
             {
                 return;
             }

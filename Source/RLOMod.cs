@@ -159,6 +159,9 @@ namespace RimWorldLoadingOptimizer
 #endif
             var harmony = new Harmony(content.PackageIdPlayerFacing);
             HarmonyId = harmony.Id;
+#if RW17
+            Try("Harmony dependency name index", settings.harmonyRebuildCaches, () => HarmonyDependencyIndex.Install(harmony));
+#endif
             MainMenu.Install(harmony);
 #if RW17
             Try("sound read-ahead", settings.soundReadAhead, AudioReadAhead.Install);
@@ -254,10 +257,14 @@ namespace RimWorldLoadingOptimizer
             Try("skip load-end memory clean-up", settings.backgroundGc, () => BackgroundGc.Install(harmony));
 #endif
             Try("XML child list cursor", settings.defLoadingFixes, () => ChildCursor.Install(harmony));
+#if RW17
+            Try("XML previous-sibling cursor", settings.defLoadingFixes, () => SiblingCursor.Install(harmony));
+#endif
             Try("surgery index", settings.defLoadingFixes, () => SurgeryIndex.Install(harmony));
             Try("type name lookups", settings.defLoadingFixes, () => TypeNameIndex.Install(harmony));
             Try("vanilla facility link lookup", settings.defLoadingFixes, () => FacilityFast.Install(harmony));
             Try("Missile Girl background cache write", settings.defLoadingFixes && settings.gagarinFast && !xmlCache, () => GagarinAsync.Install(harmony));
+            Try("Missile Girl cache kept after a rebuild", settings.gagarinFast && settings.Supports("missilegirl") && !xmlCache, () => GagarinCacheKeep.Install(harmony));
             Try("startup phase fixes", true, () => LeanFixes.Install(harmony, settings, Try));
 #if RW17
             Try("Giddy-Up draw offsets", settings.Supports("giddyup"), () => GiddyUpOffsets.Install(harmony));
@@ -379,7 +386,7 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Decode mod sounds ahead", ref settings.soundReadAhead, "While mod data loads, a background thread already opens and decodes the mods' sound files, so the game finds them ready instead of loading them one by one. Uses at most 256 MB of extra memory during loading. Sounds are identical.");
             list.CheckboxLabeled("Pre-compile patched methods", ref settings.precompilePatched, "Remembers which methods were patched by mods at the main menu and compiles them on spare CPU cores early in the next start, so less compiling happens on the loading thread. Only the timing of compilation changes.");
             list.CheckboxLabeled("Background JIT profile", ref settings.backgroundJitProfile, "Records which game and mod code gets compiled during startup and lets the .NET runtime compile it again on a background thread from the next start on. Only the timing of compilation changes.");
-            list.CheckboxLabeled("Faster Harmony patch rebuilds", ref settings.harmonyRebuildCaches, "Every time a mod patches a method, Harmony rebuilds that method from scratch. Skip two repeated steps of that rebuild: decoding the stored patch list a second time, and working out the name of every loaded assembly again. Same patches, same generated code.");
+            list.CheckboxLabeled("Faster Harmony patch rebuilds", ref settings.harmonyRebuildCaches, "Every time a mod patches a method, Harmony rebuilds that method from scratch. Skip three repeated steps of that rebuild: decoding the stored patch list a second time, working out the name of every loaded assembly again, and comparing the generated code's references with every loaded assembly (an index by name answers that). Same patches, same generated code.");
             list.CheckboxLabeled("Merge repeated Harmony rebuilds (test)", ref settings.harmonyCoalesce, "When a mod patches the same game method from several patch classes, Harmony rebuilds and recompiles that method once per class. Build it once, at the end of that mod's patching, instead. Patch errors still appear exactly where they would otherwise, and the final code is identical. Off by default until it is verified in a full start.");
             list.CheckboxLabeled("Reuse buffers for cached atlas pages", ref settings.atlasPageBuffers, "When the game loads its baked texture atlases from its cache, reuse one buffer for every page instead of allocating a new 85 MB block per page. Less memory churn and fewer long memory clean-ups during atlas baking. Same atlases.");
 #endif
