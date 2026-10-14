@@ -95,11 +95,13 @@ Warm starts could not be measured on this list: Missile Girl resets its own XML 
 
 #### 1,484-mod list, cold start
 
+Average of 2 starts per column.
+
 | | Off | 5.1 defaults | Change |
 |---|---|---|---|
-| Time to main menu | 6:39 and 6:36 (398.7 s, 395.6 s) | **4:11 and 4:10 (251.1 s, 250.1 s)** | −37% |
-| XML patching | 9.4 s | 11.6–11.7 s | +2.2 s |
-| Peak memory | 19.0–19.1 GB | **18.6–19.0 GB** | about −0.2 GB |
+| Time to main menu | 6:37 (397.2 s) | **4:11 (250.6 s)** | −37% |
+| XML patching | 9.4 s | 11.7 s | +2.3 s |
+| Peak memory | 19.0 GB | **18.8 GB** | −0.2 GB |
 
 The first start with RimWorld Loading Optimizer on after the off starts took 5:18 (318.2 s). Pre-compiling patched methods and the background JIT profile only help from the second start on, so that start is left out of the table.
 
@@ -107,10 +109,12 @@ XML patching is about 2 s slower with RimWorld Loading Optimizer on, most likely
 
 #### 1,484-mod list, warm start
 
+Average of 3 starts.
+
 | | Off | 5.1 defaults | Change |
 |---|---|---|---|
-| Time to main menu | not measured | **3:33, 3:33 and 3:32 (213.1 s, 213.0 s, 211.9 s)** | −46% compared with the cold "off" starts |
-| Peak memory | not measured | **17.0–17.3 GB** | |
+| Time to main menu | not measured | **3:33 (212.7 s)** | −46% compared with the cold "off" starts |
+| Peak memory | not measured | **17.1 GB** | |
 
 No warm start with RimWorld Loading Optimizer off was measured, so the change in this table compares with the cold "off" starts above and also includes Missile Girl's XML cache.
 

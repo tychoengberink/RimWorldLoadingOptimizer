@@ -58,17 +58,19 @@ Windows PC: AMD Ryzen 7 5800X3D, 32 GB, RTX 5080 (Vulkan), NVMe SSD, Windows 11.
 
 #### 1,484-mod list, cold start
 
+Average of 2 starts per column.
+
 | | Off | 5.1 defaults | Change |
 |---|---|---|---|
-| Time to main menu | 6:39 and 6:36 (2 starts) | **4:11 and 4:10 (2 starts)** | −37% |
-| XML patching | 9.4 s | 11.6–11.7 s | +2.2 s |
-| Peak memory | 19.0–19.1 GB | **18.6–19.0 GB** | about −0.2 GB |
+| Time to main menu | 6:37 (397.2 s) | **4:11 (250.6 s)** | −37% |
+| XML patching | 9.4 s | 11.7 s | +2.3 s |
+| Peak memory | 19.0 GB | **18.8 GB** | −0.2 GB |
 
 The first start with RimWorld Loading Optimizer on is slower (5:18 here): pre-compiling patched methods and the background JIT profile only help from the second start on. XML patching is a little slower, most likely because mod sounds and textures load at the same time.
 
 #### 1,484-mod list, warm start
 
-With RimWorld Loading Optimizer on: **3:33, 3:33 and 3:32** (3 starts), peak memory 17.0–17.3 GB. A warm start with RimWorld Loading Optimizer off was not measured.
+With RimWorld Loading Optimizer on: **3:33 (212.7 s)**, peak memory 17.1 GB (average of 3 starts). A warm start with RimWorld Loading Optimizer off was not measured.
 
 ## Measure it on your own PC
 
