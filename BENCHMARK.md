@@ -6,17 +6,17 @@ RimWorld 1.6 and 1.7 run different builds of RimWorld Loading Optimizer with dif
 
 ## Hardware
 
-| | Mac (RimWorld 1.6) | Windows PC (RimWorld 1.7) |
+| | Mac (RimWorld 1.6 and 1.7) | Windows PC (RimWorld 1.7) |
 |---|---|---|
 | CPU | Apple M5 Pro | AMD Ryzen 7 5800X3D (8 cores) |
 | Memory | 24 GB unified (shared with the GPU) | 32 GB |
-| GPU | Apple M5 Pro (Metal) | NVIDIA GeForce RTX 5080, 16 GB (Vulkan) |
+| GPU | Apple M5 Pro (Metal on 1.6, Vulkan through MoltenVK on 1.7) | NVIDIA GeForce RTX 5080, 16 GB (Vulkan) |
 | Storage | internal SSD | Samsung 970 EVO 1 TB (NVMe SSD) |
 | OS | macOS | Windows 11 (10.0.26200) |
 
 ## Method (both versions)
 
-- The two versions were measured on different machines (see above).
+- RimWorld 1.6 was measured on the Mac, RimWorld 1.7 on the Windows PC and the Mac (see above).
 
 - Time to the main menu is taken from RimWorld Loading Optimizer's own log line `main menu reached at … s`, counted from process start.
 - "Off" is the same mod list with every RimWorld Loading Optimizer feature switched off (`LEANMEMORY_ALLOFF=1`), so only RimWorld Loading Optimizer differs between the two columns.
@@ -118,12 +118,37 @@ Average of 3 starts.
 
 No warm start with RimWorld Loading Optimizer off was measured, so the change in this table compares with the cold "off" starts above and also includes Missile Girl's XML cache.
 
+### Results (Mac, 1.7, 5.1 test build)
+
+These starts were made to test correctness and TPS, not as a clean benchmark, so they differ from the method above:
+
+- RimWorld 1.7.4977 (rev926), Progression packs 1 to 3 (1,477 mods) plus three test mods: one that logs a hash of every def, one that loads a save and measures TPS, and one that lets the game run with Steam closed (all mods were local copies).
+- A 5.1 development build with every feature compiled in. The features that do not apply to 1.7 switch themselves off. This is not the exact build in this repository.
+- The game went straight into a save instead of stopping at the main menu, so the time is RimWorld Loading Optimizer's `startup finished … at … s` line (up to the moment the save starts loading), not the main menu.
+- The Mac has 24 GB of memory shared with the GPU and this list needs about 27 GB, so macOS swaps during every start. Expect a larger spread than on the Windows PC.
+- Measured on 2026-10-13.
+
+#### Progression packs 1 to 3, warm start
+
+| | Off | 5.1 test build | Change |
+|---|---|---|---|
+| Startup time | 3:42 (222.5 s, 4 starts) | **2:19 (139.4 s, 5 starts)** | −37% |
+| Peak memory | 26.9 GB | 27.5 GB | +0.6 GB |
+| TPS on a 1.6 test save (60 s at speed 4) | 350 | **502** | not slower |
+
+Single starts: off 225.6, 221.1, 219.5 and 223.8 s; on 147.1, 137.7, 140.2, 135.5 and 136.6 s. TPS varied between 207 and 428 with the optimizer off and between 415 and 569 with it on, because of the memory pressure, so the TPS row only shows that it does not get slower.
+
+One cold start with RimWorld Loading Optimizer on took 2:35 (154.8 s). No cold start with it off was measured.
+
+Correctness: every def (about 118,000) was compared field by field between the starts with the optimizer on and off. The first builds gave 601 defs with fewer random texture variants than vanilla; that was fixed, and with the fixed build (the last two "on" starts) everything was identical apart from 32 defs that also differ between two starts with the same setting (random values in some ThingDefs and ThingSetMakerDefs), they were identical. The set of distinct error messages was identical too.
+
 ## Measure it yourself
 
 RimWorld Loading Optimizer can run the same A/B comparison on any PC: Mod Settings → RimWorld Loading Optimizer → "Measure how much RimWorld Loading Optimizer saves on your PC". It needs two restarts and writes every start to `RimWorldLoadingOptimizer/measurements.csv` in the RimWorld save data folder. See the README for details.
 
 ## Not verified yet
 
-- RimWorld 1.6 on Windows and Linux; RimWorld 1.7 on Mac and Linux.
-- RimWorld 1.7 warm starts with RimWorld Loading Optimizer off.
+- RimWorld 1.6 on Windows and Linux; RimWorld 1.7 on Linux.
+- RimWorld 1.7 on the Mac with the exact build in this repository, timed to the main menu.
+- RimWorld 1.7 warm starts with RimWorld Loading Optimizer off on Windows.
 - Other mod lists and other hardware.
