@@ -50,7 +50,7 @@ Most of the time saved on this list comes from the extra support for Graphics Se
 | Texture loading | 99.0 s | **26.7 s** | −73% |
 | Peak memory | 54.3 GB | **53.7 GB** | −0.6 GB |
 
-Warm starts could not be measured on this list: Missile Girl resets its own XML cache on every start here ("Total number of files changed. Reseting cache"), with or without RimWorld Loading Optimizer.
+No warm start was measured on this list: after a switch from another mod list, Missile Girl needs three starts before its XML cache is used again (the first logs "Mod list changed", the second "Total number of files changed. Reseting cache", the third "Mod list changed" again), with or without RimWorld Loading Optimizer. The 5.0 starts on this list all fell inside that cycle, so only the cold result is listed.
 
 ### RimWorld 1.7 (5.1)
 
