@@ -6,15 +6,17 @@ RimWorld 1.6 and 1.7 run different builds of RimWorld Loading Optimizer with dif
 
 ## Hardware
 
-| | Mac (all measurements) |
-|---|---|
-| CPU | Apple M5 Pro |
-| Memory | 24 GB unified (shared with the GPU) |
-| GPU | Apple M5 Pro (Metal) |
-| Storage | internal SSD |
-| OS | macOS |
+| | Mac (RimWorld 1.6) | Windows PC (RimWorld 1.7) |
+|---|---|---|
+| CPU | Apple M5 Pro | AMD Ryzen 7 5800X3D (8 cores) |
+| Memory | 24 GB unified (shared with the GPU) | 32 GB |
+| GPU | Apple M5 Pro (Metal) | NVIDIA GeForce RTX 5080, 16 GB (Vulkan) |
+| Storage | internal SSD | Samsung 970 EVO 1 TB (NVMe SSD) |
+| OS | macOS | Windows 11 (10.0.26200) |
 
 ## Method (both versions)
+
+- The two versions were measured on different machines (see above).
 
 - Time to the main menu is taken from RimWorld Loading Optimizer's own log line `main menu reached at … s`, counted from process start.
 - "Off" is the same mod list with every RimWorld Loading Optimizer feature switched off (`LEANMEMORY_ALLOFF=1`), so only RimWorld Loading Optimizer differs between the two columns.
@@ -81,45 +83,36 @@ Warm starts could not be measured on this list: Missile Girl resets its own XML 
 
 ## RimWorld 1.7
 
-**Not measured yet.** The tables below are placeholders for the 5.1 measurements.
-
 ### Setup
 
-- RimWorld 1.7 (build: _to fill in_) with all five DLCs.
-- RimWorld Loading Optimizer 5.1 with its default settings, measured on _to fill in_. "Merge repeated Harmony rebuilds" is a test option and stays off, as in the defaults.
-- Mod lists: _to fill in_. Use the 1.7 versions of the 1.6 lists where they exist, and note every mod that is missing or replaced.
-- Textures pre-converted to DDS and other performance mods: _to fill in_ (same as 1.6 where those mods exist for 1.7).
+- RimWorld 1.7.4976 (rev1043) with all five DLCs (Royalty, Ideology, Biotech, Anomaly, Odyssey), on the Windows PC above. These numbers come from different hardware than the 1.6 ones.
+- RimWorld Loading Optimizer 5.1 (development build) with its default settings, measured on 2026-10-14. "Merge repeated Harmony rebuilds" is a test option and was off, as in the defaults.
+- Mod list: 1,484 mods, saved in the order Load Them Last wants. Other performance mods active: Faster Game Loading, Loading Progress and Missile Girl. Prepatcher, Graphics Settings+ and Melee Animation are not in this list. Mods with extra 1.7 support in the list: Giddy-Up 2 and Alien Worlds Framework (with its world packs).
 - On 1.7 the atlas cache and audio streaming switch themselves off, because the game does that work itself.
+- Numbers come from `measurements.csv`. The per-phase texture loading times were not kept for these starts, so they are not listed.
 
-### Results (Mac, 1.7, 5.1)
+### Results (Windows, 1.7, 5.1)
 
-#### Mod list A (_n_ mods), cold start
-
-| | Off | 5.1 defaults | Change |
-|---|---|---|---|
-| Time to main menu | – | – | – |
-| XML patching | – | – | – |
-| Texture loading | – | – | – |
-| Peak memory | – | – | – |
-
-#### Mod list A (_n_ mods), warm start
+#### 1,484-mod list, cold start
 
 | | Off | 5.1 defaults | Change |
 |---|---|---|---|
-| Time to main menu | – | – | – |
-| Texture loading | – | – | – |
-| Peak memory | – | – | – |
+| Time to main menu | 6:39 and 6:36 (398.7 s, 395.6 s) | **4:11 and 4:10 (251.1 s, 250.1 s)** | −37% |
+| XML patching | 9.4 s | 11.6–11.7 s | +2.2 s |
+| Peak memory | 19.0–19.1 GB | **18.6–19.0 GB** | about −0.2 GB |
 
-#### Mod list B (_n_ mods), cold start
+The first start with RimWorld Loading Optimizer on after the off starts took 5:18 (318.2 s). Pre-compiling patched methods and the background JIT profile only help from the second start on, so that start is left out of the table.
+
+XML patching is about 2 s slower with RimWorld Loading Optimizer on, most likely because mod sounds and textures now load at the same time. The total time to the main menu still drops by about 2.5 minutes.
+
+#### 1,484-mod list, warm start
 
 | | Off | 5.1 defaults | Change |
 |---|---|---|---|
-| Time to main menu | – | – | – |
-| XML patching | – | – | – |
-| Texture loading | – | – | – |
-| Peak memory | – | – | – |
+| Time to main menu | not measured | **3:33, 3:33 and 3:32 (213.1 s, 213.0 s, 211.9 s)** | −46% compared with the cold "off" starts |
+| Peak memory | not measured | **17.0–17.3 GB** | |
 
-Pre-compiling patched methods and the background JIT profile only help from the second start on, so measure the 5.1 column after at least one earlier start with the same mod list.
+No warm start with RimWorld Loading Optimizer off was measured, so the change in this table compares with the cold "off" starts above and also includes Missile Girl's XML cache.
 
 ## Measure it yourself
 
@@ -127,5 +120,6 @@ RimWorld Loading Optimizer can run the same A/B comparison on any PC: Mod Settin
 
 ## Not verified yet
 
-- RimWorld 1.7 on any mod list.
-- Other mod lists, other hardware, Windows, Linux.
+- RimWorld 1.6 on Windows and Linux; RimWorld 1.7 on Mac and Linux.
+- RimWorld 1.7 warm starts with RimWorld Loading Optimizer off.
+- Other mod lists and other hardware.
