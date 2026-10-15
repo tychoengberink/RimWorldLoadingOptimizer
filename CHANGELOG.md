@@ -19,7 +19,18 @@
 - Alien Worlds Framework: Worldbuilder preset images from the last start are reused when their source textures are unchanged.
 - Vanilla Trading Expanded: while it sorts tradeable items at startup, its own product check and RimWorld's market value recipe check loop over the one recipe that can match from an index, instead of over every recipe for every item. Its own code still runs.
 - TD Find Lib: while its startup code runs, the recipe users it reads come from an index of the ThingDef recipe lists, in the same order, instead of a scan of every ThingDef per recipe.
-- The startup report adds memory clean-ups per loading phase, Harmony rebuild timing, atlas cache misses and JIT/GC totals.
+- Faster Harmony patching: generated methods bind their references from an index of loaded assemblies by name, instead of comparing every reference with every loaded assembly (about 3.5 s to 0.1 s with 1,483 mods). The module lookup Harmony does for existing patches uses an index too, and the reflection lookups made while generating a method are answered from RLO's identity map.
+- XML: finding the previous sibling of a node starts from the last one found instead of walking from the first child. Adaptive Storage Framework replaces every inherited def under the def root this way, which took about 20 s on cold starts with 1,483 mods and now takes about 0.4 s; the document is identical.
+- Graphics memory: while the graphics card's memory budget is used up, small mesh buffers are placed in shared 32 MB blocks until shortly after the main menu, instead of each getting its own allocation from the driver (the frame before the main menu went from about 16 s to 0.1 s with 1,483 mods). Mesh uploads copy through one staging buffer per batch. Both have their own setting.
+- Texture atlases: the size and date of every source texture file are read on worker threads before baking; the cache keys are the same.
+- Memory: from RimWorld Loading Optimizer's start until the main menu the runtime avoids blocking full memory clean-ups (GC latency mode SustainedLowLatency); it is set back at the main menu.
+- Content lookups: textures that are not in any mod are checked against each asset bundle's list of names before the bundle is asked, folder lookups only visit mods that have files under that folder, and texture-index misses no longer scan every mod again.
+- Recipe index and category cache: Alpha Implants' warm-up of every ThingDef's recipes is checked once instead of once per ThingDef, and the category cache checks a flat list instead of hashing the category tree.
+- Cherry Picker: the part of its startup code that removes the picked defs runs right after its class is initialized instead of while it is still being initialized, where every read of the class's own fields takes a slower path (about 1.6 s to 0.3 s). Same code, same order, nothing else runs in between. If that code ever failed, the error is reported for that call instead of on every later use of Cherry Picker.
+- Vehicle Framework: while it builds its pattern materials, each pattern texture is decoded to pixels once instead of six times.
+- Loading Progress and Lunar: the speedups for them are checked against their current versions again (the forced memory clean-up at the end of loading is skipped again, about 2.7 s).
+- Tests, off by default: keep Missile Girl's rebuilt cache usable after a rebuild (it deletes its own mod list file and keeps stale hashes, so the next start is slow again; this works around a Missile Girl issue), and read the game's own sounds and PA Dynamic Seed Icons' images ahead.
+- The startup report adds memory clean-ups per loading phase, Harmony rebuild timing, atlas cache misses, mesh upload timing and JIT/GC totals.
 
 ### Changed
 - On 1.7 the atlas cache and audio streaming switch themselves off: the game now caches baked atlases and loads sounds without the old wait loop itself.

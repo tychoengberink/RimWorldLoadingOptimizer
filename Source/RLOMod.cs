@@ -40,8 +40,13 @@ namespace RimWorldLoadingOptimizer
         public bool harmonyRebuildCaches = true;
         public bool shadowedUploads = true;
         public bool harmonyCoalesce = false;
-        public bool harmonyBatchLoad = false;
         public bool atlasPageBuffers = true;
+        public bool meshPool = true;
+        public bool meshStaging = true;
+        public bool atlasStamps = true;
+        public bool gagarinCacheKeep = false;
+        public bool gameSoundReadAhead = false;
+        public bool seedIconReadAhead = false;
 #endif
         public bool gagarinFast = true;
         public bool typeIndex = true;
@@ -98,8 +103,13 @@ namespace RimWorldLoadingOptimizer
             Scribe_Values.Look(ref harmonyRebuildCaches, "harmonyRebuildCaches", true);
             Scribe_Values.Look(ref shadowedUploads, "shadowedUploads", true);
             Scribe_Values.Look(ref harmonyCoalesce, "harmonyCoalesce", false);
-            Scribe_Values.Look(ref harmonyBatchLoad, "harmonyBatchLoad", false);
             Scribe_Values.Look(ref atlasPageBuffers, "atlasPageBuffers", true);
+            Scribe_Values.Look(ref meshPool, "meshPool", true);
+            Scribe_Values.Look(ref meshStaging, "meshStaging", true);
+            Scribe_Values.Look(ref atlasStamps, "atlasStamps", true);
+            Scribe_Values.Look(ref gagarinCacheKeep, "gagarinCacheKeep", false);
+            Scribe_Values.Look(ref gameSoundReadAhead, "gameSoundReadAhead", false);
+            Scribe_Values.Look(ref seedIconReadAhead, "seedIconReadAhead", false);
 #endif
             Scribe_Values.Look(ref gagarinFast, "gagarinFast", true);
             Scribe_Values.Look(ref typeIndex, "typeIndex", true);
@@ -151,8 +161,13 @@ namespace RimWorldLoadingOptimizer
                 settings.harmonyRebuildCaches = false;
                 settings.shadowedUploads = false;
                 settings.harmonyCoalesce = false;
-                settings.harmonyBatchLoad = false;
                 settings.atlasPageBuffers = false;
+                settings.meshPool = false;
+                settings.meshStaging = false;
+                settings.atlasStamps = false;
+                settings.gagarinCacheKeep = false;
+                settings.gameSoundReadAhead = false;
+                settings.seedIconReadAhead = false;
 #endif
             }
             Settings = settings;
@@ -171,7 +186,7 @@ namespace RimWorldLoadingOptimizer
             MainMenu.Install(harmony);
 #if RW17
             Try("sound read-ahead", settings.soundReadAhead, AudioReadAhead.Install);
-            Try(ResourceSoundReadAhead.Feature, settings.soundReadAhead, () => ResourceSoundReadAhead.Install(harmony));
+            Try(ResourceSoundReadAhead.Feature, settings.gameSoundReadAhead, () => ResourceSoundReadAhead.Install(harmony));
             if (Verify)
             {
                 MainMenu.Then(AudioReadAhead.LogClipHash);
@@ -220,8 +235,7 @@ namespace RimWorldLoadingOptimizer
             }
             Try("Harmony identity map", settings.harmonyIdentityMap, () => HarmonyIdentityMap.Install(harmony));
 #if RW17
-            Try("Harmony batched assembly loads", settings.harmonyBatchLoad, () => HarmonyBatchLoad.Install(harmony));
-            Try("Harmony rebuild coalescing", settings.harmonyCoalesce || HarmonyBatchLoad.Installed, () => Coalesce.Install(harmony));
+            Try("Harmony rebuild coalescing", settings.harmonyCoalesce, () => Coalesce.Install(harmony));
 #endif
             Try("mod constructor speedups", CtorFixes.Needed(settings), () => CtorFixes.InstallEarly(harmony));
 #if !NATIVE_ASSETS
@@ -244,9 +258,9 @@ namespace RimWorldLoadingOptimizer
             Try("GC per phase", settings.startupReport, () => GcPhases.Install(harmony));
             Try("atlas cache miss report", settings.startupReport, () => AtlasMisses.Install(harmony));
             Try("atlas page buffers", settings.atlasPageBuffers, () => AtlasPageBuffers.Install(harmony));
-            Try("atlas source stamps", settings.startupPhases, () => AtlasStamps.Install(harmony));
-            Try("mesh upload timing and staging buffer", settings.startupReport || settings.startupPhases, () => MeshStaging.Install(harmony, settings.startupPhases));
-            Try("mesh buffer pool", settings.startupPhases && Environment.GetEnvironmentVariable("LEANMEMORY_NOMESHPOOL") != "1", () => MeshPool.Install(harmony));
+            Try("atlas source stamps", settings.atlasStamps, () => AtlasStamps.Install(harmony));
+            Try("mesh upload timing and staging buffer", settings.startupReport || settings.meshStaging, () => MeshStaging.Install(harmony, settings.meshStaging));
+            Try("mesh buffer pool", settings.meshPool && Environment.GetEnvironmentVariable("LEANMEMORY_NOMESHPOOL") != "1", () => MeshPool.Install(harmony));
             Try("GC fallback report", settings.startupReport, GcFallback.Install);
 #endif
             Try("category cache", settings.categoryCache, () => CategoryCache.Install(harmony));
@@ -275,7 +289,7 @@ namespace RimWorldLoadingOptimizer
             Try("type name lookups", settings.defLoadingFixes, () => TypeNameIndex.Install(harmony));
             Try("vanilla facility link lookup", settings.defLoadingFixes, () => FacilityFast.Install(harmony));
             Try("Missile Girl background cache write", settings.defLoadingFixes && settings.gagarinFast && !xmlCache, () => GagarinAsync.Install(harmony));
-            Try("Missile Girl cache kept after a rebuild", settings.gagarinFast && settings.Supports("missilegirl") && !xmlCache, () => GagarinCacheKeep.Install(harmony));
+            Try("Missile Girl cache kept after a rebuild", settings.gagarinCacheKeep && settings.gagarinFast && settings.Supports("missilegirl") && !xmlCache, () => GagarinCacheKeep.Install(harmony));
             Try("startup phase fixes", true, () => LeanFixes.Install(harmony, settings, Try));
 #if RW17
             Try("Giddy-Up draw offsets", settings.Supports("giddyup"), () => GiddyUpOffsets.Install(harmony));
@@ -283,7 +297,7 @@ namespace RimWorldLoadingOptimizer
             Try("Vehicle Framework pattern decodes", settings.Supports("vehicles"), () => VehiclePatternDecodes.Install(harmony));
             Try(RecipeScans.TradingFeature, settings.Supports("vanillatrading"), () => RecipeScans.InstallTrading(harmony));
             Try(RecipeScans.FindFeature, settings.Supports("tdfindlib"), () => RecipeScans.InstallFind(harmony));
-            Try(SeedIconReadAhead.Feature, settings.Supports("paseedicons"), () => SeedIconReadAhead.Install(harmony));
+            Try(SeedIconReadAhead.Feature, settings.seedIconReadAhead, () => SeedIconReadAhead.Install(harmony));
             Try(CherryPickerSetup.Feature, settings.Supports("cherrypicker"), () => CherryPickerSetup.Install(harmony));
 #endif
             Try("def XML release", settings.xmlRelease, () => XmlRelease.Install(harmony));
@@ -404,8 +418,13 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Background JIT profile", ref settings.backgroundJitProfile, "Records which game and mod code gets compiled during startup and lets the .NET runtime compile it again on a background thread from the next start on. Only the timing of compilation changes.");
             list.CheckboxLabeled("Faster Harmony patch rebuilds", ref settings.harmonyRebuildCaches, "Every time a mod patches a method, Harmony rebuilds that method from scratch. Skip three repeated steps of that rebuild: decoding the stored patch list a second time, working out the name of every loaded assembly again, and comparing the generated code's references with every loaded assembly (an index by name answers that). Same patches, same generated code.");
             list.CheckboxLabeled("Merge repeated Harmony rebuilds (test)", ref settings.harmonyCoalesce, "When a mod patches the same game method from several patch classes, Harmony rebuilds and recompiles that method once per class. Build it once, at the end of that mod's patching, instead. Patch errors still appear exactly where they would otherwise, and the final code is identical. Off by default until it is verified in a full start.");
-            list.CheckboxLabeled("Load Harmony's generated code in batches (test)", ref settings.harmonyBatchLoad, "Harmony builds a small assembly for every patched method that has exception handling, and Windows has the antivirus scan each one when it is loaded (about 10 ms each, thousands per start). While a mod's patches are applied, build up to 64 of those methods in one assembly and load it once. Same generated methods; any problem builds them one by one as before. Uses the rebuild merging above for the duration of each mod's patching.");
             list.CheckboxLabeled("Reuse buffers for cached atlas pages", ref settings.atlasPageBuffers, "When the game loads its baked texture atlases from its cache, reuse one buffer for every page instead of allocating a new 85 MB block per page. Less memory churn and fewer long memory clean-ups during atlas baking. Same atlases.");
+            list.CheckboxLabeled("Pool small mesh buffers while graphics memory is full", ref settings.meshPool, "With many mod textures the graphics card's memory budget is used up, and the engine's memory allocator then gives every small mesh buffer its own allocation from the driver (tens of thousands, about 15 s in the frame before the main menu, plus wasted graphics memory). While that is the case, and only until shortly after the main menu, small mesh buffers are placed in shared 32 MB blocks instead. Same buffers, same rendering; only where they sit in graphics memory changes. Switch this off if you see graphics problems.");
+            list.CheckboxLabeled("One staging buffer per mesh upload batch", ref settings.meshStaging, "When meshes are uploaded to the graphics card, copy them through one staging buffer per upload batch instead of creating, mapping and freeing one per mesh. Same mesh data.");
+            list.CheckboxLabeled("Read atlas source file details in parallel", ref settings.atlasStamps, "Before the texture atlases are baked, read the size and date of every source texture file on worker threads instead of one by one on the main thread. The game's atlas cache keys come out the same.");
+            list.CheckboxLabeled("Keep Missile Girl's rebuilt cache usable (test)", ref settings.gagarinCacheKeep, "When Missile Girl rebuilds its XML cache (for example after a mod or game update), it deletes its own mod list file and keeps hashes of files that are no longer loaded, so the next start is slow again. After a rebuild, write the mod list again and drop those hashes with Missile Girl's own functions. Missile Girl still checks every file on the next start. Off by default until it is verified after real mod updates; this works around a Missile Girl issue.");
+            list.CheckboxLabeled("Prepare the game's own sounds ahead (test)", ref settings.gameSoundReadAhead, "Open the game's built-in sound files on worker threads while mod data loads, so they are ready when the sound definitions are resolved. Uses up to 128 MB of extra memory during loading. Off by default until it shows a gain.");
+            list.CheckboxLabeled("Prepare PA Dynamic Seed Icons' images ahead (test)", ref settings.seedIconReadAhead, "Read and decode PA Dynamic Seed Icons' cached seed icon images on worker threads; its own code still makes every texture on the main thread. Uses up to 160 MB of extra memory during loading. Off by default until it shows a gain.");
 #endif
             list.CheckboxLabeled("Faster mod constructors", ref settings.fasterModConstructors, "Makes the first part of startup, where every mod sets itself up, faster by remembering answers that mods ask the game for again and again. Part of it needs Prepatcher. Same results.");
             list.CheckboxLabeled("Show the RimWorld Loading Optimizer banner while loading", ref settings.loadingBanner, "A bar at the top of the loading screen that shows RimWorld Loading Optimizer is active, live counters, and the last measured result on this PC.");

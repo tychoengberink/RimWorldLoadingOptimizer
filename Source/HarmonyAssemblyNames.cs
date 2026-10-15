@@ -38,7 +38,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (!Fingerprint.Matches(Feature,
                 Fingerprint.Known(ctor, "0995A15C7BF271F3"),
-                Fingerprint.Known(closures[0], "83F363FB75E3968E")))
+                Fingerprint.Known(closures[0], "83F363FB75E3968E", "12B74ADAA2E974DE", "ECD8761A59CA0007")))
             {
                 return;
             }

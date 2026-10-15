@@ -50,13 +50,4 @@
     <Reference Include="Assembly-CSharp" HintPath="$(RimWorldManaged)/Assembly-CSharp.dll" Private="false" />
     <Reference Include="0Harmony" HintPath="$(HarmonyDll)" Private="false" />
   </ItemGroup>
-  <!-- 1.7: Harmony 3 keeps its embedded Mono.Cecil internal; HarmonyBatchLoad builds modules with it. The 1.7 runtime
-       skips access checks (WaylithClr.SkipAccessChecks) and the publicizer also emits IgnoresAccessChecksTo. -->
-  <ItemGroup Condition="'$(RwVersion)' != '1.6'">
-    <PackageReference Include="Krafs.Publicizer" Version="2.3.0">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <Publicize Include="0Harmony" />
-  </ItemGroup>
 </Project>
