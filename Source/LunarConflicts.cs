@@ -28,7 +28,7 @@ namespace RimWorldLoadingOptimizer
             if (!Fingerprint.Matches("Lunar conflict check",
                     Fingerprint.Known(check, "13B83E8A3F48C1FF"),
                     Fingerprint.Known(GetPatchInfo, "5DD47414AB626F77"),
-                    Fingerprint.Known(processorGet, "3FBEB5C86979520A"),
+                    Fingerprint.Known(processorGet, "3FBEB5C86979520A", "AA845EE094F90A6A", "5AB5534B8F297319"),
                     Fingerprint.Known(sharedGet, "FCBBA976F9FCCF54")))
             {
                 return;

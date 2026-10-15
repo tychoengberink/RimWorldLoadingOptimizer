@@ -29,6 +29,13 @@ namespace RimWorldLoadingOptimizer
             harmony.Patch(AccessTools.Method(typeof(TKeySystem), nameof(TKeySystem.BuildMappings)),
                 postfix: new HarmonyMethod(typeof(XmlRelease), nameof(ReleaseAfterMappings)));
             installed = true;
+#if RW17
+            var bake = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases));
+            if (Fingerprint.Matches("XML Extensions document released before the load-end clean-up", Fingerprint.Known(bake, "45434BFD7AD5A8A9", "328DC23ECEE3DDF7")))
+            {
+                harmony.Patch(bake, prefix: new HarmonyMethod(typeof(XmlRelease), nameof(ReleaseXmlExtensionsDocument)));
+            }
+#endif
         }
 
         private static bool installed;

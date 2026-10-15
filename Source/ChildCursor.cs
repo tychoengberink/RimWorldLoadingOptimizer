@@ -31,7 +31,11 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var type = typeof(XmlNode).Assembly.GetType("System.Xml.XmlChildNodes", true);
+#if RW17
+            containerRef = AccessTools.FieldRefAccess<XmlNode>(type, "_container");
+#else
             containerRef = AccessTools.FieldRefAccess<XmlNode>(type, "container");
+#endif
             var item = AccessTools.Method(type, "Item", new[] { typeof(int) });
             harmony.Patch(item, prefix: new HarmonyMethod(typeof(ChildCursor), nameof(ItemPrefix)) { priority = Priority.Last });
             MainMenu.UnpatchAfterStartup(item);

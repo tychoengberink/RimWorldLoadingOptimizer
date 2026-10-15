@@ -44,6 +44,10 @@ namespace RimWorldLoadingOptimizer
                     summary = Summary();
                 }
                 var height = summary.Length > 0 ? 74f : 54f;
+#if RW17
+                var bars = featuresOff ? new List<(string label, int done, int total)>() : Bars();
+                height += bars.Count * 20f;
+#endif
                 Widgets.DrawBoxSolid(new Rect(0f, 0f, UI.screenWidth, height), Background);
                 Widgets.DrawBoxSolid(new Rect(0f, height - 2f, UI.screenWidth, 2f), Accent);
                 Text.Anchor = TextAnchor.MiddleCenter;
@@ -58,6 +62,14 @@ namespace RimWorldLoadingOptimizer
                     GUI.color = new Color(0.8f, 0.85f, 0.9f);
                     Widgets.Label(new Rect(0f, 50f, UI.screenWidth, 20f), summary);
                 }
+#if RW17
+                var top = summary.Length > 0 ? 72f : 52f;
+                foreach (var (label, done, total) in bars)
+                {
+                    DrawBar(new Rect(UI.screenWidth * 0.25f, top + 3f, UI.screenWidth * 0.5f, 14f), label, done, total);
+                    top += 20f;
+                }
+#endif
             }
             catch (System.Exception e)
             {
@@ -71,6 +83,29 @@ namespace RimWorldLoadingOptimizer
                 GUI.color = color;
             }
         }
+
+#if RW17
+        private static List<(string label, int done, int total)> Bars()
+        {
+            var bars = new List<(string label, int done, int total)>();
+            if (EarlyContent.Total > 0)
+            {
+                bars.Add(("Mod sounds and textures loaded during XML loading (the rest loads right after)", EarlyContent.Done, EarlyContent.Total));
+            }
+            return bars;
+        }
+
+        private static void DrawBar(Rect rect, string label, int done, int total)
+        {
+            var fraction = total > 0 ? Mathf.Clamp01((float)done / total) : 0f;
+            Widgets.DrawBoxSolid(rect, new Color(0.03f, 0.08f, 0.05f, 0.95f));
+            Widgets.DrawBoxSolid(new Rect(rect.x, rect.y, rect.width * fraction, rect.height), done >= total ? Accent : new Color(0.25f, 0.7f, 0.4f));
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            GUI.color = Color.white;
+            Widgets.Label(rect, $"{label}: {done:N0} / {total:N0}");
+        }
+#endif
 
         private static string Summary()
         {
@@ -95,11 +130,19 @@ namespace RimWorldLoadingOptimizer
             {
                 return parts[0];
             }
+#if !NATIVE_ASSETS && !RW17
             var textures = DdsPrefetch.Hits + DdsPrefetch.Warmed;
             if (textures > 0)
             {
                 parts.Add($"<b>{textures:N0}</b> textures read ahead ({DdsPrefetch.BytesRead >> 20:N0} MB)");
             }
+#endif
+#if RW17
+            if (EarlyContent.Total > 0)
+            {
+                parts.Add($"<b>{EarlyContent.Done:N0}</b> of {EarlyContent.Total:N0} mods' sounds and textures loaded during XML loading");
+            }
+#endif
             if (FastXPath.Hits > 0)
             {
                 parts.Add($"<b>{FastXPath.Hits:N0}</b> XML patch queries answered fast");
@@ -108,10 +151,12 @@ namespace RimWorldLoadingOptimizer
             {
                 parts.Add($"<b>{HarmonyIdentityMap.Updates:N0}</b> Harmony patches built faster");
             }
+#if !NATIVE_ASSETS
             if (AtlasCache.Hits > 0)
             {
                 parts.Add($"<b>{AtlasCache.Hits}</b> texture atlases loaded from cache");
             }
+#endif
             return string.Join("   ·   ", parts);
         }
     }

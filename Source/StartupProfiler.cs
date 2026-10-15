@@ -279,11 +279,16 @@ namespace RimWorldLoadingOptimizer
             var parts = new List<Func<string>>
             {
                 () => $"category cache: {CategoryCache.Hits} hits, {CategoryCache.Builds} builds",
-                () => $"recipe index: {RecipeIndex.Served} defs served, {RecipeIndex.Rebuilds} rebuilds, {RecipeIndex.Mismatches} verify mismatches",
-                () => $"texture lookups: {TextureLookup.Hits} hits, {TextureLookup.CachedMisses} cached misses, {TextureLookup.Builds} builds, {TextureLookup.PatchedMethods} methods, {TextureLookup.Mismatches} verify mismatches",
+                () => $"recipe index: {RecipeIndex.Served} defs served ({RecipeIndex.WarmServed} in Alpha Implants' warm-up without a new check), {RecipeIndex.Rebuilds} rebuilds, {RecipeIndex.Mismatches} verify mismatches",
+                () => $"texture lookups: {TextureLookup.Hits} hits, {TextureLookup.CachedMisses} cached misses, {TextureLookup.SkippedScans} holder scans skipped, {TextureLookup.Builds} builds, {TextureLookup.PatchedMethods} methods, {TextureLookup.Mismatches} verify mismatches",
                 () => $"DDS files recovered from PNG: {DdsFallback.Recovered}",
+#if !NATIVE_ASSETS
                 DdsPrefetch.Stats,
+#endif
                 Fingerprint.Stats,
+#if RW17
+                () => $"runtime: JIT {System.Runtime.JitInfo.GetCompiledMethodCount()} methods in {System.Runtime.JitInfo.GetCompilationTime().TotalSeconds:F1} s, GC collections {GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)} (gen0/1/2), GC pauses {GC.GetTotalPauseDuration().TotalSeconds:F1} s, {AppDomain.CurrentDomain.GetAssemblies().Length} assemblies loaded",
+#endif
                 AssemblySafety.Stats,
                 TypeIndex.Stats,
                 RrssRecipes.Stats,
@@ -295,7 +300,9 @@ namespace RimWorldLoadingOptimizer
                 LeanFixes.Stats,
                 GagarinFast.Stats,
                 GagarinAsync.Stats,
+#if !NATIVE_ASSETS
                 () => $"audio waits yielded: {AudioStreaming.YieldedWaits}",
+#endif
                 () => $"def XML release: {XmlRelease.Skipped} references skipped, {XmlRelease.Cleared} cleared, XML Extensions document released: {XmlRelease.ReleasedXmlExtensionsDocument}; {MonoHeap.Stats()}",
             };
             var sb = new StringBuilder("[RLO] startup report, one line per feature:");

@@ -21,7 +21,7 @@ namespace RimWorldLoadingOptimizer
             var apply = type == null ? null : AccessTools.Method(type, "Apply");
             if (apply == null || !Fingerprint.Matches("Lunar inlining fixer",
                 Fingerprint.Known(apply, "EB15E93BFD0A2FCE", "0EB2AD996306A30A"),
-                Fingerprint.Known(original, "05BA8CAC5E457CEB", "9AAB7BE113AD5532")))
+                Fingerprint.Known(original, "05BA8CAC5E457CEB", "9AAB7BE113AD5532", "40080DF59A0325D6", "70F162883228B841")))
             {
                 return;
             }

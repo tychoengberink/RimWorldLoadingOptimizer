@@ -11,7 +11,13 @@ namespace RimWorldLoadingOptimizer
 
         public static bool Enabled => harmony != null;
 
-        private static readonly string[] Mods = { "whatsthatmod", "steppingstones", "lunar" };
+        private static readonly string[] Mods =
+        {
+            "whatsthatmod", "steppingstones", "lunar",
+#if RW17
+            "alienworlds",
+#endif
+        };
 
         public static bool Needed(RLOSettings settings) => Mods.Any(settings.Supports);
 
@@ -57,6 +63,9 @@ namespace RimWorldLoadingOptimizer
             Try("Research Reinvented: Stepping Stones", On("steppingstones"), () => RrssRecipes.Install(harmony));
             Try("Lunar inlining fixer", On("lunar"), () => LunarInlining.Install(harmony));
             Try("What's That Mod", On("whatsthatmod"), () => WtmPatchScan.InstallLate(harmony));
+#if RW17
+            Try("Alien Worlds Framework", On("alienworlds"), () => AlienWorldsPresets.Install(harmony));
+#endif
         }
 
         [StaticConstructorOnStartup]

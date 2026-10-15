@@ -27,6 +27,13 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var target = AccessTools.Method(typeof(ModContentLoader<AudioClip>), "ShouldStreamAudioClipFromFile");
+#if RW17
+            if (target == null)
+            {
+                Log.Message("[RLO] audio streaming: not available on this RimWorld version (it loads sounds without the old wait loop); skipped");
+                return;
+            }
+#endif
             harmony.Patch(target, postfix: new HarmonyMethod(typeof(AudioStreaming), nameof(Postfix)));
             var sleep = AccessTools.Method(typeof(Thread), nameof(Thread.Sleep), new[] { typeof(int) });
             harmony.Patch(sleep, prefix: new HarmonyMethod(typeof(AudioStreaming), nameof(SleepPrefix)));

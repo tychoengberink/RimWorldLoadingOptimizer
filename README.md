@@ -2,47 +2,41 @@
 
 # RimWorld Loading Optimizer
 
-Load-time and memory optimizer for RimWorld 1.6 with very large mod lists. It patches the base game and other mods' code paths; it does not change any def content.
+Load-time and memory optimizer for RimWorld 1.6 and 1.7 with very large mod lists. It patches the base game and other mods' code paths; it does not change any def content.
 
-Version 5.0 with its default settings, measured on a Mac (Apple M5 Pro, 24 GB): a cold start of a 667-mod list goes from **8:16 to 2:47 (−66%)**, a warm start of a 668-mod list from about **4:10 to 2:19**, and a cold start of a 1,490-mod list from **17:03 to 5:41 (−67%)**.
+All numbers below come from the Progression packs 1–3 mod list ([1/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521297585), [2/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521319712), [3/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3637541646)) with RimWorld Loading Optimizer's default settings: 5.0 on RimWorld 1.6, 5.1 on RimWorld 1.7.
 
-Every speedup has a verification mode that recomputes the result the original way; all reported 0 mismatches in the 5.0 test starts.
+Every speedup has a verification mode that recomputes the result the original way; all reported 0 mismatches in the 5.0 test starts on 1.6.
 
-## Benchmarks (5.0)
+## Benchmarks
 
-Mac: Apple M5 Pro, 24 GB unified memory, internal SSD, macOS (Metal). Textures pre-converted to DDS with todds (RimSort). Faster Game Loading, Loading Progress and Missile Girl active. One start per scenario, measured on 2026-10-12. "Off" = every RimWorld Loading Optimizer feature switched off (`LEANMEMORY_ALLOFF=1`). Warm = Missile Girl's XML cache was used; cold = it was not (first start after a mod or mod-list change). Time to the main menu comes from the log line `main menu reached at … s`. Mod counts include Core and the DLCs. The full test setup is in [BENCHMARK.md](BENCHMARK.md).
+"Off" = every speedup switched off (`LEANMEMORY_ALLOFF=1`); the mod stays loaded for the measurement and the log reports. Warm = Missile Girl's XML cache was used; cold = it was not (first start after a mod or mod-list change). Faster Game Loading, Loading Progress and Missile Girl were active in every start. RimWorld 1.6 and 1.7 run different builds with different speedups, so their results are kept separate.
 
-### The NYz Collection: Sci-Fi & Progression without Graphics Settings+ (667 mods), cold start
+- Mac: Apple M5 Pro, 24 GB unified memory, macOS. On 1.6 all textures were pre-converted to DDS with todds (RimSort).
+- Windows PC: AMD Ryzen 7 5800X3D, 32 GB, RTX 5080, Windows 11.
 
-| | Off | 5.0 defaults | Change |
-|---|---|---|---|
-| Time to main menu | 8:16 (495.7 s) | **2:47 (166.9 s)** | −66% |
-| Texture loading | 85.5 s | **26.8 s** | DDS buffers for the game's own loader |
-| XML patching | 217.7 s | **9.1 s** | fast XML patching |
-| Peak memory | 42.6 GB | **41.4 GB** | −1.2 GB |
+### RimWorld 1.6
 
-A verification start compared all 83,778 textures loaded from RimWorld Loading Optimizer's buffers with what the game's own loader builds: 0 differences.
+| Machine | Start | Off | On | Change | Peak memory (off → on) |
+|---|---|---|---|---|---|
+| Mac | cold | 17:03 | **5:41** | −67% | 54.3 → 53.7 GB |
 
-### The NYz Collection: Sci-Fi & Progression with Graphics Settings+ (668 mods), warm start
+### RimWorld 1.7
 
-| | Off | 5.0 defaults | Change |
-|---|---|---|---|
-| Time to main menu | 4:05 and 4:19 (2 starts) | **2:19 (138.5 s)** | about −45% |
-| Texture loading | 74–77 s | **29 s** | Graphics Settings+ support |
-| Peak memory | 42.3–42.4 GB | **40.7 GB** | about −1.6 GB |
+| Machine | Start | Off | On | Change | Peak memory (off → on) |
+|---|---|---|---|---|---|
+| Windows ² | cold | 4:40 | **2:11** | −53% | 18.7 → 17.4 GB |
+| Windows ² | warm | 4:06 | **1:54** | −54% | 17.3 → 16.4 GB |
+| Mac ¹ | warm | 3:42 | **2:19** | −37% | 26.9 → 27.5 GB |
+| Mac ¹ | cold | – | **2:35** | – | – → 27.1 GB |
 
-Most of the time saved on this list comes from the extra support for Graphics Settings+, Melee Animation and Research Reinvented: Stepping Stones.
+Times are to the main menu. "–" means not measured.
 
-### Progression packs 1 to 3 (1,490 mods), cold start
+¹ Test runs, not a clean benchmark: a test build, time until the save starts loading instead of the main menu, and macOS swapping because the list needs about 27 GB on a 24 GB Mac.
 
-| | Off | 5.0 defaults | Change |
-|---|---|---|---|
-| Time to main menu | 17:03 (1023.5 s) | **5:41 (341.2 s)** | −67% |
-| XML patching | 528.9 s | **39.7 s** | −92% |
-| Texture loading | 99.0 s | **26.7 s** | −73% |
-| Peak memory | 54.3 GB | **53.7 GB** | −0.6 GB |
+² 5.1 development build on RimWorld 1.7.4979, 2026-10-15, with 1,481 mods: the Progression packs list after removing a few slow mods. Earlier results on the full list are in [BENCHMARK.md](BENCHMARK.md#windows-51-2026-10-14).
 
-Warm starts could not be measured on this list: Missile Girl resets its own XML cache on every start here ("Total number of files changed. Reseting cache"), with or without RimWorld Loading Optimizer.
+The full test setup, the phase times and the single starts are in [BENCHMARK.md](BENCHMARK.md).
 
 ## Measure it on your own PC
 
@@ -81,7 +75,14 @@ Put RimWorld Loading Optimizer directly after Harmony (its About.xml asks to loa
 | Category sets | `ThingCategoryDef.DescendantThingDefs` results | `Contains` checks on category lists answered from a hash set; follows the Category cache setting |
 | Type name index | `AccessTools.TypeByName` | Lookups that miss the fast paths are answered from an index in Harmony's exact order instead of listing all types of all assemblies per call |
 | Patch file reuse | `ModContentPack.LoadPatches`, `DirectXmlLoader.XmlAssetsInModFolder` | Patch files parsed during def loading are reused instead of parsed a second time |
+| Harmony dependency name index (1.7) | Harmony 3 `GeneratedAssemblyLoader` constructor (`AppDomain.GetAssemblies` call) | Each generated method binds its references from an index of loaded assemblies by name instead of comparing them with every loaded assembly; Harmony's own name and hash checks still run (3.5 s to 0.1 s) |
+| XML previous-sibling cursor (1.7) | `XmlLinkedNode.PreviousSibling` (startup only) | Walks forward from the last previous sibling found instead of from the first child; removing or inserting many nodes in document order is no longer quadratic (Adaptive Storage Framework's def replacement: ~20 s to 0.4 s on cold starts), same nodes |
+| Mesh buffer pool (1.7) | Waylith `MeshUploader.AllocateMeshBuffer` | While the device-local memory budget is used up, and only until 10 s after the main menu, small mesh buffers (up to 256 KB) are placed in a VMA pool with 32 MB blocks instead of one driver allocation each (the frame before the main menu: ~16 s to 0.1 s). Each buffer stays its own VkBuffer; the pool is emptied and destroyed before the allocator. Own setting |
+| Mesh staging (1.7) | Waylith `MeshUploader.CreateDeviceLocalBuffer` | One mapped staging buffer per upload command buffer instead of one per mesh stream; also times mesh uploads for the startup report. Own setting |
+| Atlas source stamps (1.7) | `StaticTextureAtlas.TryWriteSourceStamp` | File size and date of every atlas source texture are read on worker threads before baking; same cache key bytes. Own setting |
+| GC latency (1.7) | `GCSettings.LatencyMode` | SustainedLowLatency from RimWorld Loading Optimizer's start until the main menu, so the runtime avoids blocking full memory clean-ups while loading; set back at the main menu. Follows the "skip the forced memory clean-up" setting |
 | Startup report | `RuntimeHelpers.RunClassConstructor` | Logs the slowest mod static constructors |
+| Game sound read-ahead (1.7, test, off by default) | `UnityEngine.Resources.LoadStubResource` (its `AudioClip.Load` call) | Once the defs are loaded, the game's own sound files that the sub-sounds' grains will ask for are opened on worker threads with the game's `AudioClip.Open` (at most 128 MB waiting); the clip is then built from that on the thread that asks, exactly as `AudioClip.Load` builds it. Anything not ready is opened by the game as before |
 
 ### Extra support for other mods (on by default)
 
@@ -89,18 +90,27 @@ Each of these targets one mod, can be switched off separately in Mod Settings, a
 
 | Mod | What RimWorld Loading Optimizer does |
 |---|---|
-| Graphics Settings+ | Hands its own DDS loader the file bytes that were read ahead into memory (texture loading ~66 s to ~10 s on the 668-mod list) |
-| Missile Girl | Lets its own cache loader read the cache straight into the def document instead of copying every def, and skips an unused second read of the cache file |
+| Graphics Settings+ | Hands its own DDS loader the file bytes that were read ahead into memory |
+| Missile Girl | Lets its own cache loader read the cache straight into the def document instead of copying every def, and skips an unused second read of the cache file; on 1.7 it reads the cache on several threads |
 | Melee Animation | Indexes its retexture scan (−27 s) |
 | Research Reinvented: Stepping Stones | Indexed recipe-user lookups |
 | Lunar | Faster inlining fixer and patch conflict check |
 | What's That Mod | Runs its patch scan at a point where it is cheaper |
 | Children Wear Anything, Vehicle Framework, AV Mechanoid Skins | Route their texture lookups through RimWorld Loading Optimizer's texture index |
+| Vehicle Framework (1.7) | While it builds its pattern materials, each pattern texture is decoded to pixels once instead of six times; the repeats get a copy of the same pixels |
 | CombatAI | Faster label scan, and its label patches are applied on the main thread |
 | Linkable Groups | Indexed facility links |
 | Loading Progress | Installs the support above before Loading Progress runs the static constructors |
+| Giddy-Up 2 (1.7) | Remembers its rider draw offsets between starts, keyed on the exact texture content |
+| Worksites Expanded (1.7) | Answers its tome-trader check directly while no game is loaded instead of an exception caught tens of thousands of times |
+| Alien Worlds Framework (1.7) | Reuses last start's Worldbuilder preset images when their source textures are unchanged |
+| Cherry Picker (1.7) | Runs the part of its startup code that removes the picked defs right after its class is initialized instead of while it is still being initialized (1.6 s to 0.3 s). Same code, same order; if that code ever failed, the error is reported for that call instead of on every later use of Cherry Picker |
+| TD Find Lib (1.7) | Recipe users read during its startup come from an index, in the same order |
+| Vanilla Trading Expanded (1.7) | Its product check and the market value recipe check use an index while it sorts items; steps aside when another mod (such as Performance Optimizer) patches the same method |
 
-Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assembly.FullName`, `Assembly.GetTypes`, `Type.ContainsGenericParameters`, `Type.GetGenericArguments`, `XmlChildNodes.Item`, `Thread.Sleep`) only exist during startup and are removed when the main menu opens.
+Tests, off by default (Mod Settings): keep Missile Girl's rebuilt cache usable (writes its mod list again and drops stale hashes after a rebuild, with Missile Girl's own functions; works around a Missile Girl issue), PA Dynamic Seed Icons image read-ahead, and the game sound read-ahead above.
+
+Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assembly.FullName`, `Assembly.GetTypes`, `Type.ContainsGenericParameters`, `Type.GetGenericArguments`, `XmlChildNodes.Item`, `XmlLinkedNode.PreviousSibling`, `Thread.Sleep`) only exist during startup and are removed when the main menu opens.
 
 ## Safety rules the code follows
 
