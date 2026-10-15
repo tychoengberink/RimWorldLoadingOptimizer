@@ -40,6 +40,7 @@ namespace RimWorldLoadingOptimizer
         public bool harmonyRebuildCaches = true;
         public bool shadowedUploads = true;
         public bool harmonyCoalesce = false;
+        public bool harmonyBatchLoad = false;
         public bool atlasPageBuffers = true;
 #endif
         public bool gagarinFast = true;
@@ -97,6 +98,7 @@ namespace RimWorldLoadingOptimizer
             Scribe_Values.Look(ref harmonyRebuildCaches, "harmonyRebuildCaches", true);
             Scribe_Values.Look(ref shadowedUploads, "shadowedUploads", true);
             Scribe_Values.Look(ref harmonyCoalesce, "harmonyCoalesce", false);
+            Scribe_Values.Look(ref harmonyBatchLoad, "harmonyBatchLoad", false);
             Scribe_Values.Look(ref atlasPageBuffers, "atlasPageBuffers", true);
 #endif
             Scribe_Values.Look(ref gagarinFast, "gagarinFast", true);
@@ -149,6 +151,7 @@ namespace RimWorldLoadingOptimizer
                 settings.harmonyRebuildCaches = false;
                 settings.shadowedUploads = false;
                 settings.harmonyCoalesce = false;
+                settings.harmonyBatchLoad = false;
                 settings.atlasPageBuffers = false;
 #endif
             }
@@ -216,7 +219,8 @@ namespace RimWorldLoadingOptimizer
             }
             Try("Harmony identity map", settings.harmonyIdentityMap, () => HarmonyIdentityMap.Install(harmony));
 #if RW17
-            Try("Harmony rebuild coalescing", settings.harmonyCoalesce, () => Coalesce.Install(harmony));
+            Try("Harmony batched assembly loads", settings.harmonyBatchLoad, () => HarmonyBatchLoad.Install(harmony));
+            Try("Harmony rebuild coalescing", settings.harmonyCoalesce || HarmonyBatchLoad.Installed, () => Coalesce.Install(harmony));
 #endif
             Try("mod constructor speedups", CtorFixes.Needed(settings), () => CtorFixes.InstallEarly(harmony));
 #if !NATIVE_ASSETS
@@ -394,6 +398,7 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Background JIT profile", ref settings.backgroundJitProfile, "Records which game and mod code gets compiled during startup and lets the .NET runtime compile it again on a background thread from the next start on. Only the timing of compilation changes.");
             list.CheckboxLabeled("Faster Harmony patch rebuilds", ref settings.harmonyRebuildCaches, "Every time a mod patches a method, Harmony rebuilds that method from scratch. Skip three repeated steps of that rebuild: decoding the stored patch list a second time, working out the name of every loaded assembly again, and comparing the generated code's references with every loaded assembly (an index by name answers that). Same patches, same generated code.");
             list.CheckboxLabeled("Merge repeated Harmony rebuilds (test)", ref settings.harmonyCoalesce, "When a mod patches the same game method from several patch classes, Harmony rebuilds and recompiles that method once per class. Build it once, at the end of that mod's patching, instead. Patch errors still appear exactly where they would otherwise, and the final code is identical. Off by default until it is verified in a full start.");
+            list.CheckboxLabeled("Load Harmony's generated code in batches (test)", ref settings.harmonyBatchLoad, "Harmony builds a small assembly for every patched method that has exception handling, and Windows has the antivirus scan each one when it is loaded (about 10 ms each, thousands per start). While a mod's patches are applied, build up to 64 of those methods in one assembly and load it once. Same generated methods; any problem builds them one by one as before. Uses the rebuild merging above for the duration of each mod's patching.");
             list.CheckboxLabeled("Reuse buffers for cached atlas pages", ref settings.atlasPageBuffers, "When the game loads its baked texture atlases from its cache, reuse one buffer for every page instead of allocating a new 85 MB block per page. Less memory churn and fewer long memory clean-ups during atlas baking. Same atlases.");
 #endif
             list.CheckboxLabeled("Faster mod constructors", ref settings.fasterModConstructors, "Makes the first part of startup, where every mod sets itself up, faster by remembering answers that mods ask the game for again and again. Part of it needs Prepatcher. Same results.");
