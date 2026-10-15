@@ -289,7 +289,9 @@ namespace RimWorldLoadingOptimizer
             Try("type name lookups", settings.defLoadingFixes, () => TypeNameIndex.Install(harmony));
             Try("vanilla facility link lookup", settings.defLoadingFixes, () => FacilityFast.Install(harmony));
             Try("Missile Girl background cache write", settings.defLoadingFixes && settings.gagarinFast && !xmlCache, () => GagarinAsync.Install(harmony));
+#if RW17
             Try("Missile Girl cache kept after a rebuild", settings.gagarinCacheKeep && settings.gagarinFast && settings.Supports("missilegirl") && !xmlCache, () => GagarinCacheKeep.Install(harmony));
+#endif
             Try("startup phase fixes", true, () => LeanFixes.Install(harmony, settings, Try));
 #if RW17
             Try("Giddy-Up draw offsets", settings.Supports("giddyup"), () => GiddyUpOffsets.Install(harmony));
