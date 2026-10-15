@@ -27,6 +27,7 @@ Baseline: cold start 226.6 s to main menu (RLO 5.1 on), see RLO phase table in L
 | R8 | + batched Harmony loads (test) | 155.4 s (no gain: kept off) |
 | R5 | round 1, cold (simulated asset change) | 254.2 s; ParseAndProcessXML 33.5 → 16.5 s (sibling cursor) |
 | R9/R10 | final, after Steam updated RimWorld to 1.7.4979 overnight | 199.2 s (1st start, cold file cache: pre-RLO 45.8 s) / 169.3 s (2nd start) |
+| R11 | round 3 on 1.7.4979 (Cherry Picker, TD Find Lib, VTE, Vehicle Framework, seed icons, game sounds, parallel Missile Girl cache read) | **154.0 s** (169.3 s without round 3 on the same build; verify run: 0 mismatches) |
 
 Game update 1.7.4977 → 1.7.4979: Mesh staging, Mesh buffer pool and Fast content bundle lookups switched themselves off (new IL tokens). Decompiled both builds: source identical except VmaAllocationExtensions' failure path (more relax stages), which the pool leaves to the engine. New hashes added. Missile Girl cache keep worked in the real case ("Game build changed ... clearing cache" → mod list written again → next start warm).
 
@@ -41,7 +42,7 @@ Benchmark caveats: the rimmods tool cannot close the game with this list (Confir
 
 ## Not finished
 
-- Round 3 (mod-specific hotspots, ~8–10 s): Vehicle Framework decode memo, Cherry Picker static-constructor deferral, VTE/TD Find Lib recipe indexes, game/seed-icon audio and image read-ahead, Missile Girl duplicate copies in CombineIntoUnifiedXML. Agents were still working at the end; finished patches land in `%TEMP%\claude\...\scratchpad\patches3\` and are NOT applied.
+- Round 3 is applied (commit 76d7fbb). Not effective yet on this list: Vanilla Trading Expanded steps aside because Performance Optimizer patches the same method; Vehicle Framework saw no repeat decodes; the game-sound and seed-icon read-ahead report 0 items taken at report time (check after the main menu; atlas baking was slower in R11, 12.1 s, possibly worker contention).
 - Remaining big costs (warm, 155 s): AMSI scan of Harmony's ~3,250 generated assemblies (~33 s, only fewer assemblies helps), pre-RLO engine/mod scanning (~21 s, out of RLO's reach), mods' own static-constructor work.
 
 ## Issues / to discuss later
