@@ -13,9 +13,12 @@
 - Overridden textures that can never be shown are not loaded onto the graphics card; if a mod still asks for one, it is loaded the first time it is drawn.
 - Cached texture atlas pages reuse one buffer instead of a new 85 MB block per page.
 - Missile Girl's cache files are read ahead from disk on a background thread when the mod list is unchanged.
+- Missile Girl's XML cache is read on several threads into the def document, without first loading the whole file into one string; the defs come out the same, node for node.
 - Giddy-Up 2: rider draw offsets are remembered between starts, keyed on the exact texture content, instead of being read back from the graphics card every start. Giddy-Up's own code still runs.
 - Worksites Expanded: its tome-trader check is answered directly while no game is loaded, instead of failing and being caught tens of thousands of times per start.
 - Alien Worlds Framework: Worldbuilder preset images from the last start are reused when their source textures are unchanged.
+- Vanilla Trading Expanded: while it sorts tradeable items at startup, its own product check and RimWorld's market value recipe check loop over the one recipe that can match from an index, instead of over every recipe for every item. Its own code still runs.
+- TD Find Lib: while its startup code runs, the recipe users it reads come from an index of the ThingDef recipe lists, in the same order, instead of a scan of every ThingDef per recipe.
 - The startup report adds memory clean-ups per loading phase, Harmony rebuild timing, atlas cache misses and JIT/GC totals.
 
 ### Changed
