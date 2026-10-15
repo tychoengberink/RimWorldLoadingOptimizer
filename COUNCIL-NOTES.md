@@ -28,6 +28,7 @@ Baseline: cold start 226.6 s to main menu (RLO 5.1 on), see RLO phase table in L
 | R5 | round 1, cold (simulated asset change) | 254.2 s; ParseAndProcessXML 33.5 → 16.5 s (sibling cursor) |
 | R9/R10 | final, after Steam updated RimWorld to 1.7.4979 overnight | 199.2 s (1st start, cold file cache: pre-RLO 45.8 s) / 169.3 s (2nd start) |
 | R11 | round 3 on 1.7.4979 (Cherry Picker, TD Find Lib, VTE, Vehicle Framework, seed icons, game sounds, parallel Missile Girl cache read) | **154.0 s** (169.3 s without round 3 on the same build; verify run: 0 mismatches) |
+| R12 | all rounds, cold start (simulated changed file) on 1.7.4979 | **163.9 s** vs 226.6 s cold baseline (−28%); same cold-start error count as earlier cold runs (161 vs 162) |
 
 Game update 1.7.4977 → 1.7.4979: Mesh staging, Mesh buffer pool and Fast content bundle lookups switched themselves off (new IL tokens). Decompiled both builds: source identical except VmaAllocationExtensions' failure path (more relax stages), which the pool leaves to the engine. New hashes added. Missile Girl cache keep worked in the real case ("Game build changed ... clearing cache" → mod list written again → next start warm).
 
