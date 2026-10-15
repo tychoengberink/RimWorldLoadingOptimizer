@@ -45,8 +45,8 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             if (!Fingerprint.Matches(Feature,
-                    Fingerprint.Known(allocate, "661045207CDF7941"),
-                    Fingerprint.Known(shutdown, ShutdownHash),
+                    Fingerprint.Known(allocate, "661045207CDF7941", "9E9234562939A849"),
+                    Fingerprint.Known(shutdown, ShutdownHash, "694A474CC13BDCC4"),
                     Fingerprint.Known(free, FreeHash)))
             {
                 return;
