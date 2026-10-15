@@ -70,6 +70,15 @@ namespace RimWorldLoadingOptimizer
             Scope(generate, nameof(GeneratePre), nameof(GenerateFin));
             Scope(update, nameof(WrapperPre), nameof(WrapperFin));
             installed = true;
+#if RW17
+            // GenerateMethod resolves every static call operand before Generate runs (to find calls into dynamic assemblies); count it as
+            // generating so those lookups use the map too.
+            var generateMethod = AccessTools.Method(T("HarmonyLib.MethodCreatorConfig"), "GenerateMethod");
+            if (Fingerprint.Matches("Harmony identity map for GenerateMethod", Fingerprint.Known(generateMethod, Known.GenerateMethod)))
+            {
+                Scope(generateMethod, nameof(GeneratePre), nameof(GenerateFin));
+            }
+#endif
         }
 
         private static class Known
@@ -96,6 +105,7 @@ namespace RimWorldLoadingOptimizer
 #endif
 #if RW17
             public static readonly string[] Update = { "2420BCB82066FF16", "746ABD198B833108", "0ECE39398AC683A2", "4F007C93FF50DD95" };
+            public static readonly string[] GenerateMethod = { "8B26D31FC75CFFDF" };
 #else
             public static readonly string[] Update = { "2420BCB82066FF16", "746ABD198B833108", "0ECE39398AC683A2" };
 #endif

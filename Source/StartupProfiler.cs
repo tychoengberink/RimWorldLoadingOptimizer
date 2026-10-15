@@ -279,8 +279,8 @@ namespace RimWorldLoadingOptimizer
             var parts = new List<Func<string>>
             {
                 () => $"category cache: {CategoryCache.Hits} hits, {CategoryCache.Builds} builds",
-                () => $"recipe index: {RecipeIndex.Served} defs served, {RecipeIndex.Rebuilds} rebuilds, {RecipeIndex.Mismatches} verify mismatches",
-                () => $"texture lookups: {TextureLookup.Hits} hits, {TextureLookup.CachedMisses} cached misses, {TextureLookup.Builds} builds, {TextureLookup.PatchedMethods} methods, {TextureLookup.Mismatches} verify mismatches",
+                () => $"recipe index: {RecipeIndex.Served} defs served ({RecipeIndex.WarmServed} in Alpha Implants' warm-up without a new check), {RecipeIndex.Rebuilds} rebuilds, {RecipeIndex.Mismatches} verify mismatches",
+                () => $"texture lookups: {TextureLookup.Hits} hits, {TextureLookup.CachedMisses} cached misses, {TextureLookup.SkippedScans} holder scans skipped, {TextureLookup.Builds} builds, {TextureLookup.PatchedMethods} methods, {TextureLookup.Mismatches} verify mismatches",
                 () => $"DDS files recovered from PNG: {DdsFallback.Recovered}",
 #if !NATIVE_ASSETS
                 DdsPrefetch.Stats,

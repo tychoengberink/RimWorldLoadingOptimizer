@@ -166,6 +166,10 @@ namespace RimWorldLoadingOptimizer
             {
                 return hash;
             }
+            if (AtlasStamps.TryGet(path, out var exists, out var length, out var ticks))
+            {
+                return exists ? $"{length}:{ticks}" : "missing";
+            }
             var file = new FileInfo(path);
             return file.Exists ? $"{file.Length}:{file.LastWriteTimeUtc.Ticks}" : "missing";
         }

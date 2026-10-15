@@ -16,15 +16,159 @@ namespace RimWorldLoadingOptimizer
         private static readonly MethodInfo OriginalAudioFolder = AccessTools.Method(typeof(ContentFinder<AudioClip>), nameof(ContentFinder<AudioClip>.GetAllInFolder));
         private static readonly MethodInfo LookupGet = AccessTools.Method(typeof(TextureLookup), nameof(TextureLookup.Get));
 
-        private sealed class Keys
+        // Which mods have content under a folder, so a folder lookup visits only those holders instead of all of them.
+        // A holder is re-indexed when it or its entry count changes, the same signal the per-holder key lists used.
+        private static class FolderIndex<T> where T : class
         {
-            public int Count;
-            public string[] Sorted;
+            private static readonly List<int> None = new List<int>();
+            private static readonly Dictionary<string, List<int>> byDir = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+            private static readonly List<int> nonEmpty = new List<int>();
+            private static ModContentHolder<T>[] holders;
+            private static int[] counts;
+            private static string[][] dirs;
+
+            public static void Forget()
+            {
+                byDir.Clear();
+                nonEmpty.Clear();
+                holders = null;
+                counts = null;
+                dirs = null;
+            }
+
+            // The first mod after 'after' whose holder has a key under prefix; every holder up to it is checked for changes first,
+            // so a holder that changes while the caller enumerates is seen exactly when the plain mod loop would reach it.
+            public static int Next(List<ModContentPack> mods, string prefix, int after)
+            {
+                if (holders == null || holders.Length != mods.Count)
+                {
+                    Forget();
+                    holders = new ModContentHolder<T>[mods.Count];
+                    counts = new int[mods.Count];
+                    dirs = new string[mods.Count][];
+                    for (var i = 0; i < mods.Count; i++)
+                    {
+                        Set(i, mods[i].GetContentHolder<T>());
+                    }
+                }
+                var from = after + 1;
+                while (true)
+                {
+                    var list = prefix.NullOrEmpty() ? nonEmpty : byDir.TryGetValue(prefix, out var found) ? found : None;
+                    var at = list.BinarySearch(from);
+                    var candidate = at >= 0 ? list[at] : ~at < list.Count ? list[~at] : -1;
+                    var limit = candidate < 0 ? mods.Count - 1 : candidate;
+                    var changed = -1;
+                    for (var i = from; i <= limit; i++)
+                    {
+                        var holder = mods[i].GetContentHolder<T>();
+                        if (!ReferenceEquals(holder, holders[i]) || holder.contentList.Count != counts[i])
+                        {
+                            Unset(i);
+                            Set(i, holder);
+                            changed = i;
+                            break;
+                        }
+                    }
+                    if (changed < 0)
+                    {
+                        return candidate;
+                    }
+                    from = changed;
+                }
+            }
+
+            private static void Set(int mod, ModContentHolder<T> holder)
+            {
+                holders[mod] = holder;
+                counts[mod] = holder.contentList.Count;
+                if (counts[mod] == 0)
+                {
+                    dirs[mod] = new string[0];
+                    return;
+                }
+                Insert(nonEmpty, mod);
+                dirs[mod] = DirsOf(holder.contentList.Keys);
+                foreach (var dir in dirs[mod])
+                {
+                    if (!byDir.TryGetValue(dir, out var list))
+                    {
+                        byDir[dir] = list = new List<int>();
+                    }
+                    Insert(list, mod);
+                }
+            }
+
+            private static void Unset(int mod)
+            {
+                if (counts[mod] != 0)
+                {
+                    Remove(nonEmpty, mod);
+                }
+                foreach (var dir in dirs[mod] ?? new string[0])
+                {
+                    if (byDir.TryGetValue(dir, out var list))
+                    {
+                        Remove(list, mod);
+                        if (list.Count == 0)
+                        {
+                            byDir.Remove(dir);
+                        }
+                    }
+                }
+            }
+
+            private static void Insert(List<int> list, int mod)
+            {
+                var at = list.BinarySearch(mod);
+                if (at < 0)
+                {
+                    list.Insert(~at, mod);
+                }
+            }
+
+            private static void Remove(List<int> list, int mod)
+            {
+                var at = list.BinarySearch(mod);
+                if (at >= 0)
+                {
+                    list.RemoveAt(at);
+                }
+            }
         }
 
-        private static readonly Dictionary<object, Keys> keys = new Dictionary<object, Keys>();
+        // Every folder a key sits in, cut after each '/': a prefix that ends in '/' starts a key exactly when it is one of these.
+        private static string[] DirsOf(IEnumerable<string> keys)
+        {
+            var found = new HashSet<string>(StringComparer.Ordinal);
+            string last = null;
+            var lastLength = -1;
+            foreach (var key in keys)
+            {
+                var end = key.LastIndexOf('/');
+                if (end < 0 || (end + 1 == lastLength && string.CompareOrdinal(key, 0, last, 0, lastLength) == 0))
+                {
+                    continue;
+                }
+                last = key;
+                lastLength = end + 1;
+                for (var at = end; at >= 0; at = at > 0 ? key.LastIndexOf('/', at - 1) : -1)
+                {
+                    if (!found.Add(key.Substring(0, at + 1)))
+                    {
+                        break;
+                    }
+                }
+            }
+            return found.ToArray();
+        }
 
         public static int Misses, Folders, SkippedHolders, Mismatches, Methods;
+#if NATIVE_ASSETS
+        public static int BundleLookups, SkippedLoads;
+#endif
+
+        public static bool Installed { get; private set; }
 
         private static MethodInfo redirectGet;
 
@@ -54,6 +198,9 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
+#if NATIVE_ASSETS
+            InstallBundles();
+#endif
             harmony.Patch(AccessTools.Method(typeof(ModContentPack), "ReloadContentInt"), postfix: new HarmonyMethod(typeof(FastContent), nameof(ForgetKeys)));
             harmony.Patch(AccessTools.Method(typeof(ModContentPack), nameof(ModContentPack.ClearDestroy)), postfix: new HarmonyMethod(typeof(FastContent), nameof(ForgetKeys)));
             redirectGet = textureLookup ? LookupGet : AccessTools.Method(typeof(FastContent), nameof(Get));
@@ -104,11 +251,17 @@ namespace RimWorldLoadingOptimizer
                 }
             }
             LeanFixes.Reports.Add(Stats);
+            Installed = true;
         }
 
         public static void ForgetKeys()
         {
-            keys.Clear();
+            FolderIndex<Texture2D>.Forget();
+            FolderIndex<AudioClip>.Forget();
+#if NATIVE_ASSETS
+            bundleNames.Clear();
+            bundleMods = null;
+#endif
         }
 
         private static void PatchCallers(Harmony harmony, Type type, MethodInfo target, HarmonyMethod transpiler, Func<MethodInfo, bool> filter)
@@ -148,7 +301,11 @@ namespace RimWorldLoadingOptimizer
         public static IEnumerable<CodeInstruction> LookupTranspiler(IEnumerable<CodeInstruction> instructions) =>
             IlScan.Replace(instructions, OriginalGet, redirectGet);
 
+#if NATIVE_ASSETS
+        public static string Stats() => $"fast content: {Methods} methods, {Misses} misses resolved, {BundleLookups} bundle lookups ({SkippedLoads} bundle loads skipped), {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches} verify mismatches";
+#else
         public static string Stats() => $"fast content: {Methods} methods, {Misses} misses resolved, {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches} verify mismatches";
+#endif
 
         public static Texture2D Get(string itemPath, bool reportFailure)
         {
@@ -156,7 +313,21 @@ namespace RimWorldLoadingOptimizer
             {
                 return ContentFinder<Texture2D>.Get(itemPath, reportFailure);
             }
-            var result = Find(itemPath);
+            return Report(itemPath, reportFailure, Find(itemPath));
+        }
+
+        // For a caller that already knows no mod's content holder has a texture at this path (the texture lookup index).
+        public static Texture2D GetOutsideHolders(string itemPath, bool reportFailure)
+        {
+            if (Compatibility.LazyTextures || !UnityData.IsInMainThread)
+            {
+                return Get(itemPath, reportFailure);
+            }
+            return Report(itemPath, reportFailure, Outside(itemPath));
+        }
+
+        private static Texture2D Report(string itemPath, bool reportFailure, Texture2D result)
+        {
             if (RLOMod.Verify && !ReferenceEquals(result, ContentFinder<Texture2D>.Get(itemPath, false)))
             {
                 Mismatch($"get {itemPath}");
@@ -180,6 +351,11 @@ namespace RimWorldLoadingOptimizer
                     return found;
                 }
             }
+            return Outside(itemPath);
+        }
+
+        private static Texture2D Outside(string itemPath)
+        {
             Misses++;
             var loaded = Resources.Load<Texture2D>(GenFilePaths.ContentPath<Texture2D>() + itemPath);
             if ((object)loaded != null)
@@ -187,11 +363,229 @@ namespace RimWorldLoadingOptimizer
                 return loaded;
             }
 #if NATIVE_ASSETS
-            return ContentFinder<Texture2D>.TryFindAssetInModBundles(itemPath);
+            return NativeBundles(itemPath);
 #else
             return Bundles(itemPath);
 #endif
         }
+#if NATIVE_ASSETS
+
+        private static readonly MethodInfo BundlesCached = AccessTools.Method(typeof(ContentFinder<Texture2D>), nameof(ContentFinder<Texture2D>.TryFindAssetInModBundles));
+        private static readonly MethodInfo BundlesUncached = AccessTools.Method(typeof(ContentFinder<Texture2D>), "TryFindAssetInModBundlesUncached");
+        private static readonly MethodInfo BundlesStamp = AccessTools.Method(typeof(ContentFinder<Texture2D>), "LoadedAssetBundlesStamp");
+        private static readonly MethodInfo BundleLoad = AccessTools.Method(typeof(AssetBundle), nameof(AssetBundle.LoadAsset), new[] { typeof(string), typeof(Type) });
+        private static readonly MethodInfo BundleNames = AccessTools.Method(typeof(AssetBundle), nameof(AssetBundle.GetAllAssetNames));
+        private static readonly Type Reader = typeof(AssetBundle).Assembly.GetType("UnityStubs.Internal.AssetBundleReader");
+
+        private sealed class BundleMod
+        {
+            public ModContentPack Mod;
+            public string ByFolder;
+            public string ByPackage;
+            public bool ViaPackage;
+        }
+
+        private static readonly Dictionary<AssetBundle, HashSet<string>> bundleNames = new Dictionary<AssetBundle, HashSet<string>>(ReferenceComparer<AssetBundle>.Instance);
+        private static MethodBase[] bundleWatched;
+        private static Dictionary<string, Texture2D> bundleCache;
+        private static AccessTools.FieldRef<int> bundleCacheStamp;
+        private static Func<string, Texture2D> uncached;
+        private static List<BundleMod> bundleMods;
+        private static int[] bundleCounts;
+        private static string bundleContentPath;
+        private static int bundlesCheckedFrame = -1;
+        private static bool bundlesUnpatched;
+
+        // ContentFinder.TryFindAssetInModBundlesUncached builds two paths per mod and asks every bundle of every mod for each
+        // texture extension. A bundle only finds a name its reader holds (case-insensitively, as given or with '\' turned into '/'),
+        // so a bundle is asked only for names in its own name list, and only mods that have bundles are visited, in the same order.
+        private static void InstallBundles()
+        {
+            var cacheField = AccessTools.Field(typeof(ContentFinder<Texture2D>), "bundleAssetCache");
+            var stampField = AccessTools.Field(typeof(ContentFinder<Texture2D>), "bundleAssetCacheStamp");
+            if (Reader == null || cacheField == null || stampField == null)
+            {
+                Log.Message("[RLO] Fast content bundle lookups: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken.");
+                return;
+            }
+            var assetNames = AccessTools.PropertyGetter(Reader, "AssetNames");
+            var lookup = AccessTools.Method(Reader, "Lookup");
+            var load = AccessTools.Method(Reader, "Load");
+            var add = AccessTools.Method(Reader, "Add");
+            if (!Fingerprint.Matches("Fast content bundle lookups",
+                Fingerprint.Known(BundlesCached, "31BEF324BCEEB3A3"),
+                Fingerprint.Known(BundlesUncached, "CA4DDD75F0EB8D20"),
+                Fingerprint.Known(BundlesStamp, "10FECC823644C13F"),
+                Fingerprint.Known(BundleLoad, "511A977FFDB448DB"),
+                Fingerprint.Known(BundleNames, "7141E6725935DB6B"),
+                Fingerprint.Known(assetNames, "0246209DC1CC3B49"),
+                Fingerprint.Known(lookup, "2D103CB183F3338C"),
+                Fingerprint.Known(load, "14EB43EE93D96A98"),
+                Fingerprint.Known(add, "FA1CBE72A67EDFB6")))
+            {
+                return;
+            }
+            try
+            {
+                bundleCacheStamp = AccessTools.StaticFieldRefAccess<int>(stampField);
+                uncached = AccessTools.MethodDelegate<Func<string, Texture2D>>(BundlesUncached);
+                bundleWatched = new MethodBase[] { BundlesCached, BundlesUncached, BundlesStamp, BundleLoad, BundleNames, assetNames, lookup, load, add };
+                bundleCache = (Dictionary<string, Texture2D>)cacheField.GetValue(null);
+            }
+            catch (Exception e)
+            {
+                bundleCache = null;
+                Log.Message($"[RLO] Fast content bundle lookups: could not reach the bundle cache ({e.Message}). This speedup is skipped and the original code runs; nothing is broken.");
+            }
+        }
+
+        // ContentFinder<Texture2D>.TryFindAssetInModBundles with the same cache and stamp, around the faster search.
+        private static Texture2D NativeBundles(string itemPath)
+        {
+            if (bundleCache == null || itemPath == null || !BundlesUnpatched())
+            {
+                return ContentFinder<Texture2D>.TryFindAssetInModBundles(itemPath);
+            }
+            var mods = LoadedModManager.RunningModsListForReading;
+            var stamp = mods.Count;
+            var same = bundleMods != null && bundleCounts.Length == mods.Count;
+            for (var i = 0; i < mods.Count; i++)
+            {
+                var count = mods[i].assetBundles.loadedAssetBundles.Count;
+                stamp = unchecked(stamp * 31 + count);
+                same = same && bundleCounts[i] == count;
+            }
+            var contentPath = GenFilePaths.ContentPath<Texture2D>();
+            if ((!same || contentPath != bundleContentPath) && !IndexBundles(mods, contentPath))
+            {
+                return ContentFinder<Texture2D>.TryFindAssetInModBundles(itemPath);
+            }
+            if (stamp != bundleCacheStamp())
+            {
+                bundleCache.Clear();
+                bundleCacheStamp() = stamp;
+            }
+            if (bundleCache.TryGetValue(itemPath, out var cached) && ((object)cached == null || cached != null))
+            {
+                return cached;
+            }
+            BundleLookups++;
+            var found = SearchBundles(itemPath);
+            if (RLOMod.Verify && !ReferenceEquals(found, uncached(itemPath)))
+            {
+                Mismatch($"bundles {itemPath}");
+            }
+            bundleCache[itemPath] = found;
+            return found;
+        }
+
+        private static bool BundlesUnpatched()
+        {
+            var frame = Time.frameCount;
+            if (frame != bundlesCheckedFrame)
+            {
+                bundlesCheckedFrame = frame;
+                bundlesUnpatched = bundleWatched.All(Fingerprint.OnlyOurs);
+            }
+            return bundlesUnpatched;
+        }
+
+        private static bool IndexBundles(List<ModContentPack> mods, string contentPath)
+        {
+            bundleMods = null;
+            var root = Path.Combine("Assets", "Data");
+            var list = new List<BundleMod>();
+            var counts = new int[mods.Count];
+            for (var i = mods.Count - 1; i >= 0; i--)
+            {
+                var mod = mods[i];
+                // The original combines both names for every mod and throws on a missing one; leave that to it.
+                if (mod.FolderName == null || mod.PackageIdPlayerFacing == null || contentPath == null)
+                {
+                    return false;
+                }
+                counts[i] = mod.assetBundles.loadedAssetBundles.Count;
+                if (counts[i] == 0)
+                {
+                    continue;
+                }
+                list.Add(new BundleMod
+                {
+                    Mod = mod,
+                    ByFolder = Path.Combine(Path.Combine(root, mod.FolderName), contentPath),
+                    ByPackage = Path.Combine(Path.Combine(root, mod.PackageIdPlayerFacing), contentPath),
+                    ViaPackage = !mod.IsOfficialMod
+                });
+            }
+            bundleMods = list;
+            bundleCounts = counts;
+            bundleContentPath = contentPath;
+            return true;
+        }
+
+        private static Texture2D SearchBundles(string itemPath)
+        {
+            var extensions = ModAssetBundlesHandler.TextureExtensions;
+            foreach (var entry in bundleMods)
+            {
+                var folderAssetPath = Path.Combine(entry.ByFolder, itemPath);
+                var packageAssetPath = Path.Combine(entry.ByPackage, itemPath);
+                foreach (var bundle in entry.Mod.assetBundles.loadedAssetBundles)
+                {
+                    var names = NamesOf(bundle);
+                    foreach (var extension in extensions)
+                    {
+                        var byFolder = folderAssetPath + extension;
+                        if (MayHold(names, byFolder) && bundle.LoadAsset(byFolder, typeof(Texture2D)) is Texture2D byFolderTexture)
+                        {
+                            return byFolderTexture;
+                        }
+                        if (!entry.ViaPackage)
+                        {
+                            continue;
+                        }
+                        var byPackage = packageAssetPath + extension;
+                        if (MayHold(names, byPackage) && bundle.LoadAsset(byPackage, typeof(Texture2D)) is Texture2D byPackageTexture)
+                        {
+                            return byPackageTexture;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        private static HashSet<string> NamesOf(AssetBundle bundle)
+        {
+            if ((object)bundle == null)
+            {
+                return null;
+            }
+            if (!bundleNames.TryGetValue(bundle, out var names))
+            {
+                // The reader's name table is fixed once the bundle exists; an unloaded bundle lists nothing and loads nothing.
+                bundleNames[bundle] = names = new HashSet<string>(bundle.GetAllAssetNames(), StringComparer.OrdinalIgnoreCase);
+            }
+            return names;
+        }
+
+        // False only when the bundle's reader cannot find this name: not as given, not with '\' as '/', and the name has a folder,
+        // so the reader's bare file name fallback does not apply either.
+        private static bool MayHold(HashSet<string> names, string name)
+        {
+            if (names == null || names.Contains(name))
+            {
+                return true;
+            }
+            var normalized = name.Replace('\\', '/');
+            if (normalized.IndexOf('/') < 0 || (!ReferenceEquals(normalized, name) && names.Contains(normalized)))
+            {
+                return true;
+            }
+            SkippedLoads++;
+            return false;
+        }
+#endif
 
         private static Texture2D Bundles(string itemPath)
         {
@@ -271,18 +665,20 @@ namespace RimWorldLoadingOptimizer
         private static IEnumerable<T> Folder<T>(string folderPath, string[] validExtensions) where T : UnityEngine.Object
         {
             var prefix = folderPath.NullOrEmpty() || folderPath[folderPath.Length - 1] == '/' ? folderPath : folderPath + "/";
-            foreach (var mod in LoadedModManager.RunningModsListForReading)
+            var running = LoadedModManager.RunningModsListForReading;
+            for (var last = -1; ;)
             {
-                var holder = mod.GetContentHolder<T>();
-                if (!MayContain(holder, prefix))
+                var next = FolderIndex<T>.Next(running, prefix, last);
+                SkippedHolders += (next < 0 ? running.Count : next) - last - 1;
+                if (next < 0)
                 {
-                    SkippedHolders++;
-                    continue;
+                    break;
                 }
-                foreach (var item in holder.GetAllUnderPath(folderPath))
+                foreach (var item in running[next].GetContentHolder<T>().GetAllUnderPath(folderPath))
                 {
                     yield return item;
                 }
+                last = next;
             }
             foreach (var item in Resources.LoadAll<T>(GenFilePaths.ContentPath<T>() + folderPath))
             {
@@ -332,40 +728,6 @@ namespace RimWorldLoadingOptimizer
                     }
                 }
             }
-        }
-
-        private static bool MayContain<T>(ModContentHolder<T> holder, string prefix) where T : class
-        {
-            var count = holder.contentList.Count;
-            if (count == 0)
-            {
-                return false;
-            }
-            if (prefix.NullOrEmpty())
-            {
-                return true;
-            }
-            if (!keys.TryGetValue(holder, out var entry) || entry.Count != count)
-            {
-                var sorted = holder.contentList.Keys.ToArray();
-                Array.Sort(sorted, StringComparer.Ordinal);
-                keys[holder] = entry = new Keys { Count = count, Sorted = sorted };
-            }
-            var lo = 0;
-            var hi = entry.Sorted.Length;
-            while (lo < hi)
-            {
-                var mid = (lo + hi) >> 1;
-                if (string.CompareOrdinal(entry.Sorted[mid], prefix) < 0)
-                {
-                    lo = mid + 1;
-                }
-                else
-                {
-                    hi = mid;
-                }
-            }
-            return lo < entry.Sorted.Length && entry.Sorted[lo].StartsWith(prefix, StringComparison.Ordinal);
         }
 
         private static void Mismatch(string what)

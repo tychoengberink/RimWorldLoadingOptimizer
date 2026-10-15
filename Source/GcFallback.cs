@@ -22,6 +22,16 @@ namespace RimWorldLoadingOptimizer
             LeanFixes.Reports.Add(Stats);
         }
 
+        public static bool Counting => listener != null;
+
+        public static (int full, int blocking) FullCollections()
+        {
+            lock (gate)
+            {
+                return (fullCollections, fullCollections - background);
+            }
+        }
+
         private static void Stop()
         {
             var running = listener;

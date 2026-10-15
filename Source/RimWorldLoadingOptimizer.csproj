@@ -39,6 +39,11 @@
   <ItemGroup Condition="'$(RwVersion)' != '1.6'">
     <Reference Include="UnityStubs" HintPath="$(RimWorldManaged)/UnityStubs.dll" Private="false" />
     <Reference Include="Waylith" HintPath="$(RimWorldManaged)/Waylith.dll" Private="false" />
+    <Reference Include="Brutal.Core.Common" HintPath="$(RimWorldManaged)/Brutal.Core.Common.dll" Private="false" />
+    <Reference Include="Brutal.Core.Memory" HintPath="$(RimWorldManaged)/Brutal.Core.Memory.dll" Private="false" />
+    <Reference Include="Brutal.Vulkan" HintPath="$(RimWorldManaged)/Brutal.Vulkan.dll" Private="false" />
+    <Reference Include="Brutal.Vulkan.Abstractions" HintPath="$(RimWorldManaged)/Brutal.Vulkan.Abstractions.dll" Private="false" />
+    <Reference Include="Brutal.Vulkan.Vma" HintPath="$(RimWorldManaged)/Brutal.Vulkan.Vma.dll" Private="false" />
     <Compile Remove="LoadFromFix.cs" />
   </ItemGroup>
   <ItemGroup>

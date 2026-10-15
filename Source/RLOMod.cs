@@ -154,6 +154,9 @@ namespace RimWorldLoadingOptimizer
             }
             Settings = settings;
 #if RW17
+            Try("GC latency until the main menu", settings.backgroundGc, GcLatency.Install);
+#endif
+#if RW17
             Try("background JIT profile", settings.backgroundJitProfile, JitProfile.Install);
             Try("pre-compile patched methods", settings.precompilePatched, PrecompilePatched.Install);
 #endif
@@ -236,6 +239,8 @@ namespace RimWorldLoadingOptimizer
             Try("GC per phase", settings.startupReport, () => GcPhases.Install(harmony));
             Try("atlas cache miss report", settings.startupReport, () => AtlasMisses.Install(harmony));
             Try("atlas page buffers", settings.atlasPageBuffers, () => AtlasPageBuffers.Install(harmony));
+            Try("atlas source stamps", settings.startupPhases, () => AtlasStamps.Install(harmony));
+            Try("mesh upload timing and staging buffer", settings.startupReport || settings.startupPhases, () => MeshStaging.Install(harmony, settings.startupPhases));
             Try("GC fallback report", settings.startupReport, GcFallback.Install);
 #endif
             Try("category cache", settings.categoryCache, () => CategoryCache.Install(harmony));

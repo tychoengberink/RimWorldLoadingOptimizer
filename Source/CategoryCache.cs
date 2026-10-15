@@ -11,10 +11,22 @@ namespace RimWorldLoadingOptimizer
 {
     public static class CategoryCache
     {
+        // One category of the subtree in breadth-first order, so the children of a node are the nodes from
+        // FirstChild up to the next node's FirstChild.
+        private struct Node
+        {
+            public ThingCategoryDef Category;
+            public List<ThingDef> Things;
+            public List<ThingCategoryDef> Children;
+            public int ThingCount;
+            public int ThingVersion;
+            public int FirstChild;
+        }
+
         private sealed class Entry
         {
             public IEnumerable<ThingDef> Defs;
-            public int Signature;
+            public Node[] Shape;
             public int Identity;
             public int IdentityCheckedAt;
         }
@@ -29,8 +41,30 @@ namespace RimWorldLoadingOptimizer
         public static int Hits;
         public static int Builds;
 
+#if RW17
+        // List<T> counts every change through its own methods in _version, so a thing replaced in place is seen
+        // right away instead of at the next timed identity check.
+        private static bool versions;
+
+        [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_version")]
+        private static extern ref int Version(List<ThingDef> list);
+#endif
+
         public static void Install(Harmony harmony)
         {
+#if RW17
+            try
+            {
+                var probe = new List<ThingDef>();
+                var before = Version(probe);
+                probe.Add(null);
+                versions = Version(probe) != before;
+            }
+            catch (Exception)
+            {
+                versions = false;
+            }
+#endif
             getter = AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.DescendantThingDefs));
             var children = AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.ThisAndChildCategoryDefs));
             if (!Fingerprint.Matches("Category cache",
@@ -65,9 +99,8 @@ namespace RimWorldLoadingOptimizer
             {
                 return true;
             }
-            var signature = Signature(__instance);
             var now = Environment.TickCount;
-            if (cache.TryGetValue(__instance, out var entry) && entry.Signature == signature)
+            if (cache.TryGetValue(__instance, out var entry) && Unchanged(entry.Shape))
             {
                 if (unchecked(now - entry.IdentityCheckedAt) <= 1000 || Identity(__instance) == entry.Identity)
                 {
@@ -77,10 +110,11 @@ namespace RimWorldLoadingOptimizer
                     return false;
                 }
             }
+            var shape = Capture(__instance);
             var defs = new List<ThingDef>();
             Collect(__instance, defs);
             var readOnly = defs.AsReadOnly();
-            cache[__instance] = new Entry { Defs = readOnly, Signature = signature, Identity = Identity(__instance), IdentityCheckedAt = now };
+            cache[__instance] = new Entry { Defs = readOnly, Shape = shape, Identity = Identity(__instance), IdentityCheckedAt = now };
             Interlocked.Increment(ref Builds);
             __result = readOnly;
             return false;
@@ -112,18 +146,63 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        private static int Signature(ThingCategoryDef category)
+        private static Node[] Capture(ThingCategoryDef category)
         {
-            unchecked
+            var nodes = new List<Node> { new Node { Category = category } };
+            for (var i = 0; i < nodes.Count; i++)
             {
-                var hash = 17 * 31 + category.childThingDefs.Count;
-                hash = hash * 31 + category.childCategories.Count;
-                foreach (var child in category.childCategories)
+                var node = nodes[i];
+                node.Things = node.Category.childThingDefs;
+                node.Children = node.Category.childCategories;
+                node.ThingCount = node.Things.Count;
+#if RW17
+                node.ThingVersion = versions ? Version(node.Things) : 0;
+#endif
+                node.FirstChild = nodes.Count;
+                nodes[i] = node;
+                foreach (var child in node.Children)
                 {
-                    hash = hash * 31 + Signature(child);
+                    nodes.Add(new Node { Category = child });
                 }
-                return hash;
             }
+            return nodes.ToArray();
+        }
+
+        // Same subtree as when the entry was built: every category still has the same two lists, with the same
+        // number of things and the same child categories in the same order. This implies the child and thing
+        // counts the old signature hashed, so it never accepts a subtree the old check would have rebuilt.
+        private static bool Unchanged(Node[] nodes)
+        {
+            for (var i = 0; i < nodes.Length; i++)
+            {
+                ref var node = ref nodes[i];
+                var category = node.Category;
+                var children = category.childCategories;
+                if (!ReferenceEquals(category.childThingDefs, node.Things) || !ReferenceEquals(children, node.Children) || node.Things.Count != node.ThingCount)
+                {
+                    return false;
+                }
+#if RW17
+                if (versions && Version(node.Things) != node.ThingVersion)
+                {
+                    return false;
+                }
+#endif
+                var first = node.FirstChild;
+                var end = i + 1 < nodes.Length ? nodes[i + 1].FirstChild : nodes.Length;
+                if (children.Count != end - first)
+                {
+                    return false;
+                }
+                for (var j = 0; j < children.Count; j++)
+                {
+                    if (!ReferenceEquals(children[j], nodes[first + j].Category))
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
         }
     }
 }

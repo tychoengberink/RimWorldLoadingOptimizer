@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using HarmonyLib;
 using UnityEngine;
 using Verse;
@@ -21,11 +20,13 @@ namespace RimWorldLoadingOptimizer
 
         private static Dictionary<string, Winner> winners;
         private static readonly HashSet<string> misses = new HashSet<string>();
-        private static long signature = -1;
+        private static ModContentHolder<Texture2D>[] holders;
+        private static int[] counts;
         private static int checkedFrame = -1;
 
         public static int Hits;
         public static int CachedMisses;
+        public static int SkippedScans;
         public static int Builds;
         public static int Mismatches;
         public static int PatchedMethods;
@@ -80,7 +81,8 @@ namespace RimWorldLoadingOptimizer
         {
             winners = null;
             misses.Clear();
-            signature = -1;
+            holders = null;
+            counts = null;
         }
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) =>
@@ -118,6 +120,22 @@ namespace RimWorldLoadingOptimizer
                     }
                     return null;
                 }
+            }
+            // While the holders are the ones the winners were built from, winners holds every non-null holder entry, so a path
+            // it lacks is in no holder: the holder loop of the lookup and the owner search would both come back empty.
+            if (FastContent.Installed && !winners.ContainsKey(itemPath) && Unchanged())
+            {
+                SkippedScans++;
+                var outside = FastContent.GetOutsideHolders(itemPath, reportFailure);
+                if (outside != null)
+                {
+                    winners[itemPath] = new Winner { Mod = -1, Texture = outside };
+                }
+                else
+                {
+                    misses.Add(itemPath);
+                }
+                return outside;
             }
             var resolved = ContentFinder<Texture2D>.Get(itemPath, reportFailure);
             if (resolved != null)
@@ -168,19 +186,18 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             checkedFrame = frame;
-            var mods = LoadedModManager.RunningModsListForReading;
-            long current = mods.Count;
-            for (var i = 0; i < mods.Count; i++)
-            {
-                var holder = mods[i].GetContentHolder<Texture2D>();
-                current = current * 31 + RuntimeHelpers.GetHashCode(holder);
-                current = current * 31 + holder.contentList.Count;
-            }
-            if (winners != null && current == signature)
+            if (winners != null && Unchanged())
             {
                 return;
             }
-            signature = current;
+            var mods = LoadedModManager.RunningModsListForReading;
+            holders = new ModContentHolder<Texture2D>[mods.Count];
+            counts = new int[mods.Count];
+            for (var i = 0; i < mods.Count; i++)
+            {
+                holders[i] = mods[i].GetContentHolder<Texture2D>();
+                counts[i] = holders[i].contentList.Count;
+            }
             winners = new Dictionary<string, Winner>();
             misses.Clear();
             for (var i = mods.Count - 1; i >= 0; i--)
@@ -194,6 +211,25 @@ namespace RimWorldLoadingOptimizer
                 }
             }
             Builds++;
+        }
+
+        // Whether every mod still has the holder and entry count the winners were built from (the old signature, without collisions).
+        private static bool Unchanged()
+        {
+            var mods = LoadedModManager.RunningModsListForReading;
+            if (holders == null || holders.Length != mods.Count)
+            {
+                return false;
+            }
+            for (var i = 0; i < mods.Count; i++)
+            {
+                var holder = mods[i].GetContentHolder<Texture2D>();
+                if (!ReferenceEquals(holder, holders[i]) || holder.contentList.Count != counts[i])
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private static void Check(string itemPath, Texture2D found)
