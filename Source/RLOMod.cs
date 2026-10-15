@@ -241,6 +241,7 @@ namespace RimWorldLoadingOptimizer
             Try("atlas page buffers", settings.atlasPageBuffers, () => AtlasPageBuffers.Install(harmony));
             Try("atlas source stamps", settings.startupPhases, () => AtlasStamps.Install(harmony));
             Try("mesh upload timing and staging buffer", settings.startupReport || settings.startupPhases, () => MeshStaging.Install(harmony, settings.startupPhases));
+            Try("mesh buffer pool", settings.startupPhases && Environment.GetEnvironmentVariable("LEANMEMORY_NOMESHPOOL") != "1", () => MeshPool.Install(harmony));
             Try("GC fallback report", settings.startupReport, GcFallback.Install);
 #endif
             Try("category cache", settings.categoryCache, () => CategoryCache.Install(harmony));
