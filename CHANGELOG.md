@@ -3,7 +3,7 @@
 ## 5.1
 
 ### Added
-- RimWorld 1.7 support. On 1.6 nothing changes; everything below is for 1.7 only.
+- RimWorld 1.7 support. Everything in this list is for 1.7 only; the changes on 1.6 are under "RimWorld 1.6" below.
 - Mod sounds and textures load while the game reads and patches the XML, instead of after it. A second bar on the loading screen shows the progress.
 - Mod sound files are opened and decoded on a background thread while mod data loads (at most 256 MB extra memory during loading).
 - The forced full memory clean-up just before the main menu is skipped; the runtime cleans up as usual while you play.
@@ -34,6 +34,13 @@
 
 ### Changed
 - On 1.7 the atlas cache and audio streaming switch themselves off: the game now caches baked atlases and loads sounds without the old wait loop itself.
+
+### RimWorld 1.6
+- Recipe index: Alpha Implants' warm-up of every ThingDef's recipes is checked once instead of once per ThingDef.
+- Category cache and texture lookup index: changes are detected by comparing the category tree and the mods' texture lists directly instead of a hash, so a hash collision can no longer hide a change.
+- Content lookups: folder lookups only visit mods that have files under that folder, and texture-index misses no longer scan every mod again.
+- Category cache, recipe index and Lunar: the speedups also accept the current versions of the methods they replace.
+- Missile Girl verification also compares node kinds, text splits, empty elements and attribute order, not only the XML text.
 
 ## 5.0
 
