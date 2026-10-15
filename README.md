@@ -25,14 +25,16 @@ Every speedup has a verification mode that recomputes the result the original wa
 
 | Machine | Start | Off | On | Change | Peak memory (off → on) |
 |---|---|---|---|---|---|
-| Windows | cold | 6:37 | **4:11** | −37% | 19.0 → 18.8 GB |
-| Windows | warm | – | **3:33** | – | – → 17.1 GB |
+| Windows ² | cold | 4:40 | **2:11** | −53% | 18.7 → 17.4 GB |
+| Windows ² | warm | 4:06 | **1:54** | −54% | 17.3 → 16.4 GB |
 | Mac ¹ | warm | 3:42 | **2:19** | −37% | 26.9 → 27.5 GB |
 | Mac ¹ | cold | – | **2:35** | – | – → 27.1 GB |
 
 Times are to the main menu. "–" means not measured.
 
 ¹ Test runs, not a clean benchmark: a test build, time until the save starts loading instead of the main menu, and macOS swapping because the list needs about 27 GB on a 24 GB Mac.
+
+² 5.1 development build on RimWorld 1.7.4979, 2026-10-15, with 1,481 mods: the Progression packs list after removing a few slow mods. Earlier results on the full list are in [BENCHMARK.md](BENCHMARK.md#windows-51-2026-10-14).
 
 The full test setup, the phase times and the single starts are in [BENCHMARK.md](BENCHMARK.md).
 
