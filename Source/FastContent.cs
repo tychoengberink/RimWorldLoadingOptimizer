@@ -413,14 +413,14 @@ namespace RimWorldLoadingOptimizer
             var load = AccessTools.Method(Reader, "Load");
             var add = AccessTools.Method(Reader, "Add");
             if (!Fingerprint.Matches("Fast content bundle lookups",
-                Fingerprint.Known(BundlesCached, "31BEF324BCEEB3A3"),
-                Fingerprint.Known(BundlesUncached, "CA4DDD75F0EB8D20"),
-                Fingerprint.Known(BundlesStamp, "10FECC823644C13F"),
+                Fingerprint.Known(BundlesCached, "31BEF324BCEEB3A3", "E53E3DCCD9A2EAA0"),
+                Fingerprint.Known(BundlesUncached, "CA4DDD75F0EB8D20", "ABE94861D20EE2B1"),
+                Fingerprint.Known(BundlesStamp, "10FECC823644C13F", "3F2E6BE7758897E1"),
                 Fingerprint.Known(BundleLoad, "511A977FFDB448DB"),
                 Fingerprint.Known(BundleNames, "7141E6725935DB6B"),
                 Fingerprint.Known(assetNames, "0246209DC1CC3B49"),
                 Fingerprint.Known(lookup, "2D103CB183F3338C"),
-                Fingerprint.Known(load, "14EB43EE93D96A98"),
+                Fingerprint.Known(load, "14EB43EE93D96A98", "C30F690A23105717"),
                 Fingerprint.Known(add, "FA1CBE72A67EDFB6")))
             {
                 return;

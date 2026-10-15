@@ -108,16 +108,16 @@ namespace RimWorldLoadingOptimizer
             var extensions = typeof(VmaAllocationExtensions);
             var retirements = AccessTools.Inner(type, "UploadRetirementQueue");
             return Fingerprint.Matches("Mesh staging buffer",
-                Fingerprint.Known(drain, "1F748AFBDF3BBE63"),
-                Fingerprint.Known(uploadBatch, "5958D65DAB7F282E"),
-                Fingerprint.Known(record, "93E926ACD9DE45D6"),
-                Fingerprint.Known(create, "B2F529A82799A514"),
-                Fingerprint.Known(allocate, "661045207CDF7941"),
-                Fingerprint.Known(submit, "93EF8BA6088DF5EC"),
-                Fingerprint.Known(AccessTools.Method(type, "FreeAllocations"), "FD239C61BDBB8145"),
-                Fingerprint.Known(retirements == null ? null : AccessTools.Method(retirements, "FlushCompleted"), "CCF37DD0E764B4BB"),
-                Fingerprint.Known(AccessTools.Method(extensions, nameof(VmaAllocationExtensions.AllocateBufferChecked), new[] { typeof(VmaAllocator), typeof(string), typeof(VkBufferCreateInfo).MakeByRefType(), typeof(AllocationInfo.CreateInfo).MakeByRefType(), typeof(bool) }), "B73C0D5D89ADDAE2"),
-                Fingerprint.Known(AccessTools.Method(extensions, "ConvertInfo"), "2D80315D5879AD71"));
+                Fingerprint.Known(drain, "1F748AFBDF3BBE63", "7D7E58569B083082"),
+                Fingerprint.Known(uploadBatch, "5958D65DAB7F282E", "9215F3447DED5699"),
+                Fingerprint.Known(record, "93E926ACD9DE45D6", "94447922FD749CAB"),
+                Fingerprint.Known(create, "B2F529A82799A514", "D10DC0632601DE13"),
+                Fingerprint.Known(allocate, "661045207CDF7941", "9E9234562939A849"),
+                Fingerprint.Known(submit, "93EF8BA6088DF5EC", "66F031047C768B85"),
+                Fingerprint.Known(AccessTools.Method(type, "FreeAllocations"), "FD239C61BDBB8145", "BEE24F9C103BE683"),
+                Fingerprint.Known(retirements == null ? null : AccessTools.Method(retirements, "FlushCompleted"), "CCF37DD0E764B4BB", "32F94876DF63A229"),
+                Fingerprint.Known(AccessTools.Method(extensions, nameof(VmaAllocationExtensions.AllocateBufferChecked), new[] { typeof(VmaAllocator), typeof(string), typeof(VkBufferCreateInfo).MakeByRefType(), typeof(AllocationInfo.CreateInfo).MakeByRefType(), typeof(bool) }), "B73C0D5D89ADDAE2", "DA805146A5C57C3D"),
+                Fingerprint.Known(AccessTools.Method(extensions, "ConvertInfo"), "2D80315D5879AD71", "3A2391FEE422CB14"));
         }
 
         private static void Patch(MethodBase method, string prefix, string postfix = null, string finalizer = null)
