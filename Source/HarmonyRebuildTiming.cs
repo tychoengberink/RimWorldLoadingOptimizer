@@ -53,7 +53,7 @@ namespace RimWorldLoadingOptimizer
                 Fingerprint.Known(update, "4F007C93FF50DD95"),
                 Fingerprint.Known(create, "E08133BE98F80F7A"),
                 Fingerprint.Known(copy, "A42CDD9F5D3F9A16"),
-                Fingerprint.Known(generate, "C830F7F89F2A09F2"),
+                Fingerprint.Known(generate, "C830F7F89F2A09F2", "70FA6453A755267A", "7F428227DC9587CB"),
                 Fingerprint.Known(slow, "1DF21651824663A3"),
                 Fingerprint.Known(scan, "0995A15C7BF271F3"),
                 Fingerprint.Known(load, "7141C1E3A7D26AB8"),

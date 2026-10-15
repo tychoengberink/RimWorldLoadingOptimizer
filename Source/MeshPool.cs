@@ -1,6 +1,7 @@
 #if RW17
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using Brutal;
 using Brutal.VulkanApi;
@@ -8,22 +9,35 @@ using Brutal.VulkanApi.Abstractions;
 using Brutal.VulkanApi.Vma;
 using HarmonyLib;
 using Verse;
+using Waylith.Graphics;
 using Waylith.Graphics.Meshes;
 
 namespace RimWorldLoadingOptimizer
 {
-    // When device-local memory is over its budget (tens of thousands of mod textures), VMA no longer creates new blocks
-    // in its default pools and gives every small device-local buffer its own vkAllocateMemory instead: the one frame
-    // that uploads all meshes before the main menu spends ~15 s in 34k kernel allocations for 6 MB of mesh data, and
-    // each of them takes at least a memory page. A custom pool with an explicit block size never falls back to
-    // dedicated allocations, so small mesh streams are placed in 32 MB blocks of the same memory type. Every stream
+    // With tens of thousands of mod textures the graphics memory budget is used up, and each small device-local mesh
+    // buffer from VMA's default pools then takes about 0.45 ms: the one frame that uploads all meshes before the main
+    // menu spends ~15 s on 34k allocations for 6 MB of mesh data. Placing them in a custom VMA pool with a fixed 32 MB
+    // block size takes microseconds per buffer (measured: that frame goes from ~16 s to 0.1 s). Every stream
     // stays its own VkBuffer at offset 0 with the engine's usage flags, so the draw path, barriers and tracking are
     // unchanged; only the placement inside device memory differs. Anything unusual runs the engine's own path.
+    // Only taken once the engine's own small mesh allocations are measured to be slow (16 in a row averaging more than
+    // 100 us; a normal VMA sub-allocation takes a few microseconds, these took about 450 us each with 95k mod textures),
+    // and only until shortly after the main menu. Buffers allocated by then stay valid for the session and are released
+    // before the allocator is destroyed. The pool adds at most one 32 MB block per 32 MB of small mesh data.
     public static class MeshPool
     {
         private const string Feature = "Mesh buffer pool";
         private const long MaxPooledBytes = 256L << 10;
         private const long BlockBytes = 32L << 20;
+        private const double GraceSeconds = 10;
+        private const int Window = 16;
+        private const double SlowMicroseconds = 100;
+        private static long menuAt;
+        private static bool slowSeen;
+        private static int measured;
+        private static long measuredTicks;
+        private static long beforeSlow;
+        [ThreadStatic] private static long engineStart;
         private static readonly object gate = new object();
         private static readonly Dictionary<nint, BufferAllocationInfo> live = new Dictionary<nint, BufferAllocationInfo>();
         private static AccessTools.FieldRef<MeshUploader, VmaAllocator> allocatorOf;
@@ -54,10 +68,11 @@ namespace RimWorldLoadingOptimizer
             allocatorOf = AccessTools.FieldRefAccess<MeshUploader, VmaAllocator>("allocator");
             renderFrameSerialOf = AccessTools.FieldRefAccess<MeshUploader, long>("renderFrameSerial");
             hostFallbackUntilFrameOf = AccessTools.FieldRefAccess<MeshUploader, long>("hostFallbackUntilFrame");
-            harmony.Patch(allocate, prefix: new HarmonyMethod(typeof(MeshPool), nameof(AllocatePrefix)) { priority = Priority.Last });
+            harmony.Patch(allocate, prefix: new HarmonyMethod(typeof(MeshPool), nameof(AllocatePrefix)) { priority = Priority.Last }, postfix: new HarmonyMethod(typeof(MeshPool), nameof(AllocatePostfix)));
             harmony.Patch(free, prefix: new HarmonyMethod(typeof(MeshPool), nameof(FreePrefix)));
             harmony.Patch(shutdown, postfix: new HarmonyMethod(typeof(MeshPool), nameof(ShutdownPostfix)));
             LeanFixes.Reports.Add(Stats);
+            MainMenu.Then(() => menuAt = Stopwatch.GetTimestamp());
             MainMenu.Then(() => Log.Message("[RLO] " + Stats()));
         }
 
@@ -121,7 +136,23 @@ namespace RimWorldLoadingOptimizer
             {
                 lock (gate)
                 {
+                    if (menuAt != 0 && (Stopwatch.GetTimestamp() - menuAt) / (double)Stopwatch.Frequency > GraceSeconds)
+                    {
+                        return true;
+                    }
                     var allocator = allocatorOf(__instance);
+                    if (!pool.IsNull() && allocator != poolAllocator)
+                    {
+                        failed = true;
+                        Log.Warning($"[RLO] {Feature}: the engine created a new allocator; new mesh buffers keep the engine's allocation.");
+                        return true;
+                    }
+                    if (!slowSeen)
+                    {
+                        beforeSlow++;
+                        engineStart = Stopwatch.GetTimestamp();
+                        return true;
+                    }
                     if (allocator == null || !EnsurePool(allocator))
                     {
                         return true;
@@ -157,6 +188,29 @@ namespace RimWorldLoadingOptimizer
                 Log.Warning($"[RLO] {Feature}: switched off after an error ({e.GetType().Name}: {e.Message}); mesh buffers keep the engine's allocation.");
                 return true;
             }
+        }
+
+        // Times the engine's own small mesh allocations; when 16 in a row average more than 100 us, the pool takes the
+        // following ones.
+        public static void AllocatePostfix()
+        {
+            var start = engineStart;
+            if (start == 0)
+            {
+                return;
+            }
+            engineStart = 0;
+            measuredTicks += Stopwatch.GetTimestamp() - start;
+            if (++measured < Window)
+            {
+                return;
+            }
+            if (measuredTicks * 1e6 / Stopwatch.Frequency / measured > SlowMicroseconds)
+            {
+                slowSeen = true;
+            }
+            measured = 0;
+            measuredTicks = 0;
         }
 
         public static void FreePrefix(in BufferAllocationInfo inAllocation)
@@ -208,7 +262,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return failed && pooled == 0
                     ? $"{Feature}: off"
-                    : $"{Feature}: {pooled} mesh streams placed in 32 MB blocks instead of their own device allocation ({live.Count} live, peak {peak}, {freed} freed, {refused} left to the engine after a refusal)";
+                    : $"{Feature}: {pooled} mesh streams placed in 32 MB blocks instead of their own device allocation ({live.Count} live, peak {peak}, {freed} freed, {refused} left to the engine after a refusal, {beforeSlow} left to the engine before its allocations were measured to be slow)";
             }
         }
     }

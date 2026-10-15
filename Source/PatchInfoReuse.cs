@@ -39,7 +39,7 @@ namespace RimWorldLoadingOptimizer
                 Fingerprint.Known(getPatchInfo, "FCBBA976F9FCCF54"),
                 Fingerprint.Known(prepare, "D9F69F4344DA456D"),
                 Fingerprint.Known(deserializeMethod, "FE17A8A11D095128"),
-                Fingerprint.Known(update, "1648080B49C56B0C")))
+                Fingerprint.Known(update, "1648080B49C56B0C", "3675DFA4F81955B2", "8FF18CEE9F51D7A9")))
             {
                 return;
             }

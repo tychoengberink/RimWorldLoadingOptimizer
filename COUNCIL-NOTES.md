@@ -7,7 +7,6 @@ Baseline: cold start 226.6 s to main menu (RLO 5.1 on), see RLO phase table in L
 
 | Feature | Target | Evidence | Expected |
 |---|---|---|---|
-| Harmony generated assemblies from files (`HarmonyFileLoads`) | `GeneratedAssemblyLoader.LoadCollectible` → `LoadFromStream` | Windows runs an AMSI (antivirus) scan for every assembly loaded from memory: 8.4 ms vs 1.1 ms from a file (microbenchmark, stock .NET 10). In game 3256 loads ≈ 29.5 s in `LoadFromStream` | ~25 s |
 | Harmony dependency name index (`HarmonyDependencyIndex`) | `GeneratedAssemblyLoader..ctor` `GetAssemblies()` | 3257 scans × ~6 refs × ~7000 assemblies | ~3–4 s |
 | XML previous-sibling cursor (`SiblingCursor`) | `XmlLinkedNode.PreviousSibling` | Adaptive Storage Framework (PostInheritanceOperation) replaces 33k defs under `<Defs>` with InsertAfter+RemoveChild → O(n²). Harness on the real document: 19.45 s → 0.37 s, identical result | ~15–19 s, every start |
 | Missile Girl cache kept after a rebuild (`GagarinCacheKeep`) | `Gagarin.StartupHelper.StartUpFinished` | Missile Girl deletes ModList.xml when it turns the cache off and never writes it back; stale hashes after list switches. Each mod update cost 2 cold starts, each list switch 3 | one cold start instead of 2–3 |
@@ -49,7 +48,7 @@ Benchmark caveats: the rimmods tool cannot close the game with this list (Confir
 ## Issues / to discuss later
 
 - Report upstream to Ludeon (Waylith): with VRAM over budget, VMA gives every small mesh buffer its own vkAllocateMemory (16 s, and wastes VRAM). RLO's pool fixes it, but the engine should use a pool itself.
-- `Krafs.Publicizer` is now a build dependency for 1.7 (publicized 0Harmony, needed by HarmonyBatchLoad only). Checked: no other RLO code binds to non-public Harmony members.
+- HarmonyBatchLoad and the `Krafs.Publicizer` build dependency were removed again after the council review (no gain).
 
 - Policy: RLO 5.0 removed a Missile Girl hash-pruning workaround on purpose. `GagarinCacheKeep` brings that back (using Missile Girl's own Dump methods). Better long-term: report upstream to Missile Girl (Context.IsUsingCache setter deletes ModList.xml; stale hashes are never pruned when the cache is rebuilt).
 - Report upstream to Adaptive Storage Framework: `PatchQueue.ApplyXmlInheritanceOnDocument` could use `ReplaceChild`-free swapping or rebuild the root once; quadratic today.
@@ -108,3 +107,21 @@ Benchmark caveats: the rimmods tool cannot close the game with this list (Confir
 6. Een opstartregel die per mod-functie meldt: geÃ¯nstalleerd, opzij gestapt of uitgeschakeld.
 7. De vingerafdrukken van 1.7.4979 opnemen in een verify-script, en de BCL-members van GagarinParallelRead ook een vingerafdruk geven.
 8. Upstream melden bij Waylith (VMA-pool), Missile Girl, Adaptive Storage en Harmony 3 (AMSI, ~33 s), en daarna de bijbehorende workarounds weghalen.
+
+## Blockers fixed (2026-10-15 evening)
+
+1. Mesh buffer pool: only takes over when the engine's own small mesh allocations are measured to be slow (16 in a row averaging > 100 µs), only until 10 s after the main menu, and switches off if the engine creates a new allocator. The earlier "dedicated allocation per buffer" explanation was wrong (detection by offset 0 / new VkDeviceMemory never fired); the allocations are just slow, and the pool makes them fast (drain 15.7 s → 0.13 s).
+2. Own settings: mesh buffer pool, mesh staging, atlas source stamps, Missile Girl cache keep.
+3. In-game test: new map, 300 s of play on 1484 mods, clean quit. RLO on: TPS 773, FPS 54, map ready at 194 s. RLO off: TPS 754, FPS 47, map ready at 326 s. Both show ~299 "persistent allocation was not freed before shutdown" warnings (game behaviour, also with RLO off). Not done: a second machine (other GPU vendor / low VRAM).
+4. HarmonyBatchLoad and the Krafs.Publicizer dependency removed.
+5. Missile Girl cache keep: own setting, off by default.
+6. Game sound and PA Dynamic Seed Icons read-ahead: own settings, off by default.
+7. CHANGELOG, README and these notes updated.
+
+Same day, Steam updated Harmony to 3.0.0-rc.3 and Load Them Last (which now restarts the game once per start in the benchmark setup). Harmony rc.3 writes exception-handling methods as DynamicMethods, so the assembly path (and its ~33 s of AMSI scans) is gone: Harmony rebuilds 56 s → 26 s. Four RLO Harmony features were re-verified for rc.3 (decompiled diff: only key ordering, a weak key for dynamic replacements and GenerateMethod moving to MethodBodyGenerator). Six "Inconsistent stack depth" errors from rc.3's DynamicMethod writer also appear with RLO completely off: report to Harmony.
+
+| Run (1.7.4979, Harmony rc.3, same mods) | Main menu |
+|---|---|
+| RLO off, warm | 238.8 s |
+| RLO on, warm | **110.7 s (−54%)** |
+| RLO on, cold | 143.9 s |

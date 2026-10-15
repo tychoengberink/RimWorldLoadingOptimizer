@@ -23,7 +23,6 @@ namespace RimWorldLoadingOptimizer
             public Dictionary<int, CodeInstruction> Instructions;
             public byte[] Bytes;
             public MethodInfo Built;
-            public Exception PrebuildError;
         }
 
         internal sealed class Chain
@@ -584,24 +583,6 @@ namespace RimWorldLoadingOptimizer
 
         private static bool Optimistic(List<Chain> chains)
         {
-            if (HarmonyBatchLoad.Installed)
-            {
-                var last = new List<Step>();
-                foreach (var chain in chains)
-                {
-                    var step = chain.Steps[chain.Steps.Count - 1];
-                    byte[] current;
-                    lock (state)
-                    {
-                        state.TryGetValue(chain.Original, out current);
-                    }
-                    if (current == step.Bytes)
-                    {
-                        last.Add(step);
-                    }
-                }
-                HarmonyBatchLoad.Prebuild(last, config => (MethodInfo)generate(config, false));
-            }
             foreach (var chain in chains)
             {
                 var last = chain.Steps[chain.Steps.Count - 1];
@@ -657,10 +638,6 @@ namespace RimWorldLoadingOptimizer
             var replacement = step.Built;
             if (replacement == null)
             {
-                if (step.PrebuildError != null)
-                {
-                    return Wrap(step.PrebuildError, original);
-                }
                 try
                 {
                     replacement = (MethodInfo)generate(step.Config, false);

@@ -105,7 +105,7 @@ namespace RimWorldLoadingOptimizer
 #endif
 #if RW17
             public static readonly string[] Update = { "2420BCB82066FF16", "746ABD198B833108", "0ECE39398AC683A2", "4F007C93FF50DD95" };
-            public static readonly string[] GenerateMethod = { "8B26D31FC75CFFDF" };
+            public static readonly string[] GenerateMethod = { "8B26D31FC75CFFDF", "70FA6453A755267A", "7F428227DC9587CB" };
 #else
             public static readonly string[] Update = { "2420BCB82066FF16", "746ABD198B833108", "0ECE39398AC683A2" };
 #endif

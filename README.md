@@ -73,8 +73,14 @@ Put RimWorld Loading Optimizer directly after Harmony (its About.xml asks to loa
 | Category sets | `ThingCategoryDef.DescendantThingDefs` results | `Contains` checks on category lists answered from a hash set; follows the Category cache setting |
 | Type name index | `AccessTools.TypeByName` | Lookups that miss the fast paths are answered from an index in Harmony's exact order instead of listing all types of all assemblies per call |
 | Patch file reuse | `ModContentPack.LoadPatches`, `DirectXmlLoader.XmlAssetsInModFolder` | Patch files parsed during def loading are reused instead of parsed a second time |
+| Harmony dependency name index (1.7) | Harmony 3 `GeneratedAssemblyLoader` constructor (`AppDomain.GetAssemblies` call) | Each generated method binds its references from an index of loaded assemblies by name instead of comparing them with every loaded assembly; Harmony's own name and hash checks still run (3.5 s to 0.1 s) |
+| XML previous-sibling cursor (1.7) | `XmlLinkedNode.PreviousSibling` (startup only) | Walks forward from the last previous sibling found instead of from the first child; removing or inserting many nodes in document order is no longer quadratic (Adaptive Storage Framework's def replacement: ~20 s to 0.4 s on cold starts), same nodes |
+| Mesh buffer pool (1.7) | Waylith `MeshUploader.AllocateMeshBuffer` | While the device-local memory budget is used up, and only until 10 s after the main menu, small mesh buffers (up to 256 KB) are placed in a VMA pool with 32 MB blocks instead of one driver allocation each (the frame before the main menu: ~16 s to 0.1 s). Each buffer stays its own VkBuffer; the pool is emptied and destroyed before the allocator. Own setting |
+| Mesh staging (1.7) | Waylith `MeshUploader.CreateDeviceLocalBuffer` | One mapped staging buffer per upload command buffer instead of one per mesh stream; also times mesh uploads for the startup report. Own setting |
+| Atlas source stamps (1.7) | `StaticTextureAtlas.TryWriteSourceStamp` | File size and date of every atlas source texture are read on worker threads before baking; same cache key bytes. Own setting |
+| GC latency (1.7) | `GCSettings.LatencyMode` | SustainedLowLatency from RimWorld Loading Optimizer's start until the main menu, so the runtime avoids blocking full memory clean-ups while loading; set back at the main menu. Follows the "skip the forced memory clean-up" setting |
 | Startup report | `RuntimeHelpers.RunClassConstructor` | Logs the slowest mod static constructors |
-| Game sound read-ahead (1.7) | `UnityEngine.Resources.LoadStubResource` (its `AudioClip.Load` call) | Once the defs are loaded, the game's own sound files that the sub-sounds' grains will ask for are opened on worker threads with the game's `AudioClip.Open` (at most 128 MB waiting); the clip is then built from that on the thread that asks, exactly as `AudioClip.Load` builds it. Anything not ready is opened by the game as before |
+| Game sound read-ahead (1.7, test, off by default) | `UnityEngine.Resources.LoadStubResource` (its `AudioClip.Load` call) | Once the defs are loaded, the game's own sound files that the sub-sounds' grains will ask for are opened on worker threads with the game's `AudioClip.Open` (at most 128 MB waiting); the clip is then built from that on the thread that asks, exactly as `AudioClip.Load` builds it. Anything not ready is opened by the game as before |
 
 ### Extra support for other mods (on by default)
 
@@ -93,9 +99,16 @@ Each of these targets one mod, can be switched off separately in Mod Settings, a
 | CombatAI | Faster label scan, and its label patches are applied on the main thread |
 | Linkable Groups | Indexed facility links |
 | Loading Progress | Installs the support above before Loading Progress runs the static constructors |
-| PA Dynamic Seed Icons (1.7) | Reads and decodes its cached seed icon PNGs on worker threads once the seed bundles exist; its own code still makes every texture on the main thread, from the same bytes and the engine's own decode of them |
+| Giddy-Up 2 (1.7) | Remembers its rider draw offsets between starts, keyed on the exact texture content |
+| Worksites Expanded (1.7) | Answers its tome-trader check directly while no game is loaded instead of an exception caught tens of thousands of times |
+| Alien Worlds Framework (1.7) | Reuses last start's Worldbuilder preset images when their source textures are unchanged |
+| Cherry Picker (1.7) | Runs the part of its startup code that removes the picked defs right after its class is initialized instead of while it is still being initialized (1.6 s to 0.3 s). Same code, same order; if that code ever failed, the error is reported for that call instead of on every later use of Cherry Picker |
+| TD Find Lib (1.7) | Recipe users read during its startup come from an index, in the same order |
+| Vanilla Trading Expanded (1.7) | Its product check and the market value recipe check use an index while it sorts items; steps aside when another mod (such as Performance Optimizer) patches the same method |
 
-Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assembly.FullName`, `Assembly.GetTypes`, `Type.ContainsGenericParameters`, `Type.GetGenericArguments`, `XmlChildNodes.Item`, `Thread.Sleep`) only exist during startup and are removed when the main menu opens.
+Tests, off by default (Mod Settings): keep Missile Girl's rebuilt cache usable (writes its mod list again and drops stale hashes after a rebuild, with Missile Girl's own functions; works around a Missile Girl issue), PA Dynamic Seed Icons image read-ahead, and the game sound read-ahead above.
+
+Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assembly.FullName`, `Assembly.GetTypes`, `Type.ContainsGenericParameters`, `Type.GetGenericArguments`, `XmlChildNodes.Item`, `XmlLinkedNode.PreviousSibling`, `Thread.Sleep`) only exist during startup and are removed when the main menu opens.
 
 ## Safety rules the code follows
 
