@@ -59,3 +59,52 @@ Benchmark caveats: the rimmods tool cannot close the game with this list (Confir
 - Temp files: `%TEMP%/RimWorldLoadingOptimizer/HarmonyGenerated/<pid>-<ticks>/`, a few tens of MB, deleted on the next start.
 - Linkable Groups facility links still off (mod's static constructor changed); small gain, not re-verified.
 - The rimmods benchmark uses a separate save-data folder: no game TextureCache, so its cold starts are slower than real ones.
+
+
+# Besluit van de RLO-raad: 685425b..896f671
+
+## 1. Besluit
+
+**Vrijgeven met wijzigingen.** De raad stemde unaniem, 5 van 5: gebruiker, dotnet, ludeon, modder en perf. De winst is gemeten op de lijst met 1484 mods: warm van 201,2 naar 154,0 s en koud van 226,6 naar 163,9 s. De verify-runs gaven 0 mismatches, de foutaantallen bleven gelijk en de vingerafdrukken werkten na de update naar 1.7.4979. Een publieke release mag pas als de blokkers hieronder zijn opgelost.
+
+## 2. Waar de raad het over eens is
+
+- SiblingCursor (19,45 â†’ 0,37 s) en HarmonyDependencyIndex zijn de beste wijzigingen: veel winst en weinig risico.
+- De vingerafdrukken werken in de praktijk. Elke Install loopt via `RLOMod.Try` en schakelt zichzelf netjes uit als iets misgaat.
+- MeshPool geeft de grootste winst, maar kan de schermgeheugen-limiet overschrijden: er is geen WITHIN_BUDGET-vlag. Hij heeft ook geen eigen schakelaar en geen bescherming als de allocator opnieuw wordt aangemaakt.
+- CctorDeferral werkt anders dan vanilla. Als de tail faalt, gooit hij Ã©Ã©n keer een TIE, maar het type blijft daarna half geÃ¯nitialiseerd.
+- HarmonyBatchLoad en Krafs.Publicizer gaven geen winst. De verzonden DLL bevat nu `IgnoresAccessChecksTo(0Harmony)`.
+- CHANGELOG en README missen de meeste functies die standaard aan staan, en COUNCIL-NOTES spreekt zichzelf tegen over HarmonyFileLoads.
+
+## 3. Meningsverschillen en hoe de raad ze oplost
+
+| Punt | Standpunten | Oplossing |
+|---|---|---|
+| MeshPool na het hoofdmenu | ludeon: afkoppelen; perf, modder en dotnet: houden met budgetcontrole | Budgetcontrole is verplicht. MeshPool blijft de hele sessie actief als de speeltest slaagt, anders koppelt hij af bij het hoofdmenu zoals MeshStaging. |
+| Bewijs | gebruiker: speelsessie van 30+ min; perf: een machine met weinig VRAM | Allebei, zie blokker 3. |
+| Uitzetten per GPU-merk | gebruiker: voor; dotnet: tegen | Afgewezen. De beslissing hangt af van het VMA-budget, niet van het merk. |
+| GagarinCacheKeep | modder: standaard uit tot er een upstream-melding is; ludeon: eigen schakelaar plus documentatie is genoeg | Eigen schakelaar, documentatie en een verify-run na een echte mod-update. Zonder die run gaat hij standaard uit. |
+| GcLatency herstellen | dotnet en perf: risico; ludeon en dotnet in ronde 2: geen blokker | Volgende stap, geen blokker. |
+| ILSpy-controle | modder: niet nodig na verwijdering | Eerst verwijderen, daarna kort controleren (dotnet vond het attribuut). |
+| Assembly.Location | perf: zorg | Achterhaald en door perf ingetrokken. Alleen de notities moeten worden opgeschoond. |
+
+## 4. Blokkers voor een publieke release
+
+1. **MeshPool-veiligheid** (`Source/MeshPool.cs`): WITHIN_BUDGET of een controle via `vmaGetHeapBudgets`. Als `allocatorOf(__instance) != poolAllocator`, de pool leegmaken en vernietigen, of de functie blijvend uitzetten.
+2. **Eigen schakelaars** (`Source/RLOMod.cs:247-249`): MeshPool, MeshStaging en AtlasStamps los van `startupPhases`, met een eerlijke tooltip.
+3. **Testen in het spel** (MeshPool, GcLatency): op de lijst met 1484 mods een save laden, een nieuwe kaart maken, 30+ min spelen met 0 VMA/Vulkan-fouten en netjes afsluiten. Daarnaast Ã©Ã©n start op een tweede machine (ander GPU-merk, 8 GB VRAM of minder, 16 GB RAM) met LEANMEMORY_VERIFY.
+4. **HarmonyBatchLoad en Publicizer uit de release** (`Source/HarmonyBatchLoad.cs`, `Source/RimWorldLoadingOptimizer.csproj:55-61`). Daarna `1.7/Assemblies/RimWorldLoadingOptimizer.dll` controleren.
+5. **GagarinCacheKeep** (`Source/GagarinCacheKeep.cs`, `Source/RLOMod.cs:278`): eigen schakelaar, documentatie en de verify-run uit sectie 3.
+6. **Standaard uit** (`Source/RLOMod.cs:174, 286`): ResourceSoundReadAhead en SeedIconReadAhead, totdat een log laat zien dat ze items verwerken en tijd besparen.
+7. **Documentatie** (`CHANGELOG.md`, `README.md`, `COUNCIL-NOTES.md`): een regel per functie die standaard aan staat, met een toelichting voor Cherry Picker en Missile Girl. Daarnaast de tegenstrijdigheid over HarmonyFileLoads oplossen.
+
+## 5. Volgende stappen
+
+1. CctorDeferral: Cherry Picker met naam in de foutmelding zetten en de TIE ook bij latere toegang opnieuw gooien.
+2. Ruisbanden meten: 3 runs van R10 en 3 van R11, en daarna elke functie uit ronde 3 een keer uitzetten. VTE en de Vehicle Framework-decodes standaard uitzetten als ze niets opleveren.
+3. Piek-werkgeheugen en piek-heap per fase in het rapport opnemen. GcLatency ook herstellen als laden mislukt of het spel afsluit.
+4. Het tragere atlas-bakken (12,1 s) onderzoeken met minder read-ahead-workers.
+5. Het herschrijven van ModList in GagarinCacheKeep verplaatsen naar het moment dat GagarinAsync klaar is.
+6. Een opstartregel die per mod-functie meldt: geÃ¯nstalleerd, opzij gestapt of uitgeschakeld.
+7. De vingerafdrukken van 1.7.4979 opnemen in een verify-script, en de BCL-members van GagarinParallelRead ook een vingerafdruk geven.
+8. Upstream melden bij Waylith (VMA-pool), Missile Girl, Adaptive Storage en Harmony 3 (AMSI, ~33 s), en daarna de bijbehorende workarounds weghalen.
