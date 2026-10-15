@@ -171,6 +171,7 @@ namespace RimWorldLoadingOptimizer
             MainMenu.Install(harmony);
 #if RW17
             Try("sound read-ahead", settings.soundReadAhead, AudioReadAhead.Install);
+            Try(ResourceSoundReadAhead.Feature, settings.soundReadAhead, () => ResourceSoundReadAhead.Install(harmony));
             if (Verify)
             {
                 MainMenu.Then(AudioReadAhead.LogClipHash);
@@ -279,6 +280,11 @@ namespace RimWorldLoadingOptimizer
 #if RW17
             Try("Giddy-Up draw offsets", settings.Supports("giddyup"), () => GiddyUpOffsets.Install(harmony));
             Try("Worksites Expanded trader count", settings.Supports("miningoutpost"), () => WorksitesTraders.Install(harmony));
+            Try("Vehicle Framework pattern decodes", settings.Supports("vehicles"), () => VehiclePatternDecodes.Install(harmony));
+            Try(RecipeScans.TradingFeature, settings.Supports("vanillatrading"), () => RecipeScans.InstallTrading(harmony));
+            Try(RecipeScans.FindFeature, settings.Supports("tdfindlib"), () => RecipeScans.InstallFind(harmony));
+            Try(SeedIconReadAhead.Feature, settings.Supports("paseedicons"), () => SeedIconReadAhead.Install(harmony));
+            Try(CherryPickerSetup.Feature, settings.Supports("cherrypicker"), () => CherryPickerSetup.Install(harmony));
 #endif
             Try("def XML release", settings.xmlRelease, () => XmlRelease.Install(harmony));
 #if RW17

@@ -121,8 +121,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (RLOMod.Verify)
             {
-                openedFlags = new[] { "Streamed", "Packed", "BakedMono", "ForceToMono", "Bytes" }.Select(name => AccessTools.Property(openedType, name)).ToArray();
-                openedSound = AccessTools.Property(openedType, "Sound");
+                PrepareCompare(openedType);
             }
             var map = new Dictionary<string, int>(snapshot.Count, StringComparer.Ordinal);
             for (var i = 0; i < snapshot.Count; i++)
@@ -416,7 +415,18 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        private static string Difference(IPrefetchedAsset a, IPrefetchedAsset b)
+        // Also used by the game sound read-ahead, which opens the same kind of sound.
+        internal static void PrepareCompare(Type openedType)
+        {
+            if (openedFlags != null)
+            {
+                return;
+            }
+            openedSound = AccessTools.Property(openedType, "Sound");
+            openedFlags = new[] { "Streamed", "Packed", "BakedMono", "ForceToMono", "Bytes" }.Select(name => AccessTools.Property(openedType, name)).ToArray();
+        }
+
+        internal static string Difference(IPrefetchedAsset a, IPrefetchedAsset b)
         {
             if (a.GetType() != b.GetType())
             {

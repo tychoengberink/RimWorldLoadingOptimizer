@@ -74,6 +74,7 @@ Put RimWorld Loading Optimizer directly after Harmony (its About.xml asks to loa
 | Type name index | `AccessTools.TypeByName` | Lookups that miss the fast paths are answered from an index in Harmony's exact order instead of listing all types of all assemblies per call |
 | Patch file reuse | `ModContentPack.LoadPatches`, `DirectXmlLoader.XmlAssetsInModFolder` | Patch files parsed during def loading are reused instead of parsed a second time |
 | Startup report | `RuntimeHelpers.RunClassConstructor` | Logs the slowest mod static constructors |
+| Game sound read-ahead (1.7) | `UnityEngine.Resources.LoadStubResource` (its `AudioClip.Load` call) | Once the defs are loaded, the game's own sound files that the sub-sounds' grains will ask for are opened on worker threads with the game's `AudioClip.Open` (at most 128 MB waiting); the clip is then built from that on the thread that asks, exactly as `AudioClip.Load` builds it. Anything not ready is opened by the game as before |
 
 ### Extra support for other mods (on by default)
 
@@ -82,15 +83,17 @@ Each of these targets one mod, can be switched off separately in Mod Settings, a
 | Mod | What RimWorld Loading Optimizer does |
 |---|---|
 | Graphics Settings+ | Hands its own DDS loader the file bytes that were read ahead into memory |
-| Missile Girl | Lets its own cache loader read the cache straight into the def document instead of copying every def, and skips an unused second read of the cache file |
+| Missile Girl | Lets its own cache loader read the cache straight into the def document instead of copying every def, and skips an unused second read of the cache file; on 1.7 it reads the cache on several threads |
 | Melee Animation | Indexes its retexture scan (−27 s) |
 | Research Reinvented: Stepping Stones | Indexed recipe-user lookups |
 | Lunar | Faster inlining fixer and patch conflict check |
 | What's That Mod | Runs its patch scan at a point where it is cheaper |
 | Children Wear Anything, Vehicle Framework, AV Mechanoid Skins | Route their texture lookups through RimWorld Loading Optimizer's texture index |
+| Vehicle Framework (1.7) | While it builds its pattern materials, each pattern texture is decoded to pixels once instead of six times; the repeats get a copy of the same pixels |
 | CombatAI | Faster label scan, and its label patches are applied on the main thread |
 | Linkable Groups | Indexed facility links |
 | Loading Progress | Installs the support above before Loading Progress runs the static constructors |
+| PA Dynamic Seed Icons (1.7) | Reads and decodes its cached seed icon PNGs on worker threads once the seed bundles exist; its own code still makes every texture on the main thread, from the same bytes and the engine's own decode of them |
 
 Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assembly.FullName`, `Assembly.GetTypes`, `Type.ContainsGenericParameters`, `Type.GetGenericArguments`, `XmlChildNodes.Item`, `Thread.Sleep`) only exist during startup and are removed when the main menu opens.
 
