@@ -84,9 +84,9 @@ Put RimWorld Loading Optimizer directly after Harmony (its About.xml asks to loa
 | Startup report | `RuntimeHelpers.RunClassConstructor` | Logs the slowest mod static constructors |
 | Game sound read-ahead (1.7, test, off by default) | `UnityEngine.Resources.LoadStubResource` (its `AudioClip.Load` call) | Once the defs are loaded, the game's own sound files that the sub-sounds' grains will ask for are opened on worker threads with the game's `AudioClip.Open` (at most 128 MB waiting); the clip is then built from that on the thread that asks, exactly as `AudioClip.Load` builds it. Anything not ready is opened by the game as before |
 
-### Extra support for other mods (on by default)
+### Extra support for other mods (off by default)
 
-Each of these targets one mod, can be switched off separately in Mod Settings, and only acts when that mod is active. None of them re-implements the mod's own code: the mod's code still runs, and RimWorld Loading Optimizer only adds an index, a cache or a redirect around it. Each checks a fingerprint of the code it touches and switches itself off when that mod changes.
+Each of these targets one mod, can be switched on separately in Mod Settings, and only acts when that mod is active. None of them re-implements the mod's own code: the mod's code still runs, and RimWorld Loading Optimizer only adds an index, a cache or a redirect around it. Each checks a fingerprint of the code it touches and switches itself off when that mod changes.
 
 | Mod | What RimWorld Loading Optimizer does |
 |---|---|

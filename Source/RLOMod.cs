@@ -58,19 +58,19 @@ namespace RimWorldLoadingOptimizer
         public bool measureOffCold;
         public long measureOffPeakMb;
         public string lastMeasurement = "";
-        public List<string> modSupportOff = new List<string>();
+        public List<string> modSupport = new List<string>();
 
-        public bool Supports(string id) => modSupportOff == null || !modSupportOff.Contains(id);
+        public bool Supports(string id) => modSupport != null && modSupport.Contains(id);
 
         public void SetSupport(string id, bool on)
         {
-            if (!on && !modSupportOff.Contains(id))
+            if (on && !modSupport.Contains(id))
             {
-                modSupportOff.Add(id);
+                modSupport.Add(id);
             }
-            else if (on)
+            else if (!on)
             {
-                modSupportOff.Remove(id);
+                modSupport.Remove(id);
             }
         }
 
@@ -121,10 +121,10 @@ namespace RimWorldLoadingOptimizer
             Scribe_Values.Look(ref measureOffCold, "measureOffCold", true);
             Scribe_Values.Look(ref measureOffPeakMb, "measureOffPeakMb", 0L);
             Scribe_Values.Look(ref lastMeasurement, "lastMeasurement", "");
-            Scribe_Collections.Look(ref modSupportOff, "modSupportOff", LookMode.Value);
-            if (modSupportOff == null)
+            Scribe_Collections.Look(ref modSupport, "modSupport", LookMode.Value);
+            if (modSupport == null)
             {
-                modSupportOff = new List<string>();
+                modSupport = new List<string>();
             }
         }
     }
@@ -149,8 +149,7 @@ namespace RimWorldLoadingOptimizer
                 settings = new RLOSettings
                 {
                     fastXPath = false, shadowedTextures = false, recipeIndex = false, categoryCache = false, textureLookup = false,
-                    ddsFallback = false, audioStreaming = false, xmlRelease = false, ddsPrefetch = false, earlyLoadBoost = false, thinkKeys = false, harmonyModuleCache = false, harmonyIdentityMap = false, startupPhases = false, defLoadingFixes = false, gagarinFast = false, typeIndex = false, atlasCache = false, fasterModConstructors = false,
-                    modSupportOff = Compatibility.Supports.Select(support => support.Id).ToList()
+                    ddsFallback = false, audioStreaming = false, xmlRelease = false, ddsPrefetch = false, earlyLoadBoost = false, thinkKeys = false, harmonyModuleCache = false, harmonyIdentityMap = false, startupPhases = false, defLoadingFixes = false, gagarinFast = false, typeIndex = false, atlasCache = false, fasterModConstructors = false
                 };
 #if RW17
                 settings.earlyContent = false;
@@ -441,7 +440,7 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Release def XML after loading", ref settings.xmlRelease, "Stop vanilla's unused translation-key bookkeeping from keeping the whole merged def XML in memory.");
             list.CheckboxLabeled("Startup report in log", ref settings.startupReport, "Log cache statistics and the slowest mod static constructors.");
             list.GapLine();
-            list.Label("Extra support for other mods. Each one speeds up startup code of one specific mod and is on by default. It relies on that mod's internals: it switches itself off when the mod changes and may need a RimWorld Loading Optimizer update after the mod updates. Switch one off here if you prefer.");
+            list.Label("Extra support for other mods. Each one speeds up startup code of one specific mod and is off by default. It relies on that mod's internals: it switches itself off when the mod changes and may need a RimWorld Loading Optimizer update after the mod updates. Switch one on here if you want it.");
             foreach (var support in Compatibility.Supports)
             {
                 var on = settings.Supports(support.Id);
