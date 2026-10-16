@@ -24,7 +24,7 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var getter = AccessTools.PropertyGetter(typeof(XmlLinkedNode), nameof(XmlLinkedNode.PreviousSibling));
-            if (!Fingerprint.Matches(Feature, Fingerprint.Known(getter, "67249CB81B31E557")))
+            if (!Fingerprint.Matches(Feature, Fingerprint.Known(getter, "67249CB81B31E557", "2A30411DA1C38C76")))
             {
                 return;
             }
