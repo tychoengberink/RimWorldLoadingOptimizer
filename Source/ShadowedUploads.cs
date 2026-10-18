@@ -1,5 +1,7 @@
 #if RW17
+using System;
 using System.Collections.Generic;
+using System.Reflection.Emit;
 using System.Linq;
 using HarmonyLib;
 using Verse;
@@ -21,10 +23,16 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var target = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.LeavesSourceEvicted), new[] { typeof(CoreTexture) });
-            if (!Fingerprint.Matches("Shadowed textures not uploaded",
-                Fingerprint.Known(target, "9305B90C77C2E2F4", "1E7BDEC194D89413"),
-                Fingerprint.Known(AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases)), "45434BFD7AD5A8A9", "328DC23ECEE3DDF7"),
-                Fingerprint.Known(AccessTools.Method(typeof(CoreTexture), nameof(CoreTexture.EndDeferredLoading)), "F95ED4B38CACDE89", "EFA9E9D3A75C9973")))
+            var bake = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases));
+            var endDeferred = AccessTools.Method(typeof(CoreTexture), nameof(CoreTexture.EndDeferredLoading), new[] { typeof(Func<CoreTexture, bool>) });
+            if (target == null || bake == null || endDeferred == null)
+            {
+                VersionCheck.Skip("Shadowed textures not uploaded", "a method it needs no longer exists");
+                return;
+            }
+            if (!VersionCheck.Pattern("Shadowed textures not uploaded", bake,
+                    code => VersionCheck.Calls(code, endDeferred) == 1 && code.Count(i => i.opcode == OpCodes.Ldftn && Equals(i.operand, target)) == 1,
+                    "hands LeavesSourceEvicted to Texture2D.EndDeferredLoading to choose the textures left to load at first use"))
             {
                 return;
             }

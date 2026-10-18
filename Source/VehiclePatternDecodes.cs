@@ -41,6 +41,7 @@ namespace RimWorldLoadingOptimizer
         private static int hits, misses, uncached, verified, mismatches, runs;
         private static long missTicks, hitTicks;
         private static bool verify = RLOMod.Verify;
+        private static SelfCheck check;
 
         public static void Install(Harmony harmony)
         {
@@ -55,11 +56,13 @@ namespace RimWorldLoadingOptimizer
             var decode = textures == null ? null : AccessTools.Method(textures, "Decode");
             var managed = Type.GetType("AssetsTools.NET.Texture.TextureFile, AssetsTools.NET.Texture", false);
             var decodeManaged = managed == null ? null : AccessTools.Method(managed, "DecodeManagedData");
-            if (!Fingerprint.Matches(Feature,
-                Fingerprint.Known(generate, "38038F710768ECA2", "72E5F1534AE0CFD2"),
-                Fingerprint.Known(decodeToRgba32, "D8977CB3584AE2C8", "97F35E89D5000577"),
-                Fingerprint.Known(decode, "4356C116020FB0B6", "F1AA5FA6EBB78524"),
-                Fingerprint.Known(decodeManaged, "94F053556E3BF624", "15CFDCADBCDD9CFB")))
+            if (generate == null)
+            {
+                VersionCheck.Skip(Feature, "a method it needs no longer exists");
+                return;
+            }
+            check = new SelfCheck(Feature, VersionCheck.Code(decodeToRgba32, decode, decodeManaged), 10);
+            if (check.IsOff)
             {
                 return;
             }
@@ -98,13 +101,13 @@ namespace RimWorldLoadingOptimizer
         public static bool DecodePrefix(byte[] data, LoadedTextureFormat format, int w, int h, ref byte[] __result, out State __state)
         {
             __state = null;
-            if (depth == 0 || activeThread != Environment.CurrentManagedThreadId || data == null)
+            if (depth == 0 || activeThread != Environment.CurrentManagedThreadId || data == null || check.IsOff)
             {
                 return true;
             }
             var start = Stopwatch.GetTimestamp();
             var hit = Find(data, format, w, h);
-            if (hit != null && !verify)
+            if (hit != null && !verify && !check.IsChecking)
             {
                 __result = (byte[])hit.Result.Clone();
                 hits++;
@@ -124,7 +127,9 @@ namespace RimWorldLoadingOptimizer
             if (__state.Hit != null)
             {
                 verified++;
-                if (__result == null || !__result.AsSpan().SequenceEqual(__state.Hit.Result))
+                var same = __result != null && __result.AsSpan().SequenceEqual(__state.Hit.Result);
+                check.Report(same, $"{format} {w}x{h}");
+                if (!same)
                 {
                     mismatches++;
                     entries.Remove(__state.Hit);

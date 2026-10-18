@@ -312,7 +312,7 @@ namespace RimWorldLoadingOptimizer
         {
             lock (Changed)
             {
-                return Changed.Count == 0 ? "fingerprints: all verified" : $"fingerprints: off because the original changed: {string.Join(", ", Changed)}";
+                return Changed.Count == 0 ? "code checks: all passed" : $"code checks: skipped because the code they need is missing or changed: {string.Join(", ", Changed)}";
             }
         }
     }

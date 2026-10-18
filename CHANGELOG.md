@@ -1,9 +1,29 @@
 # Changelog
 
+## 5.2
+
+### Changed
+- Speedups no longer depend on lists of known game, Harmony or mod versions, so a game or mod update no longer switches them off. Each speedup checks that what it needs still exists, then either checks the one call it changes or compares its first results with the original code once per new code version (remembered in `verified-code.txt`). Harmony rebuild coalescing and reading Missile Girl's cache on several threads also check that the Harmony or System.Xml methods they build on still make exactly the calls they were written around. Only faster mod assembly loading on 1.6 still needs a known version.
+- Extra support for other mods is now off by default; switch on the mods you want in Mod Settings. Choices saved by 5.0 are not carried over.
+- Works with the RimWorld 1.7.4981 beta.
+- Where another optimizer replaces or rewrites the same method, the speedup steps aside and leaves that method to it.
+- Missile Girl's background cache write now follows the Missile Girl setting.
+- The mesh upload timing in the startup report also appears when a save is loaded straight away.
+
+### RimWorld 1.6
+- Atlas baking: the graphics commands are sent after every atlas, so each atlas's temporary buffers are freed right away instead of when loading ends (peak memory on the Progression packs list 80 → 45 GB on a 24 GB Mac).
+- Atlas packing: each texture's place in the atlas is looked up from an index instead of searching the whole texture list. The atlases come out the same.
+- Atlas cache: atlases with textures from asset bundles (DLCs and mods that ship bundles) or from the game's built-in resources can now be cached too; before, only atlases made entirely of mod texture files could be. On the Progression packs list 24 of 25 atlases are cached instead of 2, and baking takes 4 s instead of 39 s.
+- Mod sounds and textures load while the game reads and patches the XML, as on 1.7. A bar on the loading screen shows the progress.
+
+### Removed
+- Linkable Groups support.
+- 1.7 mesh staging buffer and its setting.
+
 ## 5.1
 
 ### Added
-- RimWorld 1.7 support. On 1.6 nothing changes; everything below is for 1.7 only.
+- RimWorld 1.7 support. Everything in this list is for 1.7 only; the changes on 1.6 are under "RimWorld 1.6" below.
 - Mod sounds and textures load while the game reads and patches the XML, instead of after it. A second bar on the loading screen shows the progress.
 - Mod sound files are opened and decoded on a background thread while mod data loads (at most 256 MB extra memory during loading).
 - The forced full memory clean-up just before the main menu is skipped; the runtime cleans up as usual while you play.
@@ -34,6 +54,13 @@
 
 ### Changed
 - On 1.7 the atlas cache and audio streaming switch themselves off: the game now caches baked atlases and loads sounds without the old wait loop itself.
+
+### RimWorld 1.6
+- Recipe index: Alpha Implants' warm-up of every ThingDef's recipes is checked once instead of once per ThingDef.
+- Category cache and texture lookup index: changes are detected by comparing the category tree and the mods' texture lists directly instead of a hash, so a hash collision can no longer hide a change.
+- Content lookups: folder lookups only visit mods that have files under that folder, and texture-index misses no longer scan every mod again.
+- Category cache, recipe index and Lunar: the speedups also accept the current versions of the methods they replace.
+- Missile Girl verification also compares node kinds, text splits, empty elements and attribute order, not only the XML text.
 
 ## 5.0
 

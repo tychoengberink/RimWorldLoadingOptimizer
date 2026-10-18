@@ -73,27 +73,11 @@ namespace RimWorldLoadingOptimizer
             if (gateObject == null || ordered == null || pathField?.FieldType != typeof(string) || kindField?.FieldType.IsEnum != true || stateField?.FieldType.IsEnum != true
                 || !Enum.IsDefined(kindField.FieldType, "Audio") || !Enum.IsDefined(stateField.FieldType, "Queued") || openedType == null)
             {
-                Log.Message($"[RLO] {Feature}: the game's asset prefetcher is not the version this was built for; skipped");
+                Log.Message($"[RLO] {Feature}: the game's asset prefetcher no longer has the members it needs; skipped");
                 return;
             }
             var loaderType = typeof(ModContentLoader<AudioClip>);
-            if (!Fingerprint.Matches("Sound read-ahead",
-                Fingerprint.Known(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModContent)), "4FD7CF066764C53F"),
-                Fingerprint.Known(AccessTools.Method(typeof(ModContentPack), "ReloadContentInt"), "449DFDF625FE3FAC"),
-                Fingerprint.Known(AccessTools.Method(typeof(ModContentHolder<AudioClip>), nameof(ModContentHolder<AudioClip>.ReloadAll)), "FAFE99A32F614121"),
-                Fingerprint.Known(AccessTools.Method(loaderType, nameof(ModContentLoader<AudioClip>.LoadItem)), "564880D9F2751A13"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(AccessTools.Method(loaderType, nameof(ModContentLoader<AudioClip>.LoadAllForMod))), "00DBB5662C88C818"),
-                Fingerprint.Known(AccessTools.Method(typeof(AudioClip), nameof(AudioClip.LoadFromFile)), "388C47436D6C44AD"),
-                Fingerprint.Known(openForPrefetch, "80A34DCBF94CC177"),
-                Fingerprint.Known(AccessTools.Method(typeof(AudioClip), "Open"), "40AE3817CE1013B4"),
-                Fingerprint.Known(AccessTools.Method(prefetcher, "Enqueue"), "D61923B0BE9AC58C"),
-                Fingerprint.Known(AccessTools.Method(prefetcher, nameof(AssetPrefetcher.TryTakeAudio)), "D867DEE606810A20"),
-                Fingerprint.Known(AccessTools.Method(prefetcher, "TryClaim"), "408F3EEEAB082546"),
-                Fingerprint.Known(AccessTools.Method(prefetcher, "DropSkippedBefore"), "F2DAE941E6B2B559"),
-                Fingerprint.Known(AccessTools.Method(prefetcher, "DropUnclaimed"), "3E4CFF7EE2472101"),
-                Fingerprint.Known(AccessTools.Method(prefetcher, "Process"), "095288888022A955"),
-                Fingerprint.Known(AccessTools.Method(prefetcher, "WorkerLoop"), "289CC98C049C81FA"),
-                Fingerprint.Known(AccessTools.Method(prefetcher, nameof(AssetPrefetcher.Drain)), "2B3346E5AD94B9FF")))
+            if (!LoaderContractHolds(prefetcher, slotType, pathField))
             {
                 return;
             }
@@ -142,6 +126,19 @@ namespace RimWorldLoadingOptimizer
             LongEventHandler.ExecuteWhenFinished(Finish);
             MainMenu.Then(Finish);
             LeanFixes.Reports.Add(Stats);
+        }
+
+        private static bool LoaderContractHolds(Type prefetcher, Type slotType, FieldInfo pathField)
+        {
+            var loader = AccessTools.PropertyGetter(prefetcher, nameof(AssetPrefetcher.AudioLoader));
+            var invoke = AccessTools.Method(typeof(Func<string, IPrefetchedAsset>), nameof(Func<string, IPrefetchedAsset>.Invoke));
+            var release = AccessTools.Method(typeof(IPrefetchedAsset), nameof(IPrefetchedAsset.Release));
+            return VersionCheck.Pattern("Sound read-ahead", AccessTools.Method(prefetcher, "Process"),
+                    code => VersionCheck.Calls(code, loader) == 1 && VersionCheck.Calls(code, invoke) == 1 && code.Any(i => i.LoadsField(pathField)),
+                    "opens a queued sound by its path with the game's sound loader")
+                && VersionCheck.Pattern("Sound read-ahead", AccessTools.Method(slotType, "ReleaseResult"),
+                    code => VersionCheck.Calls(code, release) == 1,
+                    "releases a sound nobody took");
         }
 
         private static void Run()

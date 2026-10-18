@@ -37,6 +37,9 @@ namespace RimWorldLoadingOptimizer
         private static bool singleBroken, anyBroken;
         private static int calculableServed, craftableServed, tradingBuilds, tradingMismatches, tradingSkipped;
         private static long tradingBuildTicks;
+        private static SelfCheck tradingCheck;
+        private static Func<ThingDef, bool> craftableOriginal;
+        [ThreadStatic] private static bool tradingBypass, tradingServed;
 
         // TD Find Lib: ModStartup's static constructor reads RecipeDef.AllRecipeUsers through ThingQueryHealth's.
         private static MethodInfo usersGetter;
@@ -49,6 +52,8 @@ namespace RimWorldLoadingOptimizer
         private static Dictionary<RecipeDef, List<ThingDef>> usersByRecipe;
         private static int usersServed, usersFallbacks, findBuilds, findMismatches;
         private static long findBuildTicks;
+        private static SelfCheck findCheck;
+        [ThreadStatic] private static bool findBypass;
 
         public static void InstallTrading(Harmony harmony)
         {
@@ -58,28 +63,31 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var initialize = AccessTools.Method(utils, "Initialize");
-            var markup = AccessTools.Method(utils, "InitMarkupValues");
             craftable = AccessTools.Method(utils, "<Initialize>g__IsCraftableOrCollectable|20_5");
             calculable = AccessTools.Method(typeof(StatWorker_MarketValue), nameof(StatWorker_MarketValue.CalculableRecipe));
             allDefs = AccessTools.PropertyGetter(typeof(DefDatabase<RecipeDef>), nameof(DefDatabase<RecipeDef>.AllDefs));
             allDefsForReading = AccessTools.PropertyGetter(typeof(DefDatabase<RecipeDef>), nameof(DefDatabase<RecipeDef>.AllDefsListForReading));
-            if (!Fingerprint.Matches(TradingFeature,
-                Fingerprint.Known(initialize, "B55D7BB8D8E0CA6A", "3D8B59FFF55A41BE"),
-                Fingerprint.Known(markup, "D66AC84D250593C7"),
-                Fingerprint.Known(craftable, "110B7CD3D3034617", "E5E6F170C8BBDCED"),
-                Fingerprint.Known(calculable, "B810284997729033", "ADB567B0EEA6459A"),
-                Fingerprint.Known(allDefs, "F97A1D76E615BDC6", "ED131EC61EAF709C"),
-                Fingerprint.Known(allDefsForReading, "F97A1D76E615BDC6", "ED131EC61EAF709C")))
+            if (initialize == null || allDefs == null || allDefsForReading == null || craftable?.ReturnType != typeof(bool)
+                || !craftable.IsStatic || craftable.GetParameters().Length != 1 || craftable.GetParameters()[0].ParameterType != typeof(ThingDef))
+            {
+                VersionCheck.Skip(TradingFeature, "a method it needs no longer exists");
+                return;
+            }
+            tradingCheck = new SelfCheck(TradingFeature, VersionCheck.Code(calculable, craftable));
+            if (tradingCheck.IsOff)
             {
                 return;
             }
+            craftableOriginal = (Func<ThingDef, bool>)craftable.CreateDelegate(typeof(Func<ThingDef, bool>));
             var last = Priority.Last;
-            harmony.Patch(calculable, transpiler: new HarmonyMethod(typeof(RecipeScans), nameof(CalculableTranspiler)) { priority = last });
-            harmony.Patch(craftable, transpiler: new HarmonyMethod(typeof(RecipeScans), nameof(CraftableTranspiler)) { priority = last });
+            harmony.Patch(calculable, transpiler: new HarmonyMethod(typeof(RecipeScans), nameof(CalculableTranspiler)) { priority = last },
+                postfix: new HarmonyMethod(typeof(RecipeScans), nameof(CalculablePostfix)) { priority = last });
+            harmony.Patch(craftable, transpiler: new HarmonyMethod(typeof(RecipeScans), nameof(CraftableTranspiler)) { priority = last },
+                postfix: new HarmonyMethod(typeof(RecipeScans), nameof(CraftablePostfix)) { priority = last });
             if (calculableRedirects != 1 || craftableRedirects != 1)
             {
-                harmony.Unpatch(calculable, HarmonyPatchType.Transpiler, harmony.Id);
-                harmony.Unpatch(craftable, HarmonyPatchType.Transpiler, harmony.Id);
+                harmony.Unpatch(calculable, HarmonyPatchType.All, harmony.Id);
+                harmony.Unpatch(craftable, HarmonyPatchType.All, harmony.Id);
                 Log.Message($"[RLO] {TradingFeature}: the recipe list reads were not found as expected ({calculableRedirects} and {craftableRedirects} of 1). This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
@@ -100,11 +108,8 @@ namespace RimWorldLoadingOptimizer
             }
             usersGetter = AccessTools.PropertyGetter(typeof(RecipeDef), nameof(RecipeDef.AllRecipeUsers));
             usersMoveNext = AccessTools.EnumeratorMoveNext(usersGetter);
-            if (!Fingerprint.Matches(FindFeature,
-                Fingerprint.Known(startup.TypeInitializer, "D4CA87E5395ABA7A", "9375A78BAC8BE1B8"),
-                Fingerprint.Known(health.TypeInitializer, "EBF5F6E43DB40A99", "EDAE68D443DE21DC"),
-                Fingerprint.Known(usersGetter, "6D08E5424E14DA06", "8762E8B936E55A89"),
-                Fingerprint.Known(usersMoveNext, "5E29B211731A3C4D", "8854E37F42492D34")))
+            findCheck = new SelfCheck(FindFeature, VersionCheck.Code(usersGetter, usersMoveNext));
+            if (findCheck.IsOff)
             {
                 return;
             }
@@ -185,7 +190,7 @@ namespace RimWorldLoadingOptimizer
         public static List<RecipeDef> Candidates(BuildableDef def)
         {
             var all = DefDatabase<RecipeDef>.AllDefsListForReading;
-            if (tradingDepth == 0 || !UnityData.IsInMainThread || !TradingReady(all) || singleBroken)
+            if (tradingBypass || tradingCheck.IsOff || tradingDepth == 0 || !UnityData.IsInMainThread || !TradingReady(all) || singleBroken)
             {
                 return all;
             }
@@ -225,7 +230,58 @@ namespace RimWorldLoadingOptimizer
                     return all;
                 }
             }
+            tradingServed = true;
             return result;
+        }
+
+        public static void CalculablePostfix(BuildableDef def, ref RecipeDef __result)
+        {
+            if (tradingBypass || !tradingServed)
+            {
+                return;
+            }
+            tradingServed = false;
+            if (!tradingCheck.IsChecking)
+            {
+                return;
+            }
+            RecipeDef original;
+            tradingBypass = true;
+            try
+            {
+                original = StatWorker_MarketValue.CalculableRecipe(def);
+            }
+            finally
+            {
+                tradingBypass = false;
+            }
+            tradingCheck.Report(ReferenceEquals(original, __result), $"market value recipe of {def?.defName}");
+            __result = original;
+        }
+
+        public static void CraftablePostfix(ThingDef thingDef, ref bool __result)
+        {
+            if (tradingBypass || !tradingServed)
+            {
+                return;
+            }
+            tradingServed = false;
+            if (!tradingCheck.IsChecking)
+            {
+                return;
+            }
+            bool original;
+            tradingBypass = true;
+            try
+            {
+                original = craftableOriginal(thingDef);
+            }
+            finally
+            {
+                tradingBypass = false;
+            }
+            tradingCheck.Report(original == __result, $"recipe products of {thingDef?.defName}");
+            __result = original;
         }
 
         // Called by Vanilla Trading Expanded's IsCraftableOrCollectable in place of DefDatabase<RecipeDef>.AllDefs.
@@ -234,7 +290,7 @@ namespace RimWorldLoadingOptimizer
         public static IEnumerable<RecipeDef> Producers(ThingDef thingDef)
         {
             var all = DefDatabase<RecipeDef>.AllDefsListForReading;
-            if (tradingDepth == 0 || !UnityData.IsInMainThread || !ReferenceEquals(DefDatabase<RecipeDef>.AllDefs, all) || !TradingReady(all) || anyBroken)
+            if (tradingBypass || tradingCheck.IsOff || tradingDepth == 0 || !UnityData.IsInMainThread || !ReferenceEquals(DefDatabase<RecipeDef>.AllDefs, all) || !TradingReady(all) || anyBroken)
             {
                 return DefDatabase<RecipeDef>.AllDefs;
             }
@@ -252,6 +308,7 @@ namespace RimWorldLoadingOptimizer
                     return all;
                 }
             }
+            tradingServed = true;
             return result;
         }
 
@@ -405,7 +462,7 @@ namespace RimWorldLoadingOptimizer
             thingsList = null;
         }
 
-        private static bool FindActive() => findStartup != null && !findOthers && CtorBracket.Inside(findStartup);
+        private static bool FindActive() => findStartup != null && !findOthers && !findBypass && !findCheck.IsOff && CtorBracket.Inside(findStartup);
 
         public static bool UsersPrefix(RecipeDef __instance, ref IEnumerable<ThingDef> __result)
         {
@@ -421,15 +478,18 @@ namespace RimWorldLoadingOptimizer
         // ThingDef whose recipes contain it, in DefDatabase order.
         private static IEnumerable<ThingDef> Users(RecipeDef recipe)
         {
+            var own = 0;
             if (recipe.recipeUsers != null)
             {
                 for (var i = 0; i < recipe.recipeUsers.Count; i++)
                 {
+                    own++;
                     yield return recipe.recipeUsers[i];
                 }
             }
             var things = DefDatabase<ThingDef>.AllDefsListForReading;
             var users = FindActive() ? Lookup(recipe, things) : null;
+            var indexed = users != null;
             if (users == null)
             {
                 usersFallbacks++;
@@ -447,10 +507,32 @@ namespace RimWorldLoadingOptimizer
                     users = original;
                 }
             }
+            if (indexed && findCheck.IsChecking)
+            {
+                users = CheckUsers(recipe, own, users);
+            }
             for (var i = 0; i < users.Count; i++)
             {
                 yield return users[i];
             }
+        }
+
+        private static List<ThingDef> CheckUsers(RecipeDef recipe, int own, List<ThingDef> users)
+        {
+            List<ThingDef> original;
+            findBypass = true;
+            try
+            {
+                original = recipe.AllRecipeUsers.ToList();
+            }
+            finally
+            {
+                findBypass = false;
+            }
+            var tail = original.Skip(own).ToList();
+            var same = original.Count == own + users.Count && tail.SequenceEqual(users, ReferenceComparer<ThingDef>.Instance);
+            findCheck.Report(same, $"recipe users of {recipe.defName}");
+            return same ? users : tail;
         }
 
         private static List<ThingDef> Scan(RecipeDef recipe, List<ThingDef> things)

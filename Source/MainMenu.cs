@@ -7,6 +7,7 @@ using Verse;
 
 namespace RimWorldLoadingOptimizer
 {
+    [Hook]
     public static class MainMenu
     {
         private static readonly List<Action> actions = new List<Action>();

@@ -28,10 +28,6 @@ namespace RimWorldLoadingOptimizer
                 Log.Message($"[RLO] load-end memory clean-up: expected one forced collection in the loading code, found {targets.Count}; skipped");
                 return;
             }
-            if (!Fingerprint.Matches("Skip the load-end memory clean-up", Fingerprint.Known(targets[0], "ECC3E392B58F8845")))
-            {
-                return;
-            }
             harmony.Patch(targets[0], transpiler: new HarmonyMethod(typeof(BackgroundGc), nameof(Transpiler)));
             if (RLOMod.Settings.Supports("loadingprogress"))
             {
@@ -47,10 +43,6 @@ namespace RimWorldLoadingOptimizer
             var type = AccessTools.TypeByName("ilyvion.LoadingProgress.StaticConstructorOnStartupUtilityReplacement");
             var method = type == null ? null : AccessTools.Method(type, "CollectGarbage");
             if (method == null || !IlScan.CallsAny(method, Blocking))
-            {
-                return;
-            }
-            if (!Fingerprint.Matches("Skip the load-end memory clean-up (Loading Progress)", Fingerprint.Known(method, "098D3D0C587B916C", "DB95EE909FFA75E7", "987485635198FB92")))
             {
                 return;
             }

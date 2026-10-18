@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Reflection.Emit;
 using HarmonyLib;
 using Verse;
@@ -18,7 +19,7 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var target = AccessTools.Method(typeof(LongEventHandler), "UpdateCurrentEnumeratorEvent");
-            if (!Fingerprint.Matches("Loading frame budget", Fingerprint.Known(target, "A134D3C247E099D2", "0D0F8F066738F9F3")))
+            if (!VersionCheck.Pattern("Loading frame budget", target, code => code.Count(i => i.opcode == OpCodes.Ldc_R4 && i.operand is float f && f == Default) == 1, "has one 0.1 s frame budget constant"))
             {
                 return;
             }

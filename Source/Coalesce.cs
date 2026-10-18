@@ -121,28 +121,35 @@ namespace RimWorldLoadingOptimizer
             var getPatched = AccessTools.Method(sharedType, "GetPatchedMethods");
             var exceptionCreate = AccessTools.Method(typeof(HarmonyException), "Create");
             var factory = AccessTools.Method(typeof(Patch), "IsFactory");
-            if (!Fingerprint.Matches("Harmony rebuild coalescing",
-                Fingerprint.Known(patchAll, "7501920D86FDA870"),
-                Fingerprint.Known(processJob, "5371576601E978BA"),
-                Fingerprint.Known(wrapper, "4F007C93FF50DD95"),
-                Fingerprint.Known(generateMethod, "C830F7F89F2A09F2"),
-                Fingerprint.Known(createReplacement, "E08133BE98F80F7A"),
-                Fingerprint.Known(detourMethod, "1D823234BBA87170"),
-                Fingerprint.Known(updatePatchInfo, "1648080B49C56B0C"),
-                Fingerprint.Known(getPatchInfo, "FCBBA976F9FCCF54"),
-                Fingerprint.Known(getPatched, "3E859CDA5B2B57F4"),
-                Fingerprint.Known(AccessTools.Method(typeof(PatchClassProcessor), "Patch"), "A6B184C7B47EA807"),
-                Fingerprint.Known(AccessTools.Constructor(typeof(PatchClassProcessor), new[] { typeof(Harmony), typeof(Type) }), "DEB7684BDCD13818"),
-                Fingerprint.Known(AccessTools.Method(typeof(PatchClassProcessor), "ReportException"), "72FB52C83DBB8273"),
-                Fingerprint.Known(AccessTools.Method(typeof(PatchClassProcessor), "PatchWithAttributes"), "8C881B8DD408EF34"),
-                Fingerprint.Known(AccessTools.Method(typeof(PatchClassProcessor), "BulkPatch"), "490285EDCCA67BA5"),
-                Fingerprint.Known(AccessTools.Method(configType, "Prepare"), "D9F69F4344DA456D"),
-                Fingerprint.Known(exceptionCreate, "718BF3C405CAB698"),
-                Fingerprint.Known(AccessTools.Method(typeof(Patch), "GetMethod"), "58D9D468012A8A5B"),
-                Fingerprint.Known(AccessTools.Method(typeof(GeneralExtensions), nameof(GeneralExtensions.HasHarmonyAttribute)), "46C356B6DB840A79"),
-                Fingerprint.Known(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.GetTypesFromAssembly)), "4756771C0711DDC4"),
-                Fingerprint.Known(AccessTools.Method(typeof(PatchProcessor), nameof(PatchProcessor.GetPatchInfo)), "5AB5534B8F297319"),
-                Fingerprint.Known(AccessTools.Method(T("HarmonyLib.PersistentStateHooks"), "Prepare"), "EBCC2C81190AD100")))
+            if (createReplacement == null)
+            {
+                VersionCheck.Skip("Harmony rebuild coalescing", "a Harmony method it needs no longer exists");
+                return;
+            }
+            if (!SameCalls(new (MethodBase, string)[]
+            {
+                (patchAll, "AccessTools.GetTypesFromAssembly,Action`1..ctor,CollectionExtensions.DoIf,Func`2..ctor"),
+                (processJob, "<>c__DisplayClass17_0..ctor,Enumerable.Any,Enumerable.Select,Enumerable.ToArray,Enumerable.Where,Exception.get_Message,Func`2..ctor,Func`2..ctor,Func`2..ctor,GeneralExtensions.FullDescription,Harmony.get_Id,Harmony.get_Id,Harmony.get_Id,Harmony.get_Id,Harmony.get_Id,Harmony.get_Id,Harmony.get_Id,HarmonyException..ctor,HarmonySharedState.GetPatchInfo,List`1.ToArray,List`1.ToArray,List`1.ToArray,List`1.ToArray,List`1.ToArray,List`1.ToArray,List`1.ToArray,Monitor.Enter,Monitor.Exit,PatchClassProcessor.ReportException,PatchClassProcessor.RunMethod,PatchClassProcessor.RunMethod,PatchFunctions.UpdateWrapper,PatchInfo..ctor,PatchInfo.AddFinalizers,PatchInfo.AddInnerFinalizers,PatchInfo.AddInnerPostfixes,PatchInfo.AddInnerPrefixes,PatchInfo.AddPostfixes,PatchInfo.AddPrefixes,PatchInfo.AddTranspilers,String.Concat,String.Join"),
+                (wrapper, "GeneralExtensions.FullDescription,HarmonyException.Create,HarmonySharedState.GetPatchInfo,HarmonySharedState.UpdatePatchInfo,IDisposable.Dispose,MethodCreator..ctor,MethodCreator.CreateReplacement,MethodCreatorConfig..ctor,MissingMethodException..ctor,PatchFunctions.GetInfixes,PatchFunctions.GetInfixes,PatchFunctions.GetInfixes,PatchFunctions.GetSortedPatchCalls,PatchFunctions.GetSortedPatchCalls,PatchFunctions.GetSortedPatchCalls,PatchFunctions.GetSortedPatchMethods,PatchInfo.ValidateSurvivingMetadata,PatchInfo.get_Debugging,PatchInfoSerialization.SerializeValidated,PatchTools.DetourMethod,PersistentStateHooks.Commit,PersistentStateHooks.Prepare,String.Concat"),
+                (generateMethod, "MethodBodyGenerator.Generate"),
+                (detourMethod, "DetourFactory.CreateDetour,DetourFactory.get_Current,Dictionary`2.TryGetValue,Dictionary`2.set_Item,IDisposable.Dispose,Monitor.Enter,Monitor.Exit"),
+                (updatePatchInfo, "AccessTools.Identifiable,AccessTools.get_IsMonoRuntime,Dictionary`2.Remove,Dictionary`2.get_Keys,Dictionary`2.set_Item,Dictionary`2.set_Item,Dictionary`2.set_Item,Enumerable.ToArray,Enumerable.Where,Func`2..ctor,MemberInfo.get_Module,MethodBase.get_MethodHandle,Module.get_Assembly,Monitor.Enter,Monitor.Enter,Monitor.Enter,Monitor.Exit,Monitor.Exit,Monitor.Exit,PropertyInfo.GetValue,RuntimeMethodHandle.GetFunctionPointer,WeakMethodInfo..ctor"),
+                (getPatchInfo, "GeneralExtensions.GetValueSafe,Monitor.Enter,Monitor.Exit,PatchInfoSerialization.Deserialize"),
+                (getPatched, "Dictionary`2.get_Keys,Enumerable.ToArray,Monitor.Enter,Monitor.Exit"),
+                (AccessTools.Method(typeof(PatchClassProcessor), "Patch"), "Array.Empty,Array.Empty,List`1..ctor,List`1..ctor,List`1.get_Count,List`1.get_Count,List`1.get_Item,PatchClassProcessor.BulkPatch,PatchClassProcessor.GetBulkMethods,PatchClassProcessor.PatchWithAttributes,PatchClassProcessor.ReportException,PatchClassProcessor.ReportException,PatchClassProcessor.ReversePatch,PatchClassProcessor.RunMethod,PatchClassProcessor.RunMethod,PatchClassProcessor.RunMethod"),
+                (AccessTools.Constructor(typeof(PatchClassProcessor), new[] { typeof(Harmony), typeof(Type) }), "ArgumentNullException..ctor,ArgumentNullException..ctor,Dictionary`2..ctor,Dictionary`2.set_Item,Enumerator.MoveNext,Enumerator.MoveNext,Enumerator.get_Current,Enumerator.get_Current,HarmonyMethod.Merge,HarmonyMethodExtensions.GetFromType,HarmonyMethodExtensions.Merge,IDisposable.Dispose,IDisposable.Dispose,List`1.GetEnumerator,List`1.GetEnumerator,Nullable`1..ctor,Nullable`1.GetValueOrDefault,Nullable`1.get_HasValue,Object..ctor,PatchClassProcessor.set_Category,PatchTools.GetPatchMethod,PatchTools.GetPatchMethods,Type.get_FullName"),
+                (AccessTools.Method(typeof(PatchClassProcessor), "ReportException"), "DefaultInterpolatedStringHandler..ctor,DefaultInterpolatedStringHandler.AppendFormatted,DefaultInterpolatedStringHandler.AppendFormatted,DefaultInterpolatedStringHandler.AppendLiteral,DefaultInterpolatedStringHandler.AppendLiteral,DefaultInterpolatedStringHandler.ToStringAndClear,Exception.get_InnerException,FileLog.Log,FileLog.Log,FileLog.Log,FileLog.Log,Func`2..ctor,GeneralExtensions.FullDescription,GeneralExtensions.FullDescription,GeneralExtensions.FullDescription,GeneralExtensions.Join,Harmony.VersionInfo,Harmony.get_Id,HarmonyException..ctor,Nullable`1.GetValueOrDefault,Object.ToString,String.Concat,String.Concat,String.Concat,String.Contains,String.Replace,String.Split,String.Trim"),
+                (AccessTools.Method(typeof(PatchClassProcessor), "PatchWithAttributes"), "ArgumentException..ctor,Enumerator.MoveNext,Enumerator.MoveNext,Enumerator.get_Current,Enumerator.get_Current,GeneralExtensions.FullDescription,HashSet`1..ctor,IDisposable.Dispose,IDisposable.Dispose,List`1.GetEnumerator,List`1.GetEnumerator,PatchClassProcessor.AddJobPatch,PatchClassProcessor.ProcessPatchJob,PatchClassProcessor.ProcessUnpatchJob,PatchJobs`1..ctor,PatchJobs`1.GetJobs,PatchJobs`1.GetReplacements,PatchTools.GetOriginalMethod,String.Concat"),
+                (AccessTools.Method(typeof(PatchClassProcessor), "BulkPatch"), "ArgumentException..ctor,ArgumentException..ctor,ArgumentException..ctor,DefaultInterpolatedStringHandler..ctor,DefaultInterpolatedStringHandler.AppendFormatted,DefaultInterpolatedStringHandler.AppendFormatted,DefaultInterpolatedStringHandler.AppendLiteral,DefaultInterpolatedStringHandler.AppendLiteral,DefaultInterpolatedStringHandler.ToStringAndClear,Enumerator.MoveNext,Enumerator.MoveNext,Enumerator.get_Current,Enumerator.get_Current,GeneralExtensions.Description,HashSet`1..ctor,IDisposable.Dispose,IDisposable.Dispose,List`1.GetEnumerator,List`1.GetEnumerator,List`1.get_Count,List`1.get_Item,Nullable`1.get_HasValue,Nullable`1.get_Value,PatchClassProcessor.AddJobPatch,PatchClassProcessor.ProcessPatchJob,PatchClassProcessor.ProcessUnpatchJob,PatchJobs`1..ctor,PatchJobs`1.GetJobs,PatchJobs`1.GetReplacements,String.Concat,String.Concat"),
+                (AccessTools.Method(configType, "Prepare"), "AccessTools.GetReturnedType,DefaultInterpolatedStringHandler..ctor,DefaultInterpolatedStringHandler.AppendFormatted,DefaultInterpolatedStringHandler.AppendLiteral,DefaultInterpolatedStringHandler.ToStringAndClear,DynamicMethodDefinition.GetILGenerator,Enumerable.Select,Enumerable.ToDictionary,Enumerable.Union,Func`2..ctor,Func`2..ctor,Func`2..ctor,HarmonySharedState.GetPatchInfo,List`1..ctor,MethodCreatorConfig.get_Fixes,MethodCreatorConfig.get_InnerFixes,MethodPatcherTools.CreateDynamicMethod,PatchInfo..ctor"),
+                (exceptionCreate, "Capture.get_Value,Capture.get_Value,Exception.get_Message,Group.get_Success,GroupCollection.get_Item,GroupCollection.get_Item,HarmonyException..ctor,Int32.Parse,Match.get_Groups,Match.get_Groups,Regex.Match,Regex.Replace,String.TrimEnd"),
+                (AccessTools.Method(typeof(Patch), "GetMethod"), "MethodBase.Invoke,Patch.IsFactory,Patch.get_PatchMethod"),
+                (AccessTools.Method(typeof(GeneralExtensions), nameof(GeneralExtensions.HasHarmonyAttribute)), "ArgumentNullException..ctor,HarmonyMethodExtensions.GetFromType,List`1.get_Count"),
+                (AccessTools.Method(typeof(AccessTools), nameof(AccessTools.GetTypesFromAssembly)), "Assembly.GetTypes,DefaultInterpolatedStringHandler..ctor,DefaultInterpolatedStringHandler.AppendFormatted,DefaultInterpolatedStringHandler.AppendFormatted,DefaultInterpolatedStringHandler.AppendLiteral,DefaultInterpolatedStringHandler.AppendLiteral,DefaultInterpolatedStringHandler.ToStringAndClear,Enumerable.ToArray,Enumerable.Where,FileLog.Debug,Func`2..ctor,ReflectionTypeLoadException.get_Types"),
+                (AccessTools.Method(typeof(PatchProcessor), nameof(PatchProcessor.GetPatchInfo)), "HarmonySharedState.GetPatchInfo,Monitor.Enter,Monitor.Exit,Patches..ctor"),
+                (AccessTools.Method(T("HarmonyLib.PersistentStateHooks"), "Prepare"), "AppDomain.GetData,AppDomain.get_CurrentDomain,PersistentStateHooks..ctor"),
+                (factory, "MethodBase.GetParameters,MethodBase.get_IsStatic,MethodInfo.get_ReturnType,MethodInfo.get_ReturnType,ParameterInfo.get_ParameterType,Type.GetTypeFromHandle,Type.GetTypeFromHandle,Type.GetTypeFromHandle,Type.op_Equality,Type.op_Inequality,Type.op_Inequality")
+            }))
             {
                 return;
             }
@@ -178,7 +185,7 @@ namespace RimWorldLoadingOptimizer
             compile = triple?.GetMethod("Compile", new[] { typeof(MethodBase) });
             if (locker == null || state == null || detours == null || infoArrays.Any(f => f == null) || new object[] { wrapException, configOriginal, configSource, configPersistence, creatorConfig, auxiliary, patchMethods, containerAttributes, attributeType, infoDebugging, detourTarget, detourApplied, jobOriginalField, jobRequestedField }.Any(x => x == null))
             {
-                Log.Message("[RLO] Harmony rebuild coalescing: Harmony's internals differ from the version it was checked against. This speedup is skipped and the original code runs; nothing is broken.");
+                Log.Message("[RLO] Harmony rebuild coalescing: Harmony no longer has the internals it needs. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             var self = typeof(Coalesce);
@@ -193,6 +200,24 @@ namespace RimWorldLoadingOptimizer
             harmony.Patch(getPatched, prefix: new HarmonyMethod(self, nameof(ReadAllPrefix)));
             installed = true;
             LeanFixes.Reports.Add(Stats);
+        }
+
+        private static bool SameCalls((MethodBase method, string calls)[] targets)
+        {
+            const string feature = "Harmony rebuild coalescing";
+            foreach (var (method, calls) in targets)
+            {
+                if (method == null)
+                {
+                    VersionCheck.Skip(feature, "a Harmony method it needs no longer exists");
+                    return false;
+                }
+                if (!VersionCheck.Pattern(feature, method, code => VersionCheck.CallsExactly(code, calls), "makes exactly the calls this speedup was built around"))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private static void Placeholder()

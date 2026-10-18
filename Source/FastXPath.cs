@@ -128,6 +128,7 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
+        [Hook]
         public static void StartTimer()
         {
             patchingThread = Thread.CurrentThread.ManagedThreadId;
@@ -150,6 +151,7 @@ namespace RimWorldLoadingOptimizer
             return __exception;
         }
 
+        [Hook]
         public static Exception StopTimer(Exception __exception)
         {
             StopWindow(null);

@@ -47,6 +47,7 @@ namespace RimWorldLoadingOptimizer
         private static int started, finished, readRedirected, decodeRedirected;
         private static int handed, ownReads, otherPaths, compared, mismatches;
         private static long ownTicks;
+        private static SelfCheck check;
 
         public static void Install(Harmony harmony)
         {
@@ -59,33 +60,25 @@ namespace RimWorldLoadingOptimizer
             unlockType = AccessTools.TypeByName("ProgressionAgriculture.CompProperties_UnlockCrop");
             tryLoad = AccessTools.Method(generator, "TryLoadFromCache");
             var applyAll = AccessTools.Method(generator, "ApplyAll");
-            var applyOne = AccessTools.Method(generator, "ApplyOne");
             cacheDir = AccessTools.PropertyGetter(generator, "CacheDir");
-            var paPostfix = patchType == null ? null : AccessTools.Method(patchType, "Postfix");
             bundlesField = patchType == null ? null : AccessTools.Field(patchType, "generatedBundles");
             cropField = unlockType == null ? null : AccessTools.Field(unlockType, "cropDef");
             readAllBytes = AccessTools.Method(typeof(File), nameof(File.ReadAllBytes), new[] { typeof(string) });
             decodeMethod = AccessTools.Method(typeof(GpuTextureService), nameof(GpuTextureService.TryLoadTextureFromMemory));
             var engineLoad = AccessTools.Method(typeof(Waylith.Rendering.Texture2D), nameof(Waylith.Rendering.Texture2D.LoadEncodedImage));
-            var stubLoad = AccessTools.Method(typeof(UnityEngine.Texture2D), "LoadEncodedImage");
-            var loadImage = AccessTools.Method(typeof(UnityEngine.ImageConversion), nameof(UnityEngine.ImageConversion.LoadImage), new[] { typeof(UnityEngine.Texture2D), typeof(byte[]) });
             var preResolve = AccessTools.Method(typeof(DefGenerator), nameof(DefGenerator.GenerateImpliedDefs_PreResolve));
             if (bundlesField == null || cropField?.FieldType != typeof(ThingDef) || cacheDir?.ReturnType != typeof(string) || !typeof(IEnumerable).IsAssignableFrom(bundlesField.FieldType))
             {
                 Log.Message($"[RLO] {Feature}: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
-            if (!Fingerprint.Matches(Feature,
-                Fingerprint.Known(tryLoad, "AC123FC6D8750681"),
-                Fingerprint.Known(applyAll, "A932E92B416FF809"),
-                Fingerprint.Known(applyOne, "7E08BE53C794DD55"),
-                Fingerprint.Known(cacheDir, "934C28E9FB6C2D6A"),
-                Fingerprint.Known(paPostfix, "1E24D7F6DB9FFB9F"),
-                Fingerprint.Known(loadImage, "52D49F0E5D99F88D"),
-                Fingerprint.Known(stubLoad, "5204635272A28453"),
-                Fingerprint.Known(engineLoad, "AE0EA0C746AD4AD8"),
-                Fingerprint.Known(decodeMethod, "98D51764E2E9E45D"),
-                Fingerprint.Known(preResolve, "CE34043FA0D506B5")))
+            if (tryLoad == null || applyAll == null || engineLoad == null || decodeMethod == null || preResolve == null)
+            {
+                VersionCheck.Skip(Feature, "a method it needs no longer exists");
+                return;
+            }
+            check = new SelfCheck(Feature, VersionCheck.Code(tryLoad, engineLoad, decodeMethod), 12);
+            if (check.IsOff)
             {
                 return;
             }
@@ -144,7 +137,7 @@ namespace RimWorldLoadingOptimizer
         // After Progression: Agriculture's own postfix has made the seed bundles; the icons are applied when loading ends.
         public static void Begin()
         {
-            if (Interlocked.Exchange(ref started, 1) != 0 || done)
+            if (Interlocked.Exchange(ref started, 1) != 0 || done || check.IsOff)
             {
                 return;
             }
@@ -201,7 +194,7 @@ namespace RimWorldLoadingOptimizer
         public static byte[] ReadAllBytes(string path)
         {
             var q = queue;
-            if (q == null || done || !UnityData.IsInMainThread)
+            if (q == null || done || !UnityData.IsInMainThread || check.IsOff)
             {
                 return File.ReadAllBytes(path);
             }
@@ -223,11 +216,13 @@ namespace RimWorldLoadingOptimizer
                     ownTicks += Stopwatch.GetTimestamp() - start;
                 }
             }
-            if (RLOMod.Verify)
+            if (RLOMod.Verify || check.IsChecking)
             {
                 var fresh = File.ReadAllBytes(path);
                 compared++;
-                if (!fresh.AsSpan().SequenceEqual(entry.Bytes))
+                var same = fresh.AsSpan().SequenceEqual(entry.Bytes);
+                check.Report(same, $"file bytes of {Path.GetFileName(path)}");
+                if (!same)
                 {
                     Mismatch(path, "file bytes differ");
                     return fresh;
@@ -246,7 +241,7 @@ namespace RimWorldLoadingOptimizer
         public static bool Decode(ReadOnlySpan<byte> bytes, out LoadedTextureData loadedTexture)
         {
             var mine = handedBytes;
-            if (mine == null || mine.Length == 0 || bytes.Length != mine.Length || !UnityData.IsInMainThread
+            if (mine == null || mine.Length == 0 || bytes.Length != mine.Length || !UnityData.IsInMainThread || check.IsOff
                 || !Unsafe.AreSame(ref MemoryMarshal.GetReference(bytes), ref MemoryMarshal.GetArrayDataReference(mine)))
             {
                 return GpuTextureService.TryLoadTextureFromMemory(bytes, out loadedTexture);
@@ -255,10 +250,11 @@ namespace RimWorldLoadingOptimizer
             handedBytes = null;
             handedTexture = default;
             handed++;
-            if (RLOMod.Verify)
+            if (RLOMod.Verify || check.IsChecking)
             {
                 var ok = GpuTextureService.TryLoadTextureFromMemory(bytes, out var fresh);
                 var difference = !ok ? "a fresh decode failed" : Difference(loadedTexture, fresh);
+                check.Report(difference == null, "decoded icon");
                 if (difference != null)
                 {
                     Mismatch("decoded icon", difference);

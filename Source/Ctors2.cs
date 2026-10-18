@@ -17,7 +17,7 @@ namespace RimWorldLoadingOptimizer
 
         public static bool Enabled(string fix) => !Off.Contains(fix) && !Off.Contains("all");
 
-        private static readonly string[] Mods = { "lunar", "avmechanoidskins", "linkablegroups", "vehicles" };
+        private static readonly string[] Mods = { "lunar", "avmechanoidskins", "vehicles" };
 
         public static bool Needed(RLOSettings settings) => Mods.Any(settings.Supports);
 
@@ -76,10 +76,6 @@ namespace RimWorldLoadingOptimizer
             if (Ctors2Mod.On("avmechanoidskins"))
             {
                 Ctors2Mod.Try("av", () => AvSkins.Install(Ctors2Mod.Harmony));
-            }
-            if (Ctors2Mod.On("linkablegroups"))
-            {
-                Ctors2Mod.Try("linkable", () => LinkableFacilities.Install(Ctors2Mod.Harmony));
             }
             if (Ctors2Mod.On("vehicles"))
             {

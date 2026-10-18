@@ -18,6 +18,7 @@ namespace RimWorldLoadingOptimizer
         private static readonly MethodInfo getName = AccessTools.Method(typeof(Assembly), nameof(Assembly.GetName), Type.EmptyTypes);
         private static readonly MethodInfo getFullName = AccessTools.PropertyGetter(typeof(AssemblyName), nameof(AssemblyName.FullName));
         private static int redirected;
+        private static SelfCheck check;
         private static long hits, misses, mismatches;
 
         public static void Install(Harmony harmony)
@@ -36,9 +37,13 @@ namespace RimWorldLoadingOptimizer
                 Log.Message($"[RLO] {Feature}: Harmony's generated assembly loader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
-            if (!Fingerprint.Matches(Feature,
-                Fingerprint.Known(ctor, "0995A15C7BF271F3"),
-                Fingerprint.Known(closures[0], "83F363FB75E3968E", "12B74ADAA2E974DE", "ECD8761A59CA0007")))
+            if (!VersionCheck.Pattern(Feature, closures[0], code => Enumerable.Range(0, Math.Max(0, code.Count - 1)).Count(i => Calls(code[i], getName) && Calls(code[i + 1], getFullName)) == 1,
+                "reads Assembly.GetName().FullName exactly once"))
+            {
+                return;
+            }
+            check = new SelfCheck(Feature, VersionCheck.Code(closures[0]));
+            if (check.IsOff)
             {
                 return;
             }
@@ -77,12 +82,17 @@ namespace RimWorldLoadingOptimizer
             {
                 return assembly.GetName().FullName;
             }
+            if (check != null && check.IsOff)
+            {
+                return assembly.GetName().FullName;
+            }
             if (names.TryGetValue(assembly, out var name))
             {
                 Interlocked.Increment(ref hits);
-                if (RLOMod.Verify)
+                if (RLOMod.Verify || check != null && check.IsChecking)
                 {
                     var fresh = assembly.GetName().FullName;
+                    check?.Report(fresh == name, $"name of {fresh}");
                     if (fresh != name)
                     {
                         if (Interlocked.Increment(ref mismatches) <= 10)

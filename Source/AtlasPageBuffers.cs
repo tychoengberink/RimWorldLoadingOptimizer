@@ -2,7 +2,9 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Threading;
 using HarmonyLib;
 using Verse;
@@ -24,19 +26,14 @@ namespace RimWorldLoadingOptimizer
             var store = AccessTools.TypeByName("Waylith.Rendering.TextureCacheStore");
             var source = store == null ? null : AccessTools.Inner(store, "PackedTextureSource");
             buffers = store == null ? null : AccessTools.Field(store, "_buffers");
-            if (source == null || buffers == null || !buffers.IsStatic || buffers.IsInitOnly || buffers.FieldType != typeof(ArrayPool<byte>))
+            var bake = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases));
+            if (bake == null || source == null || buffers == null || !buffers.IsStatic || buffers.IsInitOnly || buffers.FieldType != typeof(ArrayPool<byte>))
             {
                 Log.Message("[RLO] atlas page buffers: the game's texture cache buffer pool was not found; skipped");
                 return;
             }
-            var bake = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases));
-            if (!Fingerprint.Matches("Atlas page buffers",
-                Fingerprint.Known(bake, "45434BFD7AD5A8A9"),
-                Fingerprint.Known(AccessTools.Method(source, "TryOpen"), "A2C673D6F21BD239"),
-                Fingerprint.Known(AccessTools.Method(source, "Dispose"), "B84E6FDCE38F9583"),
-                Fingerprint.Known(AccessTools.Method(store, "Store"), "5F42E9546B3CD097"),
-                Fingerprint.Known(AccessTools.Method(store, "ReleaseBuffers"), "06DEC407375A2CF0"),
-                Fingerprint.Known(AccessTools.Method(store, "NewBufferPool"), "EE90BB14052FB05A")))
+            var create = AccessTools.Method(typeof(ArrayPool<byte>), nameof(ArrayPool<byte>.Create), new[] { typeof(int), typeof(int) });
+            if (!VersionCheck.Pattern("Atlas page buffers", AccessTools.Method(store, "NewBufferPool"), code => VersionCheck.Calls(code, create) == 1 && !code.Any(i => i.opcode == OpCodes.Newobj), "makes its buffer pool with ArrayPool.Create"))
             {
                 return;
             }

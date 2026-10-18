@@ -15,6 +15,7 @@ namespace RimWorldLoadingOptimizer
         private const BindingFlags Declared = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
         private static readonly Dictionary<Type, bool> declares = new Dictionary<Type, bool>();
         private static readonly MethodInfo harmonyPatch = AccessTools.Method(typeof(Harmony), nameof(Harmony.Patch), new[] { typeof(MethodBase), typeof(HarmonyMethod), typeof(HarmonyMethod), typeof(HarmonyMethod), typeof(HarmonyMethod) });
+        private static bool filterMethods;
         private static readonly MethodInfo getMethods = AccessTools.Method(typeof(Type), nameof(Type.GetMethods), new[] { typeof(BindingFlags) });
         private static string[] names;
         private static bool installed;
@@ -44,15 +45,18 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var patch = AccessTools.Method(type, "Patch");
-            if (!Fingerprint.Matches("CombatAI label scan", Fingerprint.Known(patch, "4AFC1A6F561B10B6", "447114DFA2CDCEC8")))
+            var candidateNames = AccessTools.Field(type, "CandidateNames");
+            if (candidateNames == null || candidateNames.FieldType != typeof(string[])
+                || !VersionCheck.Pattern("CombatAI label scan", patch, code => VersionCheck.Calls(code, harmonyPatch) == 1, "applies its label patches with one Harmony.Patch call"))
             {
                 return;
             }
-            names = (string[])AccessTools.Field(type, "CandidateNames").GetValue(null);
+            filterMethods = VersionCheck.Pattern("CombatAI label scan filter", patch, code => VersionCheck.Calls(code, getMethods) == 1 && code.Any(i => i.LoadsField(candidateNames)), "lists methods with one GetMethods call and matches them against CandidateNames");
+            names = (string[])candidateNames.GetValue(null);
             harmony.Patch(patch, prefix: new HarmonyMethod(typeof(CaiLabels), nameof(Start)), postfix: new HarmonyMethod(typeof(CaiLabels), nameof(Stop)),
                 transpiler: new HarmonyMethod(typeof(CaiLabels), nameof(Transpiler)));
             installed = replaced == 1;
-            if (!installed)
+            if (!installed && filterMethods)
             {
                 Log.Warning($"[RLO] CombatAI label scan: expected 1 GetMethods call, found {replaced}");
             }
@@ -68,7 +72,7 @@ namespace RimWorldLoadingOptimizer
             patchCalls = 0;
             foreach (var instruction in code)
             {
-                if (instruction.Calls(getMethods))
+                if (filterMethods && instruction.Calls(getMethods))
                 {
                     instruction.opcode = OpCodes.Call;
                     instruction.operand = AccessTools.Method(typeof(CaiLabels), nameof(Methods));

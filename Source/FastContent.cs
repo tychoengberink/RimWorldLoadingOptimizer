@@ -171,33 +171,20 @@ namespace RimWorldLoadingOptimizer
         public static bool Installed { get; private set; }
 
         private static MethodInfo redirectGet;
+        private static SelfCheck check;
 
         public static void Install(Harmony harmony, bool textureLookup)
         {
-            if (!Fingerprint.Matches("Fast content lookups",
-#if RW17
-                Fingerprint.Known(OriginalGet, "D4D313BA56F77956", "B802294668DE64B1"),
-#else
-                Fingerprint.Known(OriginalGet, "D4D313BA56F77956"),
-#endif
-#if RW17
-                Fingerprint.Known(OriginalFolder, "989773FE5AF81641", "1BF1D81A23779287"),
-#else
-                Fingerprint.Known(OriginalFolder, "989773FE5AF81641"),
-#endif
-#if RW17
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(OriginalFolder), "96B68A4A067048DD", "698878502D9AFD33"),
-#else
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(OriginalFolder), "96B68A4A067048DD"),
-#endif
-#if RW17
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(OriginalAudioFolder), "96B68A4A067048DD", "79A23DF611EA101D")))
-#else
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(OriginalAudioFolder), "96B68A4A067048DD")))
-#endif
+            if (OriginalGet == null || OriginalFolder == null || OriginalAudioFolder == null)
             {
+                VersionCheck.Skip("Fast content lookups", "a ContentFinder method it replaces no longer exists");
                 return;
             }
+            check = new SelfCheck("Fast content lookups", VersionCheck.Code(
+                OriginalGet,
+                OriginalFolder,
+                AccessTools.EnumeratorMoveNext(OriginalFolder),
+                AccessTools.EnumeratorMoveNext(OriginalAudioFolder)));
 #if NATIVE_ASSETS
             InstallBundles();
 #endif
@@ -309,7 +296,7 @@ namespace RimWorldLoadingOptimizer
 
         public static Texture2D Get(string itemPath, bool reportFailure)
         {
-            if (Compatibility.LazyTextures || !UnityData.IsInMainThread)
+            if (check.IsOff || Compatibility.LazyTextures || !UnityData.IsInMainThread)
             {
                 return ContentFinder<Texture2D>.Get(itemPath, reportFailure);
             }
@@ -319,7 +306,7 @@ namespace RimWorldLoadingOptimizer
         // For a caller that already knows no mod's content holder has a texture at this path (the texture lookup index).
         public static Texture2D GetOutsideHolders(string itemPath, bool reportFailure)
         {
-            if (Compatibility.LazyTextures || !UnityData.IsInMainThread)
+            if (check.IsOff || Compatibility.LazyTextures || !UnityData.IsInMainThread)
             {
                 return Get(itemPath, reportFailure);
             }
@@ -328,9 +315,16 @@ namespace RimWorldLoadingOptimizer
 
         private static Texture2D Report(string itemPath, bool reportFailure, Texture2D result)
         {
-            if (RLOMod.Verify && !ReferenceEquals(result, ContentFinder<Texture2D>.Get(itemPath, false)))
+            if (RLOMod.Verify || check.IsChecking)
             {
-                Mismatch($"get {itemPath}");
+                var expected = ContentFinder<Texture2D>.Get(itemPath, false);
+                var same = ReferenceEquals(result, expected);
+                if (!same)
+                {
+                    Mismatch($"get {itemPath}");
+                    result = expected;
+                }
+                check.Report(same, $"texture {itemPath}");
             }
             if ((object)result == null && reportFailure)
             {
@@ -387,6 +381,7 @@ namespace RimWorldLoadingOptimizer
 
         private static readonly Dictionary<AssetBundle, HashSet<string>> bundleNames = new Dictionary<AssetBundle, HashSet<string>>(ReferenceComparer<AssetBundle>.Instance);
         private static MethodBase[] bundleWatched;
+        private static SelfCheck bundleCheck;
         private static Dictionary<string, Texture2D> bundleCache;
         private static AccessTools.FieldRef<int> bundleCacheStamp;
         private static Func<string, Texture2D> uncached;
@@ -412,19 +407,21 @@ namespace RimWorldLoadingOptimizer
             var lookup = AccessTools.Method(Reader, "Lookup");
             var load = AccessTools.Method(Reader, "Load");
             var add = AccessTools.Method(Reader, "Add");
-            if (!Fingerprint.Matches("Fast content bundle lookups",
-                Fingerprint.Known(BundlesCached, "31BEF324BCEEB3A3", "E53E3DCCD9A2EAA0"),
-                Fingerprint.Known(BundlesUncached, "CA4DDD75F0EB8D20", "ABE94861D20EE2B1"),
-                Fingerprint.Known(BundlesStamp, "10FECC823644C13F", "3F2E6BE7758897E1"),
-                Fingerprint.Known(BundleLoad, "511A977FFDB448DB"),
-                Fingerprint.Known(BundleNames, "7141E6725935DB6B"),
-                Fingerprint.Known(assetNames, "0246209DC1CC3B49"),
-                Fingerprint.Known(lookup, "2D103CB183F3338C"),
-                Fingerprint.Known(load, "14EB43EE93D96A98", "C30F690A23105717"),
-                Fingerprint.Known(add, "FA1CBE72A67EDFB6")))
+            if (BundlesCached == null || BundlesUncached == null || BundlesStamp == null || BundleLoad == null || BundleNames == null || assetNames == null || lookup == null || load == null || add == null)
             {
+                VersionCheck.Skip("Fast content bundle lookups", "a method it needs no longer exists");
                 return;
             }
+            bundleCheck = new SelfCheck("Fast content bundle lookups", VersionCheck.Code(
+                BundlesCached,
+                BundlesUncached,
+                BundlesStamp,
+                BundleLoad,
+                BundleNames,
+                assetNames,
+                lookup,
+                load,
+                add));
             try
             {
                 bundleCacheStamp = AccessTools.StaticFieldRefAccess<int>(stampField);
@@ -442,7 +439,7 @@ namespace RimWorldLoadingOptimizer
         // ContentFinder<Texture2D>.TryFindAssetInModBundles with the same cache and stamp, around the faster search.
         private static Texture2D NativeBundles(string itemPath)
         {
-            if (bundleCache == null || itemPath == null || !BundlesUnpatched())
+            if (bundleCache == null || bundleCheck.IsOff || itemPath == null || !UnityData.IsInMainThread || !BundlesUnpatched())
             {
                 return ContentFinder<Texture2D>.TryFindAssetInModBundles(itemPath);
             }
@@ -471,9 +468,16 @@ namespace RimWorldLoadingOptimizer
             }
             BundleLookups++;
             var found = SearchBundles(itemPath);
-            if (RLOMod.Verify && !ReferenceEquals(found, uncached(itemPath)))
+            if (RLOMod.Verify || bundleCheck.IsChecking)
             {
-                Mismatch($"bundles {itemPath}");
+                var original = uncached(itemPath);
+                var identical = ReferenceEquals(found, original);
+                if (!identical)
+                {
+                    Mismatch($"bundles {itemPath}");
+                    found = original;
+                }
+                bundleCheck.Report(identical, $"bundles {itemPath}");
             }
             bundleCache[itemPath] = found;
             return found;
@@ -624,40 +628,46 @@ namespace RimWorldLoadingOptimizer
 
         public static IEnumerable<Texture2D> GetAllInFolder(string folderPath)
         {
-            if (Compatibility.LazyTextures || !UnityData.IsInMainThread)
+            if (check.IsOff || Compatibility.LazyTextures || !UnityData.IsInMainThread)
             {
                 return ContentFinder<Texture2D>.GetAllInFolder(folderPath);
             }
             Folders++;
-            if (!RLOMod.Verify)
+            if (!RLOMod.Verify && !check.IsChecking)
             {
                 return Folder(folderPath);
             }
             var fast = Folder(folderPath).ToList();
-            if (!fast.SequenceEqual(ContentFinder<Texture2D>.GetAllInFolder(folderPath)))
+            var original = ContentFinder<Texture2D>.GetAllInFolder(folderPath).ToList();
+            var same = fast.SequenceEqual(original);
+            if (!same)
             {
                 Mismatch($"folder {folderPath}");
             }
-            return fast;
+            check.Report(same, $"folder {folderPath}");
+            return same ? fast : original;
         }
 
         public static IEnumerable<AudioClip> GetAllInAudioFolder(string folderPath)
         {
-            if (!UnityData.IsInMainThread)
+            if (check.IsOff || !UnityData.IsInMainThread)
             {
                 return ContentFinder<AudioClip>.GetAllInFolder(folderPath);
             }
             Folders++;
-            if (!RLOMod.Verify)
+            if (!RLOMod.Verify && !check.IsChecking)
             {
                 return Folder<AudioClip>(folderPath, ModAssetBundlesHandler.AudioClipExtensions);
             }
             var fast = Folder<AudioClip>(folderPath, ModAssetBundlesHandler.AudioClipExtensions).ToList();
-            if (!fast.SequenceEqual(ContentFinder<AudioClip>.GetAllInFolder(folderPath)))
+            var original = ContentFinder<AudioClip>.GetAllInFolder(folderPath).ToList();
+            var same = fast.SequenceEqual(original);
+            if (!same)
             {
                 Mismatch($"audio folder {folderPath}");
             }
-            return fast;
+            check.Report(same, $"audio folder {folderPath}");
+            return same ? fast : original;
         }
 
         private static IEnumerable<Texture2D> Folder(string folderPath) => Folder<Texture2D>(folderPath, ModAssetBundlesHandler.TextureExtensions);

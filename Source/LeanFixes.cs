@@ -43,18 +43,5 @@ namespace RimWorldLoadingOptimizer
         }).Concat(new[] { CaiLabels.Stats(), CategorySet.Stats() }));
 
         public static double Seconds(long ticks) => ticks / (double)Stopwatch.Frequency;
-
-        public static IEnumerable<(MethodBase, string[])> WithLambdas(MethodBase method, Dictionary<string, string[]> known)
-        {
-            yield return Fingerprint.Known(method, known.TryGetValue(method.Name, out var own) ? own : new string[0]);
-            var prefix = "<" + method.Name + ">b__";
-            foreach (var nested in method.DeclaringType.GetNestedTypes(BindingFlags.NonPublic | BindingFlags.Public))
-            {
-                foreach (var lambda in nested.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly).Where(m => m.Name.StartsWith(prefix, StringComparison.Ordinal)))
-                {
-                    yield return Fingerprint.Known(lambda, known.TryGetValue(lambda.Name, out var hashes) ? hashes : new string[0]);
-                }
-            }
-        }
     }
 }

@@ -12,6 +12,7 @@ using Verse;
 
 namespace RimWorldLoadingOptimizer
 {
+    [Hook]
     public static class Measurement
     {
         public const int Idle = 0;

@@ -48,17 +48,9 @@ namespace RimWorldLoadingOptimizer
             string status;
             try
             {
-                var allTypes = AccessTools.PropertyGetter(typeof(GenTypes), nameof(GenTypes.AllTypes));
-                var usable = AccessTools.Method(typeof(ModAssemblyHandler), "AssemblyIsUsable");
                 if (!FasterCtors.PassOne("earlytypes"))
                 {
                     status = "off";
-                }
-                else if (!Fingerprint.Matches("Early assembly type cache",
-                    Fingerprint.Known(allTypes, "5C5C18E824D5F949", "D271D237CCDA378F"),
-                    Fingerprint.Known(usable, "AA9E7301887E8506", "F303DE8C8E0D0191")))
-                {
-                    status = "fingerprint mismatch";
                 }
                 else
                 {

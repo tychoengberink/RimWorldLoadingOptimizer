@@ -124,6 +124,77 @@ namespace RimWorldLoadingOptimizer
                 finalizer: new HarmonyMethod(typeof(AtlasCache), nameof(BakeFinalizer)));
             harmony.Patch(AccessTools.Method(typeof(StaticTextureAtlas), "ApplyTextureCompression"),
                 postfix: new HarmonyMethod(typeof(AtlasCache), nameof(CompressPostfix)) { priority = Priority.Last });
+            var resourcesLoad = AccessTools.Method(typeof(Resources), nameof(Resources.Load), new[] { typeof(string), typeof(Type) });
+            var bundleLoad = AccessTools.Method(typeof(AssetBundle), nameof(AssetBundle.LoadAsset), new[] { typeof(string), typeof(Type) });
+            var bundleOpen = AccessTools.Method(typeof(AssetBundle), nameof(AssetBundle.LoadFromFile), new[] { typeof(string) });
+            if (resourcesLoad != null && bundleLoad != null && bundleOpen != null)
+            {
+                harmony.Patch(resourcesLoad, postfix: new HarmonyMethod(typeof(AtlasCache), nameof(ResourceLoaded)));
+                harmony.Patch(bundleLoad, postfix: new HarmonyMethod(typeof(AtlasCache), nameof(BundleAssetLoaded)));
+                harmony.Patch(bundleOpen, postfix: new HarmonyMethod(typeof(AtlasCache), nameof(BundleOpened)));
+                MainMenu.UnpatchAfterStartup(resourcesLoad);
+                MainMenu.UnpatchAfterStartup(bundleLoad);
+                MainMenu.UnpatchAfterStartup(bundleOpen);
+            }
+        }
+
+        private static readonly Dictionary<Texture2D, string> origins = new Dictionary<Texture2D, string>(ReferenceComparer<Texture2D>.Instance);
+        private static readonly Dictionary<AssetBundle, string> bundleFiles = new Dictionary<AssetBundle, string>(ReferenceComparer<AssetBundle>.Instance);
+
+        public static void ResourceLoaded(string path, UnityEngine.Object __result)
+        {
+            if (__result is Texture2D texture)
+            {
+                lock (origins)
+                {
+                    if (!origins.ContainsKey(texture))
+                    {
+                        origins.Add(texture, "resource " + path);
+                    }
+                }
+            }
+        }
+
+        public static void BundleOpened(string path, AssetBundle __result)
+        {
+            if ((object)__result == null)
+            {
+                return;
+            }
+            try
+            {
+                var file = new FileInfo(path);
+                lock (bundleFiles)
+                {
+                    bundleFiles[__result] = $"{file.FullName} {file.Length}@{file.LastWriteTimeUtc.Ticks}";
+                }
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        public static void BundleAssetLoaded(AssetBundle __instance, string name, UnityEngine.Object __result)
+        {
+            if (!(__result is Texture2D texture))
+            {
+                return;
+            }
+            string file;
+            lock (bundleFiles)
+            {
+                if (!bundleFiles.TryGetValue(__instance, out file))
+                {
+                    return;
+                }
+            }
+            lock (origins)
+            {
+                if (!origins.ContainsKey(texture))
+                {
+                    origins.Add(texture, "bundle " + file + " " + name);
+                }
+            }
         }
 
         public static void BakeAllPrefix()
@@ -161,6 +232,14 @@ namespace RimWorldLoadingOptimizer
             Cleanup();
             owners = null;
             dirCache.Clear();
+            lock (origins)
+            {
+                origins.Clear();
+            }
+            lock (bundleFiles)
+            {
+                bundleFiles.Clear();
+            }
         }
 
         private static string MarkerPath => Path.Combine(Dir, "uncacheable.txt");
@@ -745,8 +824,18 @@ namespace RimWorldLoadingOptimizer
                 .Append(' ').Append((int)t.filterMode).Append(' ').Append((int)t.wrapMode).Append(' ');
             if (!owners.TryGetValue(t, out var owner))
             {
-                unknownTextures++;
-                return false;
+                string origin;
+                lock (origins)
+                {
+                    origins.TryGetValue(t, out origin);
+                }
+                if (origin == null)
+                {
+                    unknownTextures++;
+                    return false;
+                }
+                sb.Append(origin);
+                return true;
             }
             sb.Append(owner.mod.PackageId).Append(':').Append(owner.path);
             var rel = owner.path.Replace('\\', '/');

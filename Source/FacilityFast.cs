@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
@@ -12,16 +13,20 @@ namespace RimWorldLoadingOptimizer
         private static MethodBase target;
         private static MethodInfo getComp;
         private static int state;
+        private static SelfCheck check;
+        [ThreadStatic] private static bool bypass;
         private static long calls, ticks, mismatches;
 
         public static void Install(Harmony harmony)
         {
             target = AccessTools.Method(typeof(CompProperties_Facility), nameof(CompProperties_Facility.ResolveReferences));
             getComp = AccessTools.Method(typeof(ThingDef), nameof(ThingDef.GetCompProperties));
-            if (!Fingerprint.Matches("Facility link lookup", Fingerprint.Known(target, "4049308670CED946", "5B71AA1F8A5BD7EB"), Fingerprint.Known(getComp, "215F91C53DE88854", "0960DBC5C1F68151")))
+            if (target == null || getComp == null)
             {
+                VersionCheck.Skip("Facility link lookup", "CompProperties_Facility.ResolveReferences or ThingDef.GetCompProperties no longer exists");
                 return;
             }
+            check = new SelfCheck("Facility link lookup", VersionCheck.Code(target, getComp), 20);
             harmony.Patch(target, prefix: new HarmonyMethod(typeof(FacilityFast), nameof(Prefix)) { priority = Priority.Low });
             LeanFixes.Reports.Add(Stats);
         }
@@ -31,6 +36,10 @@ namespace RimWorldLoadingOptimizer
             if (!__runOriginal)
             {
                 return false;
+            }
+            if (bypass || check.IsOff)
+            {
+                return true;
             }
             if (state == 0)
             {
@@ -69,22 +78,24 @@ namespace RimWorldLoadingOptimizer
                     }
                 }
             }
-            if (RLOMod.Verify)
+            if (RLOMod.Verify || check.IsChecking)
             {
-                var slow = new List<ThingDef>();
-                foreach (var def in defs)
+                bypass = true;
+                try
                 {
-                    var props = def.GetCompProperties<CompProperties_AffectedByFacilities>();
-                    if (props?.linkableFacilities != null && props.linkableFacilities.Exists(f => f == parentDef))
-                    {
-                        slow.Add(def);
-                    }
+                    __instance.ResolveReferences(parentDef);
                 }
+                finally
+                {
+                    bypass = false;
+                }
+                var slow = __instance.linkableBuildings ?? new List<ThingDef>();
                 var same = slow.Count == result.Count;
                 for (var k = 0; same && k < slow.Count; k++)
                 {
                     same = slow[k] == result[k];
                 }
+                check.Report(same, $"facility {parentDef?.defName}");
                 if (!same)
                 {
                     mismatches++;

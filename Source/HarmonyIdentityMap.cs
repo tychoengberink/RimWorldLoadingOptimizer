@@ -28,6 +28,7 @@ namespace RimWorldLoadingOptimizer
         private static readonly Dictionary<string, int> missKinds = new Dictionary<string, int>();
 
         private static bool installed;
+        private static SelfCheck check;
         public static int Updates;
 
         public static void Install(Harmony harmony)
@@ -44,19 +45,22 @@ namespace RimWorldLoadingOptimizer
             var transpile = AccessTools.Method(T("HarmonyLib.CodeTranspiler"), "GetResult");
             var generate = AccessTools.Method(T("MonoMod.Utils.DynamicMethodDefinition"), "Generate", new[] { typeof(object) });
             var update = AccessTools.Method(T("HarmonyLib.PatchFunctions"), "UpdateWrapper");
-            if (!Fingerprint.Matches("Harmony identity map",
-                Fingerprint.Known(imports[0], Known.TypeImport),
-                Fingerprint.Known(imports[1], Known.FieldImport),
-                Fingerprint.Known(imports[2], Known.MethodImport),
-                Fingerprint.Known(resolve, Known.Resolve),
-                Fingerprint.Known(prepare, Known.Prepare),
-                Fingerprint.Known(create, Known.Create),
-                Fingerprint.Known(transpile, Known.Transpile),
-                Fingerprint.Known(generate, Known.Generate),
-                Fingerprint.Known(update, Known.Update)))
+            if (imports.Any(m => m == null) || resolve == null || prepare == null || create == null || transpile == null || generate == null || update == null)
             {
+                VersionCheck.Skip("Harmony identity map", "a Harmony method it hooks no longer exists");
                 return;
             }
+#if RW17
+            var generateMethod = AccessTools.Method(T("HarmonyLib.MethodCreatorConfig"), "GenerateMethod");
+#else
+            MethodBase generateMethod = null;
+#endif
+            var hooked = new List<MethodBase>(imports) { resolve, prepare, create, transpile, generate, update };
+            if (generateMethod != null)
+            {
+                hooked.Add(generateMethod);
+            }
+            check = new SelfCheck("Harmony identity map", VersionCheck.Code(hooked.ToArray()));
             var post = new HarmonyMethod(typeof(HarmonyIdentityMap), nameof(ImportPost));
             foreach (var import in imports)
             {
@@ -70,45 +74,10 @@ namespace RimWorldLoadingOptimizer
             Scope(generate, nameof(GeneratePre), nameof(GenerateFin));
             Scope(update, nameof(WrapperPre), nameof(WrapperFin));
             installed = true;
-#if RW17
-            // GenerateMethod resolves every static call operand before Generate runs (to find calls into dynamic assemblies); count it as
-            // generating so those lookups use the map too.
-            var generateMethod = AccessTools.Method(T("HarmonyLib.MethodCreatorConfig"), "GenerateMethod");
-            if (Fingerprint.Matches("Harmony identity map for GenerateMethod", Fingerprint.Known(generateMethod, Known.GenerateMethod)))
+            if (generateMethod != null)
             {
                 Scope(generateMethod, nameof(GeneratePre), nameof(GenerateFin));
             }
-#endif
-        }
-
-        private static class Known
-        {
-            public static readonly string[] TypeImport = { "FDF3EEFDB6652F06", "FD4A14B89E12DDD4", "4E6DAB8FAFA68234" };
-            public static readonly string[] FieldImport = { "EB70DBBC7A127399", "7742EEB84CDAC2F2", "FB2BFD532A732E5D" };
-            public static readonly string[] MethodImport = { "3BAA742293DC7802", "ADD3CD65E5F4A9F4", "C1386BBFBAD64316" };
-            public static readonly string[] Resolve = { "08937D537F4F2F5B", "F7A6908998AFB966", "E5FF71FD57E161B3", "1DA1868D281439F5" };
-#if RW17
-            public static readonly string[] Prepare = { "43A8FEEF5EF104B6", "C8AD921021F0F563", "D726632B7BEC6E7A", "D9F69F4344DA456D" };
-#else
-            public static readonly string[] Prepare = { "43A8FEEF5EF104B6", "C8AD921021F0F563", "D726632B7BEC6E7A" };
-#endif
-#if RW17
-            public static readonly string[] Create = { "7DAF0F063DFC7EB1", "F34855CB0DBD23C9", "B9317845F8764C26", "E08133BE98F80F7A" };
-#else
-            public static readonly string[] Create = { "7DAF0F063DFC7EB1", "F34855CB0DBD23C9", "B9317845F8764C26" };
-#endif
-            public static readonly string[] Transpile = { "F63C02817D2015DD", "F619C30E10FF0072" };
-#if RW17
-            public static readonly string[] Generate = { "F4ABFD8B96C38FDF", "A9013B5D7D38F550", "C1EAEFE01EEBBBAB", "38A8D4DC68F931AC" };
-#else
-            public static readonly string[] Generate = { "F4ABFD8B96C38FDF", "A9013B5D7D38F550", "C1EAEFE01EEBBBAB" };
-#endif
-#if RW17
-            public static readonly string[] Update = { "2420BCB82066FF16", "746ABD198B833108", "0ECE39398AC683A2", "4F007C93FF50DD95" };
-            public static readonly string[] GenerateMethod = { "8B26D31FC75CFFDF", "70FA6453A755267A", "7F428227DC9587CB" };
-#else
-            public static readonly string[] Update = { "2420BCB82066FF16", "746ABD198B833108", "0ECE39398AC683A2" };
-#endif
         }
 
         public static void WrapperPre()
@@ -172,7 +141,7 @@ namespace RimWorldLoadingOptimizer
 
         public static bool ResolvePre(object mref, object modules, ref MemberInfo __result)
         {
-            if (generating == 0 || wrapperDepth == 0 || inVerify || mref == null)
+            if (generating == 0 || wrapperDepth == 0 || inVerify || mref == null || check.IsOff)
             {
                 return true;
             }
@@ -190,7 +159,7 @@ namespace RimWorldLoadingOptimizer
                 }
                 return true;
             }
-            if (!verify)
+            if (!verify && !check.IsChecking)
             {
                 __result = found;
                 return false;
@@ -211,6 +180,7 @@ namespace RimWorldLoadingOptimizer
             {
                 inVerify = false;
             }
+            check.Report(ReferenceEquals(expected, found) || SameMember(expected, found), $"member {mref}");
             if (ReferenceEquals(expected, found))
             {
                 Interlocked.Increment(ref sameObject);

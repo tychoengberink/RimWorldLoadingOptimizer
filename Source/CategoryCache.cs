@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -35,6 +36,8 @@ namespace RimWorldLoadingOptimizer
 
         private static MethodBase getter;
         private static int state;
+        private static SelfCheck check;
+        [ThreadStatic] private static bool bypass;
 
         public static bool Installed { get; private set; }
 
@@ -67,13 +70,15 @@ namespace RimWorldLoadingOptimizer
 #endif
             getter = AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.DescendantThingDefs));
             var children = AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.ThisAndChildCategoryDefs));
-            if (!Fingerprint.Matches("Category cache",
-                Fingerprint.Known(getter, "591A2633DA38C9F9", "CCDE11F650DE24DF"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(getter), "3FC97BBCFF7FBC1D", "2991503FAE8B1F09"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(children), "2A83B3162CE0B4B3", "D2519FD28522DB53")))
+            if (getter == null || children == null)
             {
+                VersionCheck.Skip("Category cache", "ThingCategoryDef.DescendantThingDefs or ThisAndChildCategoryDefs no longer exists");
                 return;
             }
+            check = new SelfCheck("Category cache", VersionCheck.Code(
+                getter,
+                AccessTools.EnumeratorMoveNext(getter),
+                AccessTools.EnumeratorMoveNext(children)));
             harmony.Patch(getter, prefix: new HarmonyMethod(typeof(CategoryCache), nameof(Prefix)));
             Installed = true;
             harmony.Patch(AccessTools.Method(typeof(ThingCategoryNodeDatabase), nameof(ThingCategoryNodeDatabase.Clear)),
@@ -87,7 +92,7 @@ namespace RimWorldLoadingOptimizer
 
         public static bool Prefix(ThingCategoryDef __instance, ref IEnumerable<ThingDef> __result)
         {
-            if (!ThingCategoryNodeDatabase.initialized)
+            if (bypass || check.IsOff || !ThingCategoryNodeDatabase.initialized)
             {
                 return true;
             }
@@ -106,7 +111,7 @@ namespace RimWorldLoadingOptimizer
                 {
                     entry.IdentityCheckedAt = now;
                     Interlocked.Increment(ref Hits);
-                    __result = entry.Defs;
+                    __result = Checked(__instance, entry.Defs);
                     return false;
                 }
             }
@@ -116,8 +121,29 @@ namespace RimWorldLoadingOptimizer
             var readOnly = defs.AsReadOnly();
             cache[__instance] = new Entry { Defs = readOnly, Shape = shape, Identity = Identity(__instance), IdentityCheckedAt = now };
             Interlocked.Increment(ref Builds);
-            __result = readOnly;
+            __result = Checked(__instance, readOnly);
             return false;
+        }
+
+        private static IEnumerable<ThingDef> Checked(ThingCategoryDef category, IEnumerable<ThingDef> defs)
+        {
+            if (!check.IsChecking)
+            {
+                return defs;
+            }
+            List<ThingDef> original;
+            bypass = true;
+            try
+            {
+                original = category.DescendantThingDefs.ToList();
+            }
+            finally
+            {
+                bypass = false;
+            }
+            var same = original.SequenceEqual(defs);
+            check.Report(same, $"category {category.defName}");
+            return same ? defs : original;
         }
 
         private static void Collect(ThingCategoryDef category, List<ThingDef> defs)

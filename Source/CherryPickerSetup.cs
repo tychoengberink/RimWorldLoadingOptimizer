@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
@@ -31,9 +32,12 @@ namespace RimWorldLoadingOptimizer
             }
             var cctor = type.TypeInitializer;
             var setup = AccessTools.Method(type, "Setup", new[] { typeof(bool) });
-            if (!Fingerprint.Matches(Feature,
-                Fingerprint.Known(cctor, "6B24CCF939C9E188"),
-                Fingerprint.Known(setup, "72875492E04CCC85")))
+            if (setup == null)
+            {
+                VersionCheck.Skip(Feature, "a method it needs no longer exists");
+                return;
+            }
+            if (!VersionCheck.Pattern(Feature, cctor, code => TailMovable(code, setup), "ends with a timed Setup call that can run after the class is initialized"))
             {
                 return;
             }
@@ -67,6 +71,12 @@ namespace RimWorldLoadingOptimizer
                 }
             }
             LeanFixes.Reports.Add(Stats);
+        }
+
+        private static bool TailMovable(List<CodeInstruction> list, MethodInfo setup)
+        {
+            var start = FindTail(list, setup);
+            return start >= 0 && !list.Skip(start).Any(i => i.opcode == OpCodes.Stsfld && i.operand is FieldInfo field && field.IsInitOnly);
         }
 
         // newobj Stopwatch::.ctor; dup; callvirt Stopwatch::Start; ldc.i4.0; call Setup(bool) ... ret

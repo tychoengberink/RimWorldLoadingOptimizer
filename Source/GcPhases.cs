@@ -10,6 +10,7 @@ using Verse;
 
 namespace RimWorldLoadingOptimizer
 {
+    [Hook]
     public static class GcPhases
     {
         private struct Sample
@@ -50,7 +51,7 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var start = AccessTools.Method(typeof(DeepProfiler), nameof(DeepProfiler.Start));
-            if (!Fingerprint.Matches("GC per phase", Fingerprint.Known(start, "4027DCB158962411")))
+            if (start == null)
             {
                 return;
             }

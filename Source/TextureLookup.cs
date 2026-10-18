@@ -33,16 +33,16 @@ namespace RimWorldLoadingOptimizer
 
         public static bool Installed { get; private set; }
 
+        private static SelfCheck check;
+
         public static void Install(Harmony harmony)
         {
-#if RW17
-            if (!Fingerprint.Matches("Texture lookup index", Fingerprint.Known(Original, "D4D313BA56F77956", "B802294668DE64B1")))
-#else
-            if (!Fingerprint.Matches("Texture lookup index", Fingerprint.Known(Original, "D4D313BA56F77956")))
-#endif
+            if (Original == null)
             {
+                VersionCheck.Skip("Texture lookup index", "ContentFinder.Get no longer exists");
                 return;
             }
+            check = new SelfCheck("Texture lookup index", VersionCheck.Code(Original));
             Installed = true;
             var transpiler = new HarmonyMethod(typeof(TextureLookup), nameof(Transpiler)) { priority = Priority.Last };
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ClearDestroy)),
@@ -90,7 +90,7 @@ namespace RimWorldLoadingOptimizer
 
         public static Texture2D Get(string itemPath, bool reportFailure)
         {
-            if (itemPath == null || Compatibility.LazyTextures || !UnityData.IsInMainThread)
+            if (itemPath == null || check.IsOff || Compatibility.LazyTextures || !UnityData.IsInMainThread)
             {
                 return ContentFinder<Texture2D>.Get(itemPath, reportFailure);
             }
@@ -98,11 +98,7 @@ namespace RimWorldLoadingOptimizer
             if (winners.TryGetValue(itemPath, out var winner) && StillValid(itemPath, winner))
             {
                 Hits++;
-                if (RLOMod.Verify)
-                {
-                    Check(itemPath, winner.Texture);
-                }
-                return winner.Texture;
+                return Checked(itemPath, winner.Texture);
             }
             if (misses.Contains(itemPath))
             {
@@ -114,11 +110,7 @@ namespace RimWorldLoadingOptimizer
                         return ContentFinder<Texture2D>.Get(itemPath, true);
                     }
                     CachedMisses++;
-                    if (RLOMod.Verify)
-                    {
-                        Check(itemPath, null);
-                    }
-                    return null;
+                    return Checked(itemPath, null);
                 }
             }
             // While the holders are the ones the winners were built from, winners holds every non-null holder entry, so a path
@@ -135,7 +127,7 @@ namespace RimWorldLoadingOptimizer
                 {
                     misses.Add(itemPath);
                 }
-                return outside;
+                return Checked(itemPath, outside);
             }
             var resolved = ContentFinder<Texture2D>.Get(itemPath, reportFailure);
             if (resolved != null)
@@ -232,13 +224,20 @@ namespace RimWorldLoadingOptimizer
             return true;
         }
 
-        private static void Check(string itemPath, Texture2D found)
+        private static Texture2D Checked(string itemPath, Texture2D found)
         {
+            if (!RLOMod.Verify && !check.IsChecking)
+            {
+                return found;
+            }
             var expected = ContentFinder<Texture2D>.Get(itemPath, false);
-            if (expected != found && Mismatches++ < 10)
+            var same = expected == found;
+            if (!same && Mismatches++ < 10)
             {
                 Log.Warning($"[RLO] texture lookup mismatch for {itemPath}");
             }
+            check.Report(same, $"texture {itemPath}");
+            return same ? found : expected;
         }
     }
 }
