@@ -19,10 +19,10 @@ All numbers come from the Progression packs 1–3 mod list, described below, so 
 
 | Machine | Start | 5.1.0 | Current | Current, all mod support on | Peak memory (5.1.0 / current) |
 |---|---|---|---|---|---|
-| Mac ² | cold | 1:38 | **1:18** | – | 22.8 / 22.4 GB |
-| Mac ² | warm | 1:05 | 1:09 | **1:03** | 23.2 / 22.8 GB |
+| Mac ² | cold | 1:38 | **1:22** | – | 22.8 / 22.1 GB |
+| Mac ² | warm | 1:05 | 1:11 | **1:03** | 23.2 / 22.9 GB |
 
-² RimWorld 1.7.4981, 2026-10-18, 1,482 mods: the same Progression packs list, Steam closed. 5.1.0 has the support for other mods on by default, the current version off (only Missile Girl support was switched on, so warm starts work). With the same settings the current version is about 2 s faster warm. No start with the optimizer off was measured on this build; see [Mac, 2026-10-18](#mac-2026-10-18).
+² RimWorld 1.7.4981, 2026-10-18, 1,482 mods: the same Progression packs list, Steam closed. Both with default settings: 5.1.0 has the support for other mods on by default, the current version has it off. With the same settings the current version is about 2 s faster warm. No start with the optimizer off was measured on this build; see [Mac, 2026-10-18](#mac-2026-10-18).
 
 | Machine | Start | Off | On | Change | Peak memory (off → on) |
 |---|---|---|---|---|---|
@@ -94,23 +94,24 @@ On 1.7 the atlas cache and audio streaming switch themselves off, because the ga
 - RimWorld 1.7.4981 (rev136) with all five DLCs, 2026-10-18, Steam closed. Harmony mod 3.0.1.0 (library 3.0.0-rc.3).
 - The Progression packs 1–3 list as on 1.6, 1,482 mods: Prepatcher, CAI 5000, Only If Tolerance Below and Better Prerequisites have no 1.7 version, and VE Base Generation and four newly added pack mods could not be downloaded offline.
 - Load Them Last restarted the game once on every start; the times are from the restarted game.
-- 5.1.0 runs with its defaults (support for all other mods on). The current version runs with its defaults (support for other mods off) plus Missile Girl support, and in a second set with all 18 mod supports on.
+- 5.1.0 runs with its defaults (support for all other mods on). The current version runs with its defaults (support for other mods off), with only Missile Girl support on, and with all 18 mod supports on.
 
-| Start | 5.1.0 | Current | Current, all mod support on |
-|---|---|---|---|
-| cold | 98.0 s | 78.5 / 77.7 s | – |
-| warm | 64.4 / 64.8 s | 69.0 / 68.7 s | 64.7 ⁴ / 61.4 / 64.1 s |
-| peak memory | 22.5–23.2 GB | 22.3–22.9 GB | 22.8–23.0 GB |
-| static constructors (warm) | 11.9 s | 18.5 s | 11.8 s |
-| TPS, colony save ⁵ | 864.4 / 868.8 | 893.4 / 891.3 | – |
-| longest frame while playing ⁵ | 1,754 / 1,816 ms | 205 / 220 ms | – |
+| Start | 5.1.0 | Current (default) | Current, Missile Girl support on | Current, all mod support on |
+|---|---|---|---|---|
+| cold | 98.0 s | 81.7 s | 78.5 / 77.7 s | – |
+| warm | 64.4 / 64.8 s | 71.3 / 70.9 / 71.4 s | 69.0 / 68.7 s | 64.7 ⁴ / 61.4 / 64.1 s |
+| peak memory | 22.5–23.2 GB | 22.1–22.9 GB | 22.3–22.9 GB | 22.8–23.0 GB |
+| static constructors (warm) | 11.9 s | 18.3 s | 18.5 s | 11.8 s |
+| TPS, colony save ⁵ | 864.4 / 868.8 | 893.6 | 893.4 / 891.3 | – |
+| longest frame while playing ⁵ | 1,754 / 1,816 ms | 271 ms | 205 / 220 ms | – |
 
 ⁴ First start with Giddy-Up 2 and Alien Worlds Framework support on: it writes their caches.
 
 ⁵ A new colony on this list, game speed 4, 60 s measured after a 120 s warm-up.
 
-- Cold starts are 20 s faster than 5.1.0: on this game build 5.1.0 switches eight of its speedups off, because the game code they were checked against changed (sound read-ahead, atlas page buffers, mesh staging buffer, mesh buffer pool, XML previous-sibling cursor, fast content bundle lookups, Missile Girl's multi-threaded cache read and Linkable Groups facility links). The current version knows this game build, and checks code it does not know by what that code does instead of by its exact version, so all of them except Linkable Groups stay on.
-- Warm with default settings the current version is about 4 s slower than 5.1.0, because the static constructors take 6.6 s longer, mostly those of mods it has extra support for (Giddy-Up 2, Alien Worlds Framework, Vehicle Framework, Cherry Picker). That support is off by default now; switched on, the current version is about 2 s faster than 5.1.0.
+- Cold starts are 16–20 s faster than 5.1.0: on this game build 5.1.0 switches eight of its speedups off, because the game code they were checked against changed (sound read-ahead, atlas page buffers, mesh staging buffer, mesh buffer pool, XML previous-sibling cursor, fast content bundle lookups, Missile Girl's multi-threaded cache read and Linkable Groups facility links). The current version knows this game build, and checks code it does not know by what that code does instead of by its exact version, so all of them except Linkable Groups stay on.
+- Missile Girl's cache is used on 1.7 with default settings too; Missile Girl support only makes reading it faster (5.4 → 1.6 s).
+- Warm with default settings the current version is about 6.5 s slower than 5.1.0. The support for other mods is off by default now, so the static constructors take 6.4 s longer (mostly Giddy-Up 2, Alien Worlds Framework, Vehicle Framework and Cherry Picker) and Missile Girl's cache is read more slowly. With all mod support on, the current version is about 2 s faster than 5.1.0.
 - Correctness:
   - A verification start reported 0 mismatches for every speedup.
   - A start that forced every version-free check passed all of them.

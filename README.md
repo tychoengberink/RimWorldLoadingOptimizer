@@ -28,10 +28,10 @@ Every speedup has a verification mode that recomputes the result the original wa
 
 | Machine | Start | 5.1.0 | Current | Current, all mod support on | Peak memory (5.1.0 / current) |
 |---|---|---|---|---|---|
-| Mac ² | cold | 1:38 | **1:18** | – | 22.8 / 22.4 GB |
-| Mac ² | warm | 1:05 | 1:09 | **1:03** | 23.2 / 22.8 GB |
+| Mac ² | cold | 1:38 | **1:22** | – | 22.8 / 22.1 GB |
+| Mac ² | warm | 1:05 | 1:11 | **1:03** | 23.2 / 22.9 GB |
 
-² RimWorld 1.7.4981, 2026-10-18, 1,482 mods: the same Progression packs list, Steam closed. 5.1.0 has the support for other mods on by default, the current version off (only Missile Girl support was switched on, so warm starts work). With the same settings the current version is about 2 s faster warm. No start with the optimizer off was measured on this build; see [BENCHMARK.md](BENCHMARK.md#mac-2026-10-18).
+² RimWorld 1.7.4981, 2026-10-18, 1,482 mods: the same Progression packs list, Steam closed. Both with default settings: 5.1.0 has the support for other mods on by default, the current version has it off. With the same settings the current version is about 2 s faster warm. No start with the optimizer off was measured on this build; see [BENCHMARK.md](BENCHMARK.md#mac-2026-10-18).
 
 | Machine | Start | Off | On | Change | Peak memory (off → on) |
 |---|---|---|---|---|---|
