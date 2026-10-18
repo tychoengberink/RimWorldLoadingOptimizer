@@ -19,8 +19,7 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var target = AccessTools.Method(typeof(LongEventHandler), "UpdateCurrentEnumeratorEvent");
-            if (!VersionCheck.Known(Fingerprint.Known(target, "A134D3C247E099D2", "0D0F8F066738F9F3"))
-                && !VersionCheck.Pattern("Loading frame budget", target, code => code.Count(i => i.opcode == OpCodes.Ldc_R4 && i.operand is float f && f == Default) == 1, "has one 0.1 s frame budget constant"))
+            if (!VersionCheck.Pattern("Loading frame budget", target, code => code.Count(i => i.opcode == OpCodes.Ldc_R4 && i.operand is float f && f == Default) == 1, "has one 0.1 s frame budget constant"))
             {
                 return;
             }

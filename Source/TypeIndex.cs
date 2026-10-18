@@ -23,10 +23,10 @@ namespace RimWorldLoadingOptimizer
 
         public static void Install(Harmony harmony)
         {
-            check = new SelfCheck("TypeByName index", VersionCheck.Known(
-                Fingerprint.Known(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.TypeByName)), "624D91367FA5A6CB", "5DB8125A670F78A7"),
-                Fingerprint.Known(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllTypes)), "E5988DC554860258", "4865BF6750797681"),
-                Fingerprint.Known(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllAssemblies)), "5A35D5946C2A7BFC", "6C8092C81C75E970")), 25);
+            check = new SelfCheck("TypeByName index", VersionCheck.Code(
+                AccessTools.Method(typeof(AccessTools), nameof(AccessTools.TypeByName)),
+                AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllTypes)),
+                AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllAssemblies))), 25);
             harmony.Patch(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.TypeByName)), prefix: new HarmonyMethod(typeof(TypeIndex), nameof(Prefix)) { priority = Priority.Last });
         }
 

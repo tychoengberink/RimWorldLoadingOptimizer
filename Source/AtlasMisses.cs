@@ -15,6 +15,7 @@ using Texture2D = UnityEngine.Texture2D;
 
 namespace RimWorldLoadingOptimizer
 {
+    [Hook]
     public static class AtlasMisses
     {
         private static AccessTools.FieldRef<StaticTextureAtlas, List<Texture2D>> textures;
@@ -31,24 +32,25 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var bake = AccessTools.Method(typeof(StaticTextureAtlas), nameof(StaticTextureAtlas.Bake));
-            if (!Fingerprint.Matches("Atlas cache miss report",
-                Fingerprint.Known(bake, "738A2772A6BB3AC4", "16E31AF159EADC0A"),
-                Fingerprint.Known(AccessTools.Method(typeof(StaticTextureAtlas), "TryGetCacheKey"), "F74EA4FF5C50B4FA", "DBEC94EFAE7B4524"),
-                Fingerprint.Known(AccessTools.Method(typeof(StaticTextureAtlas), "TryWriteSourceStamp"), "11386B8F876A15F3", "9C7641C601750A28")))
-            {
-                return;
-            }
             compressionEnabled = AccessTools.PropertyGetter(typeof(GlobalTextureAtlasManager), "AtlasCompressionEnabled");
-            if (compressionEnabled == null)
+            if (bake == null || compressionEnabled == null)
             {
-                Log.Message("[RLO] atlas cache miss report: the game's atlas compression switch was not found; report skipped");
+                Log.Message("[RLO] atlas cache miss report: the game's atlas baking or compression switch was not found; report skipped");
                 return;
             }
-            textures = AccessTools.FieldRefAccess<StaticTextureAtlas, List<Texture2D>>("textures");
-            masks = AccessTools.FieldRefAccess<StaticTextureAtlas, Dictionary<Texture2D, Texture2D>>("masks");
-            tiles = AccessTools.FieldRefAccess<StaticTextureAtlas, Dictionary<Texture, StaticTextureAtlasTile>>("tiles");
-            colorKey = AccessTools.FieldRefAccess<StaticTextureAtlas, string>("colorCacheKey");
-            maskKey = AccessTools.FieldRefAccess<StaticTextureAtlas, string>("maskCacheKey");
+            try
+            {
+                textures = AccessTools.FieldRefAccess<StaticTextureAtlas, List<Texture2D>>("textures");
+                masks = AccessTools.FieldRefAccess<StaticTextureAtlas, Dictionary<Texture2D, Texture2D>>("masks");
+                tiles = AccessTools.FieldRefAccess<StaticTextureAtlas, Dictionary<Texture, StaticTextureAtlasTile>>("tiles");
+                colorKey = AccessTools.FieldRefAccess<StaticTextureAtlas, string>("colorCacheKey");
+                maskKey = AccessTools.FieldRefAccess<StaticTextureAtlas, string>("maskCacheKey");
+            }
+            catch (Exception e)
+            {
+                Log.Message($"[RLO] atlas cache miss report: the game's atlas fields changed ({e.Message}); report skipped");
+                return;
+            }
             harmony.Patch(bake, postfix: new HarmonyMethod(typeof(AtlasMisses), nameof(BakePostfix)));
             LeanFixes.Reports.Add(Stats);
         }

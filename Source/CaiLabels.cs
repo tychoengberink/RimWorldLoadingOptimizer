@@ -45,12 +45,14 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var patch = AccessTools.Method(type, "Patch");
-            filterMethods = VersionCheck.Known(Fingerprint.Known(patch, "4AFC1A6F561B10B6", "447114DFA2CDCEC8"));
-            if (!filterMethods && !VersionCheck.Pattern("CombatAI label scan", patch, code => VersionCheck.Calls(code, harmonyPatch) == 1, "applies its label patches with one Harmony.Patch call"))
+            var candidateNames = AccessTools.Field(type, "CandidateNames");
+            if (candidateNames == null || candidateNames.FieldType != typeof(string[])
+                || !VersionCheck.Pattern("CombatAI label scan", patch, code => VersionCheck.Calls(code, harmonyPatch) == 1, "applies its label patches with one Harmony.Patch call"))
             {
                 return;
             }
-            names = (string[])AccessTools.Field(type, "CandidateNames").GetValue(null);
+            filterMethods = VersionCheck.Pattern("CombatAI label scan filter", patch, code => VersionCheck.Calls(code, getMethods) == 1 && code.Any(i => i.LoadsField(candidateNames)), "lists methods with one GetMethods call and matches them against CandidateNames");
+            names = (string[])candidateNames.GetValue(null);
             harmony.Patch(patch, prefix: new HarmonyMethod(typeof(CaiLabels), nameof(Start)), postfix: new HarmonyMethod(typeof(CaiLabels), nameof(Stop)),
                 transpiler: new HarmonyMethod(typeof(CaiLabels), nameof(Transpiler)));
             installed = replaced == 1;

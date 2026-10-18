@@ -16,7 +16,7 @@ namespace RimWorldLoadingOptimizer
             var pattern = ModTypes.Find("Vehicles.PatternDef");
             var recache = pattern == null ? null : AccessTools.Method(pattern, "RecacheTextures");
             if (recache == null || !TextureLookup.Installed
-                || !VersionCheck.Known(Fingerprint.Known(recache, "11EB661ACD87B954")) && !VersionCheck.Pattern("Vehicle Framework pattern lookups", recache, code => VersionCheck.Calls(code, OriginalGet) >= 1, "calls ContentFinder.Get"))
+                || !VersionCheck.Pattern("Vehicle Framework pattern lookups", recache, code => VersionCheck.Calls(code, OriginalGet) >= 1, "calls ContentFinder.Get"))
             {
                 return;
             }

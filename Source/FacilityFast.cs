@@ -26,7 +26,7 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip("Facility link lookup", "CompProperties_Facility.ResolveReferences or ThingDef.GetCompProperties no longer exists");
                 return;
             }
-            check = new SelfCheck("Facility link lookup", VersionCheck.Known(Fingerprint.Known(target, "4049308670CED946", "5B71AA1F8A5BD7EB"), Fingerprint.Known(getComp, "215F91C53DE88854", "0960DBC5C1F68151")), 20);
+            check = new SelfCheck("Facility link lookup", VersionCheck.Code(target, getComp), 20);
             harmony.Patch(target, prefix: new HarmonyMethod(typeof(FacilityFast), nameof(Prefix)) { priority = Priority.Low });
             LeanFixes.Reports.Add(Stats);
         }

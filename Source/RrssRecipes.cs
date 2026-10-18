@@ -33,11 +33,11 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip("Research Reinvented: Stepping Stones recipe users", "PreregRebuilder.SetPrerequisitesOnOrphans, RecipeDefExtensions or a RecipeDef getter no longer exists");
                 return;
             }
-            check = new SelfCheck("Research Reinvented: Stepping Stones recipe users", VersionCheck.Known(
-                Fingerprint.Known(entry, "DA8D84A498E939B2"),
-                Fingerprint.Known(AllRecipeUsers, "2E918FB1ADB1135C", "8762E8B936E55A89"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(AllRecipeUsers), "2F9D95E7037F88F6", "8854E37F42492D34"),
-                Fingerprint.Known(IsSurgeryGetter, "5E3C9FE2FC98FDDE", "7B035F4EE8F7FCBA")));
+            check = new SelfCheck("Research Reinvented: Stepping Stones recipe users", VersionCheck.Code(
+                entry,
+                AllRecipeUsers,
+                AccessTools.EnumeratorMoveNext(AllRecipeUsers),
+                IsSurgeryGetter));
             var transpiler = new HarmonyMethod(typeof(RrssRecipes), nameof(Transpiler));
             foreach (var method in AccessTools.GetDeclaredMethods(rebuilder).Concat(AccessTools.GetDeclaredMethods(extensions)))
             {

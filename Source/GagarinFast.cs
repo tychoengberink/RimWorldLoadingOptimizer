@@ -45,13 +45,9 @@ namespace RimWorldLoadingOptimizer
             reusePatches = !parallelXmlLoader && AccessTools.Method(typeof(ModContentPack), "LoadPatches") != null && AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)) != null;
             if (reusePatches)
             {
-                patchCheck = new SelfCheck("Reuse of parsed patch files", VersionCheck.Known(
-                    Fingerprint.Known(AccessTools.Method(typeof(ModContentPack), "LoadPatches"), "7BD200C227994829", "38D8E170612E6A8C"),
-#if RW17
-                    Fingerprint.Known(AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)), "443A7DDA2E4D9183", "B562C17CC83C679E", "760A5C052131CDB0", "C466BF8CB37814BD")), 20);
-#else
-                    Fingerprint.Known(AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)), "443A7DDA2E4D9183", "B562C17CC83C679E")), 20);
-#endif
+                patchCheck = new SelfCheck("Reuse of parsed patch files", VersionCheck.Code(
+                    AccessTools.Method(typeof(ModContentPack), "LoadPatches"),
+                    AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder))), 20);
             }
             var loadModXml = AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML));
             if (parallelXmlLoader)
@@ -152,6 +148,10 @@ namespace RimWorldLoadingOptimizer
         // Reading the cache on several threads (GagarinParallelRead) builds the nodes the way XmlDocument.ReadNode
         // does, so the System.Xml code it stands in for, and the code it relies on being safe from several threads
         // on one document, has to be the one it was checked against.
+        private const string ParallelFeature = "Missile Girl cache read on several threads";
+        private static SelfCheck parallelCheck;
+        private static int parallelChecks;
+
         private static bool ParallelReadUsable(List<CodeInstruction> code)
         {
             if (code.Count(i => i.Calls(ReadAllText)) != 1)
@@ -167,28 +167,54 @@ namespace RimWorldLoadingOptimizer
                 parallelNote = "System.Xml members changed";
                 return false;
             }
-            if (!Fingerprint.Matches("Missile Girl cache read on several threads",
-                Fingerprint.Known(ReadAllText, "AB057F43EFD87FD0", "1CA80A58B717DA07"),
-                Fingerprint.Known(AccessTools.Method(typeof(File), nameof(File.ReadAllText), new[] { typeof(string), typeof(System.Text.Encoding) }), "9C1F4D936049BABC", "F5062B990726742D"),
-                Fingerprint.Known(AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.ReadNode), new[] { typeof(XmlReader) }), "FA65A52B45FB3445", "B05160D869DC9A48"),
-                Fingerprint.Known(AccessTools.Method(loader, "ReadCurrentNode", new[] { typeof(XmlDocument), typeof(XmlReader) }), "AF4955145152B22D", "73CCA3F433EC451B"),
-                Fingerprint.Known(AccessTools.Method(loader, "LoadNode", new[] { typeof(bool) }), "8518F5CA5A3317EB", "2714BCE0ED743D7E"),
-                Fingerprint.Known(AccessTools.Method(loader, "LoadAttributeNode", Type.EmptyTypes), "7813B989EC48C688", "4A18545882C92C33"),
-                Fingerprint.Known(AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.CreateElement), new[] { typeof(string), typeof(string), typeof(string) }), "BC7BAF6EEA427725", "CC8CB2D04F29B1C8"),
-                Fingerprint.Known(AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.CreateAttribute), new[] { typeof(string), typeof(string), typeof(string) }), "81B7D736AFC8FF8F", "4EB44C06C87D2C07"),
-                Fingerprint.Known(AccessTools.Method(typeof(XmlDocument), "AddAttrXmlName"), "A4999CF63D8C0B7B", "D6381A3FF4F8DC37"),
-                Fingerprint.Known(AccessTools.Method(typeof(XmlDocument), "GetEventArgs"), "AECF17964884B08C", "AC354C7730F56E4B"),
-                Fingerprint.Known(AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.CreateTextNode)), "6D82814DB1BFFF3C", "F8973278358208C0"),
-                Fingerprint.Known(AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.CreateCDataSection)), "955AE260F04A7E20", "80677F8CC4C4C30D"),
-                Fingerprint.Known(AccessTools.Constructor(typeof(XmlElement), new[] { xmlName, typeof(bool), typeof(XmlDocument) }), "80E80F174E2D42D8", "10EE5CFF2CD5B4B5"),
-                Fingerprint.Known(AccessTools.Constructor(typeof(XmlAttribute), new[] { xmlName, typeof(XmlDocument) }), "CB24E54797B43691", "FB8F2805C158BE13"),
-                Fingerprint.Known(AccessTools.Method(typeof(XmlAttributeCollection), nameof(XmlAttributeCollection.Append), new[] { typeof(XmlAttribute) }), "85786BE550F93868", "741527D2C8E687E4"),
-                Fingerprint.Known(AccessTools.Method(typeof(XmlAttributeCollection), "AddNode", new[] { typeof(XmlNode) }), "590EA471802BE8C4", "797E24A235B0EB48"),
-                Fingerprint.Known(AccessTools.Method(typeof(XmlNamedNodeMap), "AddNode", new[] { typeof(XmlNode) }), "F6FAEB04131CC832", "79B73D54309AC94D"),
-                Fingerprint.Known(AccessTools.Method(typeof(XmlElement), "AppendChildForLoad"), "B14D2E0158729FE5", "5B99A8688F9AA113"),
-                Fingerprint.Known(AccessTools.Method(typeof(XmlAttribute), "AppendChildForLoad"), "32630C9151CE08F5", "E66DF17CFA1E9367")))
+            var s = new[] { typeof(string) };
+            var shared = new (MethodBase method, string calls)[]
             {
-                parallelNote = "System.Xml is not the version it was checked against";
+                (AccessTools.Constructor(typeof(XmlElement), new[] { xmlName, typeof(bool), typeof(XmlDocument) }), "ArgumentException..ctor,SR.get_Xdom_Empty_LocalName,String.get_Length,XmlDocument.CheckName,XmlDocument.CheckName,XmlDocument.get_IsLoading,XmlLinkedNode..ctor,XmlName.get_LocalName,XmlName.get_LocalName,XmlName.get_Prefix"),
+                (AccessTools.Constructor(typeof(XmlAttribute), new[] { xmlName, typeof(XmlDocument) }), "ArgumentException..ctor,SR.get_Xdom_Attr_Name,String.get_Length,XmlDocument.CheckName,XmlDocument.CheckName,XmlDocument.get_IsLoading,XmlName.get_LocalName,XmlName.get_LocalName,XmlName.get_Prefix,XmlNode..ctor"),
+                (AccessTools.Method(typeof(XmlNode), "AppendChildForLoad"), "XmlDocument.GetInsertEventArgsForLoad,XmlNode.AfterEvent,XmlNode.BeforeEvent,XmlNode.NestTextNodes,XmlNode.SetParentForLoad,XmlNode.SetParentForLoad,XmlNode.get_IsText,XmlNode.get_IsText,XmlNode.get_LastNode,XmlNode.set_LastNode,XmlNode.set_LastNode"),
+                (AccessTools.Method(typeof(XmlElement), "AppendChildForLoad"), "XmlDocument.GetInsertEventArgsForLoad,XmlNode.AfterEvent,XmlNode.BeforeEvent,XmlNode.NestTextNodes,XmlNode.SetParentForLoad,XmlNode.SetParentForLoad,XmlNode.get_IsText,XmlNode.get_IsText"),
+                (AccessTools.Method(typeof(XmlAttribute), "AppendChildForLoad"), "XmlDocument.GetInsertEventArgsForLoad,XmlNode.AfterEvent,XmlNode.BeforeEvent,XmlNode.NestTextNodes,XmlNode.SetParentForLoad,XmlNode.SetParentForLoad,XmlNode.get_IsText,XmlNode.get_IsText"),
+                (AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.CreateTextNode), s), "XmlText..ctor"),
+                (AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.CreateSignificantWhitespace), s), "XmlSignificantWhitespace..ctor"),
+                (AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.CreateWhitespace), s), "XmlWhitespace..ctor"),
+                (AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.CreateCDataSection), s), "XmlCDataSection..ctor"),
+                (AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.CreateComment), s), "XmlComment..ctor"),
+                (AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.CreateProcessingInstruction), new[] { typeof(string), typeof(string) }), "ArgumentNullException.ThrowIfNull,XmlProcessingInstruction..ctor"),
+                (AccessTools.Method(typeof(XmlDocument), "AddXmlName"), "DomNameTable.AddName"),
+                (AccessTools.Method(typeof(XmlDocument), "AddAttrXmlName"), "ArgumentException..ctor,SR.Format,SR.get_Xdom_Attr_Reserved_XmlNS,String.get_Length,XmlDocument.AddXmlName,XmlDocument.get_IsLoading,XmlName.get_LocalName,XmlName.get_NamespaceURI,XmlName.get_Prefix,XmlName.get_Prefix"),
+                (AccessTools.Method(typeof(XmlDocument), "GetEventArgs"), "XmlChildKeyIndex.OnMutating,XmlNodeChangedEventArgs..ctor"),
+                (AccessTools.Method(typeof(XmlDocument), "GetInsertEventArgsForLoad"), "XmlNode.get_Value,XmlNodeChangedEventArgs..ctor"),
+                (AccessTools.PropertyGetter(typeof(XmlElement), nameof(XmlElement.Attributes)), "Monitor.Enter,Monitor.Exit,XmlAttributeCollection..ctor,XmlNode.get_OwnerDocument"),
+                (AccessTools.Method(typeof(XmlAttributeCollection), nameof(XmlAttributeCollection.Append), new[] { typeof(XmlAttribute) }), "ArgumentException..ctor,SR.get_Xdom_NamedNode_Context,XmlAttribute.get_OwnerElement,XmlAttributeCollection.Detach,XmlAttributeCollection.InsertParentIntoElementIdAttrMap,XmlDocument.get_IsLoading,XmlNamedNodeMap.AddNode,XmlNamedNodeMap.AddNodeForLoad,XmlNode.get_OwnerDocument,XmlNode.get_OwnerDocument"),
+                (AccessTools.Method(typeof(XmlAttributeCollection), "AddNode", new[] { typeof(XmlNode) }), "XmlAttributeCollection.InsertParentIntoElementIdAttrMap,XmlAttributeCollection.RemoveDuplicateAttribute,XmlNamedNodeMap.AddNode"),
+                (AccessTools.Method(typeof(XmlAttributeCollection), "InsertParentIntoElementIdAttrMap"), "String.op_Equality,String.op_Equality,XmlAttribute.get_XmlName,XmlAttribute.get_XmlName,XmlDocument.AddElementWithId,XmlDocument.GetIDInfoByElement,XmlElement.get_XmlName,XmlName.get_LocalName,XmlName.get_LocalName,XmlName.get_Prefix,XmlName.get_Prefix,XmlNode.get_OwnerDocument,XmlNode.get_OwnerDocument,XmlNode.get_OwnerDocument,XmlNode.get_Value"),
+                (AccessTools.Method(typeof(XmlNamedNodeMap), "AddNode", new[] { typeof(XmlNode) }), "SmallXmlNodeList.Add,XmlAttribute.get_OwnerElement,XmlNode.AfterEvent,XmlNode.BeforeEvent,XmlNode.GetEventArgs,XmlNode.SetParent,XmlNode.get_NodeType,XmlNode.get_ParentNode,XmlNode.get_Value"),
+                (AccessTools.Method(typeof(XmlNamedNodeMap), "AddNodeForLoad"), "SmallXmlNodeList.Add,XmlDocument.GetInsertEventArgsForLoad,XmlNode.AfterEvent,XmlNode.BeforeEvent,XmlNode.SetParent")
+            };
+            foreach (var (method, calls) in shared)
+            {
+                if (!VersionCheck.Pattern(ParallelFeature, method, code => VersionCheck.CallsExactly(code, calls), "makes exactly the calls the read on several threads was checked against"))
+                {
+                    parallelNote = "System.Xml code it uses from several threads changed";
+                    return false;
+                }
+            }
+            var reproduced = new MethodBase[]
+            {
+                ReadAllText,
+                AccessTools.Method(typeof(File), nameof(File.ReadAllText), new[] { typeof(string), typeof(System.Text.Encoding) }),
+                AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.ReadNode), new[] { typeof(XmlReader) }),
+                AccessTools.Method(loader, "ReadCurrentNode", new[] { typeof(XmlDocument), typeof(XmlReader) }),
+                AccessTools.Method(loader, "LoadNode", new[] { typeof(bool) }),
+                AccessTools.Method(loader, "LoadAttributeNode", Type.EmptyTypes),
+                AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.CreateElement), new[] { typeof(string), typeof(string), typeof(string) }),
+                AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.CreateAttribute), new[] { typeof(string), typeof(string), typeof(string) }),
+            };
+            parallelCheck = new SelfCheck(ParallelFeature, VersionCheck.Code(reproduced.Concat(shared.Select(t => t.method)).ToArray()), 1);
+            if (parallelCheck.IsOff)
+            {
+                parallelNote = "a System.Xml method it needs no longer exists";
                 return false;
             }
             var reason = GagarinParallelRead.Init();
@@ -267,7 +293,7 @@ namespace RimWorldLoadingOptimizer
             if (path != null)
             {
                 readRoots.Remove(cache);
-                readRoots.Add(cache, ReadParallel(path, reader.Settings, target));
+                readRoots.Add(cache, parallelCheck.IsChecking ? CheckedRead(path, reader.Settings, target) : ReadParallel(path, reader.Settings, target));
                 return;
             }
 #endif
@@ -354,6 +380,28 @@ namespace RimWorldLoadingOptimizer
                 original.MoveToContent();
                 return (XmlElement)target.ReadNode(original);
             }
+        }
+#endif
+
+#if RW17
+        private static XmlElement CheckedRead(string path, XmlReaderSettings settings, XmlDocument target)
+        {
+            var fast = ReadParallel(path, settings, new XmlDocument());
+            var parallel = premarkedRoot != null;
+            premarkedRoot = null;
+            XmlElement slow;
+            using (var input = new StringReader(File.ReadAllText(path)))
+            using (var original = XmlReader.Create(input, settings))
+            {
+                original.MoveToContent();
+                slow = (XmlElement)target.ReadNode(original);
+            }
+            if (parallel)
+            {
+                parallelChecks++;
+                parallelCheck.Report(fast.OuterXml == slow.OuterXml && SameShape(fast, slow), "the read cache differs from Missile Girl's own read");
+            }
+            return slow;
         }
 #endif
 
@@ -585,7 +633,7 @@ namespace RimWorldLoadingOptimizer
             }
 #if RW17
             var parallel = parallelRead
-                ? $"; read on {GagarinParallelRead.Threads} threads ({GagarinParallelRead.Chunks} chunks, {GagarinParallelRead.Nodes} items) {parallelLoads} times in {parallelSeconds:F2} s, {parallelFallbacks} left to the original reader"
+                ? $"; read on {GagarinParallelRead.Threads} threads ({GagarinParallelRead.Chunks} chunks, {GagarinParallelRead.Nodes} items) {parallelLoads} times in {parallelSeconds:F2} s, {parallelFallbacks} left to the original reader, {parallelChecks} compared with Missile Girl's own read"
                 : "; read on one thread" + (parallelNote.Length > 0 ? " (" + parallelNote + ")" : "");
 #else
             var parallel = "";

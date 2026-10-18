@@ -29,15 +29,15 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip("Lunar inlining fixer", "HarmonyInliningFixer.Apply or PatchProcessor.ReadMethodBody no longer exists");
                 return;
             }
-            var known = VersionCheck.Known(
-                Fingerprint.Known(apply, "EB15E93BFD0A2FCE", "0EB2AD996306A30A"),
-                Fingerprint.Known(original, "05BA8CAC5E457CEB", "9AAB7BE113AD5532", "40080DF59A0325D6", "70F162883228B841"));
-            if (!known && !VersionCheck.Pattern("Lunar inlining fixer", apply, code => VersionCheck.Calls(code, original) >= 1 && LooksOnlyForMethods(type, code),
+            var code = VersionCheck.Code(
+                apply,
+                original);
+            if (!VersionCheck.Pattern("Lunar inlining fixer", apply, code => VersionCheck.Calls(code, original) >= 1 && LooksOnlyForMethods(type, code),
                 "reads method bodies only to look for called methods"))
             {
                 return;
             }
-            check = new SelfCheck("Lunar inlining fixer", known);
+            check = new SelfCheck("Lunar inlining fixer", code);
             harmony.Patch(apply, transpiler: new HarmonyMethod(typeof(LunarInlining), nameof(Transpiler)));
         }
 

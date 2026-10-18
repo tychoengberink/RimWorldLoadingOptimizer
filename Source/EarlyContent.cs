@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
 using HarmonyLib;
 using UnityEngine;
@@ -28,10 +30,13 @@ namespace RimWorldLoadingOptimizer
             var loadModXml = AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML));
             var update = AccessTools.Method(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsUpdate));
 #if RW17
-            if (!Fingerprint.Matches("Early content loading",
-                Fingerprint.Known(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModContent)), "4FD7CF066764C53F"),
-                Fingerprint.Known(AccessTools.Method(typeof(ModContentPack), nameof(ModContentPack.ReloadContent)), "A63148270987DB1D"),
-                Fingerprint.Known(update, "DBA6BFA32B1FB98F")))
+            if (loadModXml == null || update == null)
+            {
+                VersionCheck.Skip("Early content loading", "a method it needs no longer exists");
+                return;
+            }
+            var reloadInt = AccessTools.Method(typeof(ModContentPack), "ReloadContentInt");
+            if (!VersionCheck.Pattern("Early content loading", reloadInt, code => VersionCheck.Called(code).All(OwnContentOnly), "only reloads the mod's own sounds, textures, strings and asset bundles"))
             {
                 return;
             }
@@ -65,6 +70,12 @@ namespace RimWorldLoadingOptimizer
                     return;
                 }
             }
+#if RW17
+            if (!VersionCheck.Pattern("Early content loading", list[first].Method, code => VersionCheck.Called(code).All(m => m == reloadInt), "only runs ModContentPack.ReloadContentInt"))
+            {
+                return;
+            }
+#endif
             originals = new Action[reloads.Count];
             state = new int[reloads.Count];
             for (var k = 0; k < reloads.Count; k++)
@@ -81,6 +92,13 @@ namespace RimWorldLoadingOptimizer
 
         private static bool IsReload(Action action) =>
             action.Method.DeclaringType?.DeclaringType == typeof(ModContentPack) && action.Method.Name.Contains("<ReloadContent>");
+
+#if RW17
+        private static bool OwnContentOnly(MethodBase method) =>
+            method?.DeclaringType == typeof(DeepProfiler)
+            || method?.Name == nameof(ModContentHolder<string>.ReloadAll) && (method.DeclaringType == typeof(ModAssetBundlesHandler)
+                || method.DeclaringType.IsGenericType && method.DeclaringType.GetGenericTypeDefinition() == typeof(ModContentHolder<>));
+#endif
 
         private static bool IsLoadModContentStep(Action action)
         {

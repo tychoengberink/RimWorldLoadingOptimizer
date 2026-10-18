@@ -20,6 +20,9 @@ namespace RimWorldLoadingOptimizer
         private static int redirected, shortcuts, verified, mismatches, frame = -1;
         private static bool unpatched;
         private static long verifyTicks;
+        private static SelfCheck check;
+        private static Func<ThingDef, int> countOriginal;
+        [ThreadStatic] private static bool bypass, served;
 
         public static void Install(Harmony harmony)
         {
@@ -31,23 +34,27 @@ namespace RimWorldLoadingOptimizer
             var count = AccessTools.Method(loot, "CountTradersStocking");
             tradeabilityFor = AccessTools.Method(typeof(StockGenerator), nameof(StockGenerator.TradeabilityFor));
             handlesThingDef = AccessTools.Method(typeof(StockGenerator_Tomes), nameof(StockGenerator_Tomes.HandlesThingDef));
-            if (!Fingerprint.Matches(Feature,
-                Fingerprint.Known(count, "EEF47B4868A2641B"),
-                Fingerprint.Known(tradeabilityFor, "43C1B8045E1D5491"),
-                Fingerprint.Known(handlesThingDef, "7BEBC7F85A979A4A"),
-                Fingerprint.Known(AccessTools.PropertyGetter(typeof(Find), nameof(Find.Storyteller)), "101547EDE4BE4F3C")))
+            if (tradeabilityFor == null || handlesThingDef == null || count?.ReturnType != typeof(int) || !count.IsStatic
+                || count.GetParameters().Length != 1 || count.GetParameters()[0].ParameterType != typeof(ThingDef))
+            {
+                VersionCheck.Skip(Feature, "a method it needs no longer exists");
+                return;
+            }
+            check = new SelfCheck(Feature, VersionCheck.Code(count, tradeabilityFor, handlesThingDef));
+            if (check.IsOff)
             {
                 return;
             }
+            countOriginal = (Func<ThingDef, int>)count.CreateDelegate(typeof(Func<ThingDef, int>));
             if (AccessTools.Method(typeof(StockGenerator_Tomes), nameof(StockGenerator.TradeabilityFor)).DeclaringType != typeof(StockGenerator))
             {
                 Log.Message($"[RLO] {Feature}: the tome stock generator has its own tradeability check in this RimWorld version. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
-            harmony.Patch(count, transpiler: new HarmonyMethod(typeof(WorksitesTraders), nameof(Transpiler)));
+            harmony.Patch(count, transpiler: new HarmonyMethod(typeof(WorksitesTraders), nameof(Transpiler)), postfix: new HarmonyMethod(typeof(WorksitesTraders), nameof(CountPostfix)));
             if (redirected != 1)
             {
-                harmony.Unpatch(count, HarmonyPatchType.Transpiler, harmony.Id);
+                harmony.Unpatch(count, HarmonyPatchType.All, harmony.Id);
                 Log.Message($"[RLO] {Feature}: the tradeability call was not found as expected ({redirected} found). This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
@@ -71,16 +78,42 @@ namespace RimWorldLoadingOptimizer
 
         public static Tradeability TradeabilityFor(StockGenerator generator, ThingDef thingDef)
         {
-            if (generator == null || generator.GetType() != typeof(StockGenerator_Tomes) || !ModsConfig.AnomalyActive || Current.Game != null || !Unpatched())
+            if (bypass || check.IsOff || generator == null || generator.GetType() != typeof(StockGenerator_Tomes) || !ModsConfig.AnomalyActive || Current.Game != null || !Unpatched())
             {
                 return generator.TradeabilityFor(thingDef);
             }
             shortcuts++;
+            served = true;
             if (RLOMod.Verify)
             {
                 return Verify(generator, thingDef);
             }
             return Tradeability.None;
+        }
+
+        public static void CountPostfix(ThingDef def, ref int __result)
+        {
+            if (bypass || !served)
+            {
+                return;
+            }
+            served = false;
+            if (!check.IsChecking)
+            {
+                return;
+            }
+            int original;
+            bypass = true;
+            try
+            {
+                original = countOriginal(def);
+            }
+            finally
+            {
+                bypass = false;
+            }
+            check.Report(original == __result, $"traders stocking {def?.defName}");
+            __result = original;
         }
 
         private static bool Unpatched()

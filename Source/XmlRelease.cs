@@ -31,7 +31,7 @@ namespace RimWorldLoadingOptimizer
             installed = true;
 #if RW17
             var bake = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases));
-            if (Fingerprint.Matches("XML Extensions document released before the load-end clean-up", Fingerprint.Known(bake, "45434BFD7AD5A8A9", "328DC23ECEE3DDF7")))
+            if (bake != null)
             {
                 harmony.Patch(bake, prefix: new HarmonyMethod(typeof(XmlRelease), nameof(ReleaseXmlExtensionsDocument)));
             }
@@ -52,6 +52,7 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
+        [Hook]
         private static void ReleaseXmlExtensionsDocument()
         {
             try

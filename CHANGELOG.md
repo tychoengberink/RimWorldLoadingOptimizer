@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Speedups no longer depend on lists of known game, Harmony or mod versions, so a game or mod update no longer switches them off. Each speedup checks that what it needs still exists, then either checks the one call it changes or compares its first results with the original code once per new code version. Harmony rebuild coalescing and reading Missile Girl's cache on several threads also check that the Harmony or System.Xml methods they build on still make exactly the calls they were written around. Only faster mod assembly loading on 1.6 still needs a known version.
+- The mesh upload timing in the startup report also appears when a save is loaded straight away.
+
+### Removed
+- Linkable Groups support (it was already off on the current version of that mod and saved about 0.1 s).
+- 1.7 mesh staging buffer (one staging buffer per mesh upload batch) and its setting: ten A/B save loads showed no measurable gain beyond noise.
+
 ## 5.1
 
 ### Added

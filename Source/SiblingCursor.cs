@@ -20,11 +20,14 @@ namespace RimWorldLoadingOptimizer
         private const int MaxSteps = 512;
         private static XmlNode cursor;
         private static long hits, walks, verifyMismatches;
+        private static SelfCheck check;
+        [ThreadStatic] private static bool bypass;
 
         public static void Install(Harmony harmony)
         {
             var getter = AccessTools.PropertyGetter(typeof(XmlLinkedNode), nameof(XmlLinkedNode.PreviousSibling));
-            if (!Fingerprint.Matches(Feature, Fingerprint.Known(getter, "67249CB81B31E557", "2A30411DA1C38C76")))
+            check = new SelfCheck(Feature, VersionCheck.Code(getter));
+            if (check.IsOff)
             {
                 return;
             }
@@ -38,7 +41,7 @@ namespace RimWorldLoadingOptimizer
         public static bool Prefix(XmlLinkedNode __instance, ref XmlNode __result)
         {
             var start = cursor;
-            if (start == null || start == __instance)
+            if (bypass || check.IsOff || start == null || start == __instance)
             {
                 return true;
             }
@@ -59,6 +62,10 @@ namespace RimWorldLoadingOptimizer
                         Log.Warning($"[RLO] {Feature} verify mismatch under <{parent.Name}>");
                         return true;
                     }
+                    if (check.IsChecking && !Same(__instance, node, parent))
+                    {
+                        return true;
+                    }
                     __result = node;
                     return false;
                 }
@@ -67,8 +74,29 @@ namespace RimWorldLoadingOptimizer
             return true;
         }
 
+        private static bool Same(XmlLinkedNode node, XmlNode found, XmlNode parent)
+        {
+            XmlNode original;
+            bypass = true;
+            try
+            {
+                original = node.PreviousSibling;
+            }
+            finally
+            {
+                bypass = false;
+            }
+            var same = original == found;
+            check.Report(same, $"previous sibling under <{parent.Name}>");
+            return same;
+        }
+
         public static void Postfix(XmlNode __result, bool __runOriginal)
         {
+            if (bypass)
+            {
+                return;
+            }
             if (__result != null)
             {
                 cursor = __result;

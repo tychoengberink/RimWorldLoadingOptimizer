@@ -45,6 +45,8 @@ namespace RimWorldLoadingOptimizer
         private static int hits, misses, uncacheable, verified, mismatches, keyErrors, redirected;
         private static long hitTicks, missTicks;
         private static bool dirty;
+        private static readonly OpCode[] shortStores = { OpCodes.Stloc_0, OpCodes.Stloc_1, OpCodes.Stloc_2, OpCodes.Stloc_3 };
+        private static readonly OpCode[] shortLoads = { OpCodes.Ldloc_0, OpCodes.Ldloc_1, OpCodes.Ldloc_2, OpCodes.Ldloc_3 };
 
         private static string FilePath => Path.Combine(GenFilePaths.SaveDataFolderPath, "RimWorldLoadingOptimizer", "giddyup-offsets.txt");
 
@@ -60,11 +62,13 @@ namespace RimWorldLoadingOptimizer
             originalBackHeight = AccessTools.Method(utility, "GetBackHeight");
             originalHeight = AccessTools.PropertyGetter(typeof(UnityEngine.Texture), nameof(UnityEngine.Texture.height));
             var openCache = AccessTools.Method(typeof(Waylith.Rendering.GpuTextureService), "TryOpenTextureCache", new[] { typeof(string), typeof(bool), typeof(Waylith.Rendering.ITextureCacheSource).MakeByRefType() });
-            if (!Fingerprint.Matches(Feature,
-                Fingerprint.Known(setDrawOffset, "B83049240BD8E441"),
-                Fingerprint.Known(originalReadable, "648F7E6B1FB4FEE6"),
-                Fingerprint.Known(originalBackHeight, "9E7385386D42EFFD"),
-                Fingerprint.Known(openCache, "A4725E86D6249443")))
+            if (setDrawOffset == null || originalHeight == null || openCache?.ReturnType != typeof(bool)
+                || !Takes(originalReadable, typeof(UnityEngine.Texture2D)) || !Takes(originalBackHeight, typeof(int)))
+            {
+                VersionCheck.Skip(Feature, "a method it needs no longer exists");
+                return;
+            }
+            if (!VersionCheck.Pattern(Feature, setDrawOffset, ReadableOnlyMeasured, "uses the readable texture copy only to measure its back and height"))
             {
                 return;
             }
@@ -83,6 +87,43 @@ namespace RimWorldLoadingOptimizer
             MainMenu.Then(Save);
             MainMenu.UnpatchAfterStartup(setDrawOffset);
             LeanFixes.Reports.Add(Stats);
+        }
+
+        private static bool Takes(MethodInfo method, Type result) =>
+            method != null && method.IsStatic && method.ReturnType == result && method.GetParameters().Length == 1 && method.GetParameters()[0].ParameterType == typeof(UnityEngine.Texture2D);
+
+        private static bool Is(CodeInstruction instruction, MethodInfo method) =>
+            (instruction.opcode == OpCodes.Call || instruction.opcode == OpCodes.Callvirt) && instruction.operand is MethodInfo m && m == method;
+
+        private static int? Local(CodeInstruction instruction, bool store)
+        {
+            var op = instruction.opcode;
+            var shortForm = Array.IndexOf(store ? shortStores : shortLoads, op);
+            if (shortForm >= 0)
+            {
+                return shortForm;
+            }
+            if (store ? op == OpCodes.Stloc || op == OpCodes.Stloc_S : op == OpCodes.Ldloc || op == OpCodes.Ldloc_S || op == OpCodes.Ldloca || op == OpCodes.Ldloca_S)
+            {
+                return instruction.operand is LocalVariableInfo local ? local.LocalIndex : instruction.operand is IConvertible index ? index.ToInt32(CultureInfo.InvariantCulture) : -1;
+            }
+            return null;
+        }
+
+        private static bool ReadableOnlyMeasured(List<CodeInstruction> code)
+        {
+            if (new[] { originalReadable, originalBackHeight, originalHeight }.Any(m => VersionCheck.Calls(code, m) != 1))
+            {
+                return false;
+            }
+            var at = code.FindIndex(i => Is(i, originalReadable));
+            var local = at + 1 < code.Count ? Local(code[at + 1], true) : null;
+            if (local == null || local < 0 || code.Count(i => Local(i, true) == local) != 1)
+            {
+                return false;
+            }
+            var uses = Enumerable.Range(0, code.Count).Where(i => Local(code[i], false) == local).ToList();
+            return uses.Count == 2 && uses[1] + 1 < code.Count && Is(code[uses[0] + 1], originalBackHeight) && Is(code[uses[1] + 1], originalHeight);
         }
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)

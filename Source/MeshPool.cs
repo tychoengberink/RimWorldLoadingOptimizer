@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Reflection;
 using System.Threading;
 using Brutal;
 using Brutal.VulkanApi;
@@ -47,6 +48,7 @@ namespace RimWorldLoadingOptimizer
         private static bool failed;
         private static bool fallbackSeen;
         private static long pooled, refused, freed, peak, leftAtShutdown;
+        private static SelfCheck check;
 
         public static void Install(Harmony harmony)
         {
@@ -59,10 +61,15 @@ namespace RimWorldLoadingOptimizer
                 Log.Message($"[RLO] {Feature}: the engine's mesh uploader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
-            if (!Fingerprint.Matches(Feature,
-                    Fingerprint.Known(allocate, "661045207CDF7941", "9E9234562939A849", "27885B74DD7AB907", "B2EFDF235C97E8D4"),
-                    Fingerprint.Known(shutdown, ShutdownHash, "694A474CC13BDCC4", "6862E7A580E2536E", "D802A58E5D94899D"),
-                    Fingerprint.Known(free, FreeHash)))
+            var release = AccessTools.Method(typeof(GpuMeshBuffer), nameof(GpuMeshBuffer.Release), new[] { typeof(IBufferAllocator) });
+            var freeInterface = AccessTools.Method(typeof(IBufferAllocator), nameof(IBufferAllocator.FreeAllocation), new[] { typeof(BufferAllocationInfo).MakeByRefType() });
+            if (!VersionCheck.Pattern(Feature, shutdown, code => VersionCheck.Calls(code, release) > 0, "releases the mesh buffers")
+                || !VersionCheck.Pattern(Feature, release, code => VersionCheck.Calls(code, freeInterface) > 0 && FreesThrough(freeInterface, free), "frees through the allocator"))
+            {
+                return;
+            }
+            check = new SelfCheck(Feature, VersionCheck.Code(allocate));
+            if (check.IsOff)
             {
                 return;
             }
@@ -77,8 +84,21 @@ namespace RimWorldLoadingOptimizer
             MainMenu.Then(() => Log.Message("[RLO] " + Stats()));
         }
 
-        private const string ShutdownHash = "F5361A1E22C51D95";
-        private const string FreeHash = "BC9D5D54422D66E9";
+        private static bool FreesThrough(MethodInfo declared, MethodInfo free)
+        {
+            if (declared == null)
+            {
+                return false;
+            }
+            var map = typeof(VmaAllocator).GetInterfaceMap(typeof(IBufferAllocator));
+            var at = Array.IndexOf(map.InterfaceMethods, declared);
+            if (at < 0)
+            {
+                return false;
+            }
+            var target = map.TargetMethods[at];
+            return target == free || VersionCheck.Calls(PatchProcessor.GetOriginalInstructions(target), free) > 0;
+        }
 
         private static VmaAllocationCreateInfo Request() => new VmaAllocationCreateInfo
         {
@@ -133,7 +153,7 @@ namespace RimWorldLoadingOptimizer
             {
                 fallbackSeen = true;
             }
-            if (fallbackSeen || bytes <= 0 || bytes > MaxPooledBytes || renderFrameSerialOf(__instance) < hostFallbackUntilFrameOf(__instance))
+            if (check.IsOff || fallbackSeen || bytes <= 0 || bytes > MaxPooledBytes || renderFrameSerialOf(__instance) < hostFallbackUntilFrameOf(__instance))
             {
                 return true;
             }
@@ -152,7 +172,7 @@ namespace RimWorldLoadingOptimizer
                         Log.Warning($"[RLO] {Feature}: the engine created a new allocator; new mesh buffers keep the engine's allocation.");
                         return true;
                     }
-                    if (!slowSeen)
+                    if (!slowSeen || check.IsChecking)
                     {
                         beforeSlow++;
                         engineStart = Stopwatch.GetTimestamp();
@@ -197,7 +217,7 @@ namespace RimWorldLoadingOptimizer
 
         // Times the engine's own small mesh allocations; when 16 in a row average more than 100 us, the pool takes the
         // following ones.
-        public static void AllocatePostfix()
+        public static void AllocatePostfix(MeshUploader __instance, long bytes, VkBufferUsageFlags usage, ref bool hostResident, BufferAllocationInfo __result)
         {
             var start = engineStart;
             if (start == 0)
@@ -206,6 +226,10 @@ namespace RimWorldLoadingOptimizer
             }
             engineStart = 0;
             measuredTicks += Stopwatch.GetTimestamp() - start;
+            if (check.IsChecking && !hostResident)
+            {
+                Compare(__instance, bytes, usage, __result);
+            }
             if (++measured < Window)
             {
                 return;
@@ -216,6 +240,26 @@ namespace RimWorldLoadingOptimizer
             }
             measured = 0;
             measuredTicks = 0;
+        }
+
+        private static void Compare(MeshUploader uploader, long bytes, VkBufferUsageFlags usage, BufferAllocationInfo result)
+        {
+            try
+            {
+                var allocator = allocatorOf(uploader);
+                if (allocator == null)
+                {
+                    return;
+                }
+                var type = TypeFor(allocator, usage);
+                var expected = usage | VkBufferUsageFlags.TransferDstBit;
+                var same = (long)result.BufferSize.Value == bytes && result.Usage == expected && result.AllocationInfo.MemoryTypeIndex == (int)type;
+                check.Report(same, $"{bytes} bytes usage {usage}: engine gave {(long)result.BufferSize.Value} bytes usage {result.Usage} memory type {result.AllocationInfo.MemoryTypeIndex}, pool would use memory type {type}");
+            }
+            catch (Exception e)
+            {
+                check.Report(false, $"{e.GetType().Name}: {e.Message}");
+            }
         }
 
         public static void FreePrefix(in BufferAllocationInfo inAllocation)
@@ -245,6 +289,12 @@ namespace RimWorldLoadingOptimizer
                 }
                 try
                 {
+                    poolAllocator.GetPoolStatistics(pool, out var statistics);
+                    if (statistics.AllocationCount != live.Count)
+                    {
+                        Log.Warning($"[RLO] {Feature}: the pool holds {statistics.AllocationCount} buffers but {live.Count} are known to be live; the pool is left as it is.");
+                        return;
+                    }
                     leftAtShutdown = live.Count;
                     foreach (var allocation in new List<BufferAllocationInfo>(live.Values))
                     {

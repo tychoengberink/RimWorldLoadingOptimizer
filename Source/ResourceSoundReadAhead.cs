@@ -42,6 +42,7 @@ namespace RimWorldLoadingOptimizer
         private static int clips, folders, listed, ownOpens, otherPaths, compared, mismatches;
         private static long ownTicks;
         private static Timer idle;
+        private static SelfCheck check;
 
         public static void Install(Harmony harmony)
         {
@@ -58,7 +59,6 @@ namespace RimWorldLoadingOptimizer
             var waylith = typeof(Waylith.Resources);
             var find = AccessTools.Method(waylith, nameof(Waylith.Resources.FindFile), new[] { typeof(string), typeof(string[]), typeof(bool) });
             var paths = AccessTools.Method(waylith, nameof(Waylith.Resources.EnumerateResourcePaths), new[] { typeof(string), typeof(string[]) });
-            var under = AccessTools.Method(waylith, "EnumerateResourcePathsUnder");
             var preResolve = AccessTools.Method(typeof(DefGenerator), nameof(DefGenerator.GenerateImpliedDefs_PreResolve));
             extensions = (AccessTools.Field(resources, "AudioClipExtensions")?.GetValue(null) as string[])?.ToArray();
             if (clipCtor == null || extensions == null || clipOpen?.ReturnType != openedType || !typeof(IPrefetchedAsset).IsAssignableFrom(openedType))
@@ -66,26 +66,19 @@ namespace RimWorldLoadingOptimizer
                 Log.Message($"[RLO] {Feature}: the game's sound loading is not the version this was built for. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
-            if (!Fingerprint.Matches(Feature,
-                Fingerprint.Known(stub, "77A8AE84E48990AD"),
-                Fingerprint.Known(AccessTools.Method(resources, "TryLoadFileBackedResource"), "5125C036BF5912BB"),
-                Fingerprint.Known(AccessTools.Method(resources, "LoadAllFileBackedResources"), "AAE46131F4C898CE"),
-                Fingerprint.Known(AccessTools.Method(resources, nameof(UnityEngine.Resources.LoadAll), new[] { typeof(string), typeof(Type) }), "26C8DA5654081AB6"),
-                Fingerprint.Known(AccessTools.Method(resources, nameof(UnityEngine.Resources.Load), new[] { typeof(string), typeof(Type) }), "B8EE76398FC728EA"),
-                Fingerprint.Known(originalLoad, "F06112A350FD21BA"),
-                Fingerprint.Known(clipOpen, "6F2E5CCF849FD83E"),
-                Fingerprint.Known(clipCtor, "D7144CDE34648E31"),
-                Fingerprint.Known(find, "DB40AD0C7E54B658"),
-                Fingerprint.Known(paths, "B7E9842933922DEE"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(paths), "E18A5881AF0F09A2"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(under), "13C816417DD4C718"),
-                Fingerprint.Known(AccessTools.Method(waylith, "GetSearchRoots"), "2C853BF54E7C29CC"),
-                Fingerprint.Known(AccessTools.Method(typeof(ContentFinder<AudioClip>), nameof(ContentFinder<AudioClip>.Get)), "7396E7C0E64E4957"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(AccessTools.Method(typeof(ContentFinder<AudioClip>), nameof(ContentFinder<AudioClip>.GetAllInFolder))), "1983A2FDA8B69577"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(AccessTools.Method(typeof(AudioGrain_Clip), nameof(AudioGrain_Clip.GetResolvedGrains))), "7988CA3EE5CEB347"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(AccessTools.Method(typeof(AudioGrain_Folder), nameof(AudioGrain_Folder.GetResolvedGrains))), "77B46495408F0534"),
-                Fingerprint.Known(AccessTools.Method(typeof(SubSoundDef), nameof(SubSoundDef.ResolveReferences)), "2436C193EAF18074"),
-                Fingerprint.Known(preResolve, "CE34043FA0D506B5")))
+            var openForPrefetch = AccessTools.Method(typeof(AudioClip), "OpenForPrefetch", new[] { typeof(string) });
+            if (stub == null || find == null || paths == null || preResolve == null)
+            {
+                VersionCheck.Skip(Feature, "a method it needs no longer exists");
+                return;
+            }
+            if (!VersionCheck.Pattern(Feature, originalLoad, code => VersionCheck.CallsExactly(code, clipOpen, clipCtor), "builds the clip from AudioClip.Open and nothing else")
+                || !VersionCheck.Pattern(Feature, openForPrefetch, code => VersionCheck.Calls(code, clipOpen) == 1, "opens sounds for the engine's own prefetch with AudioClip.Open"))
+            {
+                return;
+            }
+            check = new SelfCheck(Feature, VersionCheck.Code(clipOpen, originalLoad, clipCtor), 16);
+            if (check.IsOff)
             {
                 return;
             }
@@ -128,7 +121,7 @@ namespace RimWorldLoadingOptimizer
         // Before the implied defs are made: every sound def and its grains are loaded, nothing has asked for a clip yet.
         public static void Begin()
         {
-            if (Interlocked.Exchange(ref started, 1) != 0 || done)
+            if (Interlocked.Exchange(ref started, 1) != 0 || done || check.IsOff)
             {
                 return;
             }
@@ -170,7 +163,7 @@ namespace RimWorldLoadingOptimizer
                     }
                 }
             }
-            if (RLOMod.Verify)
+            if (RLOMod.Verify || check.IsChecking)
             {
                 AudioReadAhead.PrepareCompare(openedType);
             }
@@ -224,7 +217,7 @@ namespace RimWorldLoadingOptimizer
         public static AudioClip Load(string path, bool importedByUnity)
         {
             var q = queue;
-            if (q == null || done || !importedByUnity)
+            if (q == null || done || !importedByUnity || check.IsOff)
             {
                 return load(path, importedByUnity);
             }
@@ -248,9 +241,16 @@ namespace RimWorldLoadingOptimizer
                     Interlocked.Add(ref ownTicks, Stopwatch.GetTimestamp() - start);
                 }
             }
-            if (RLOMod.Verify)
+            if (RLOMod.Verify || check.IsChecking)
             {
-                Compare(path, opened);
+                var difference = Compare(path, opened);
+                check.Report(difference == null, path);
+                if (check.IsOff)
+                {
+                    Release(opened);
+                    Finish();
+                    return load(path, importedByUnity);
+                }
             }
             var clip = (AudioClip)clipCtor.Invoke(new object[] { opened, path });
             if (q.Remaining == 0)
@@ -260,7 +260,7 @@ namespace RimWorldLoadingOptimizer
             return clip;
         }
 
-        private static void Compare(string path, IPrefetchedAsset ahead)
+        private static string Compare(string path, IPrefetchedAsset ahead)
         {
             IPrefetchedAsset fresh = null;
             string difference;
@@ -285,6 +285,7 @@ namespace RimWorldLoadingOptimizer
             {
                 Log.Warning($"[RLO] {Feature} verify mismatch: {path}: {difference}");
             }
+            return difference;
         }
 
         private static void Release(IPrefetchedAsset asset)

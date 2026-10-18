@@ -80,9 +80,9 @@ namespace RimWorldLoadingOptimizer
                 vanillaBuffers = AccessTools.Method(typeof(ModDdsLoader), "CreateTexture") != null;
                 if (vanillaBuffers)
                 {
-                    ddsCheck = new SelfCheck("DDS buffers for the game's own loader (falls back to read-ahead)", VersionCheck.Known(
-                        Fingerprint.Known(vanillaDds, "99750911902CE3DE", "63F4A2F55326D769"),
-                        Fingerprint.Known(AccessTools.Method(typeof(ModDdsLoader), "CreateTexture"), "88A100D322858A46", "D9C69C63A9F531F0")), 50);
+                    ddsCheck = new SelfCheck("DDS buffers for the game's own loader (falls back to read-ahead)", VersionCheck.Code(
+                        vanillaDds,
+                        AccessTools.Method(typeof(ModDdsLoader), "CreateTexture")), 50);
                 }
                 buffers = vanillaBuffers;
             }

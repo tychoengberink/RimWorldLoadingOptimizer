@@ -39,11 +39,7 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip("Harmony module cache", "AccessTools.GetMethodByModuleAndToken no longer exists");
                 return;
             }
-#if RW17
-            check = new SelfCheck("Harmony module cache", VersionCheck.Known(Fingerprint.Known(target, "72843BE77F2A63CD", "8FC8E731CC03B7C8", "20441ABE42CC22DF", "B9B9E24F59BDF221")));
-#else
-            check = new SelfCheck("Harmony module cache", VersionCheck.Known(Fingerprint.Known(target, "72843BE77F2A63CD", "8FC8E731CC03B7C8")));
-#endif
+            check = new SelfCheck("Harmony module cache", VersionCheck.Code(target));
             harmony.Patch(target, prefix: new HarmonyMethod(typeof(ModuleCache), nameof(Prefix)));
             installed = true;
         }

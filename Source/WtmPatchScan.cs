@@ -67,9 +67,9 @@ namespace RimWorldLoadingOptimizer
                 verified = Resolve();
                 if (verified.Value)
                 {
-                    check = new SelfCheck("What's That Mod patch scan", VersionCheck.Known(
-                        Fingerprint.Known(AccessTools.Method(modCore, "DefWriter"), "4E13A7480F7666F5"),
-                        Fingerprint.Known(tryResolvePatches, "5647A9F09195401A")), 1);
+                    check = new SelfCheck("What's That Mod patch scan", VersionCheck.Code(
+                        AccessTools.Method(modCore, "DefWriter"),
+                        tryResolvePatches), 1);
                 }
             }
             return verified.Value;

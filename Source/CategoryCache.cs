@@ -75,10 +75,10 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip("Category cache", "ThingCategoryDef.DescendantThingDefs or ThisAndChildCategoryDefs no longer exists");
                 return;
             }
-            check = new SelfCheck("Category cache", VersionCheck.Known(
-                Fingerprint.Known(getter, "591A2633DA38C9F9", "CCDE11F650DE24DF"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(getter), "3FC97BBCFF7FBC1D", "2991503FAE8B1F09"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(children), "2A83B3162CE0B4B3", "D2519FD28522DB53")));
+            check = new SelfCheck("Category cache", VersionCheck.Code(
+                getter,
+                AccessTools.EnumeratorMoveNext(getter),
+                AccessTools.EnumeratorMoveNext(children)));
             harmony.Patch(getter, prefix: new HarmonyMethod(typeof(CategoryCache), nameof(Prefix)));
             Installed = true;
             harmony.Patch(AccessTools.Method(typeof(ThingCategoryNodeDatabase), nameof(ThingCategoryNodeDatabase.Clear)),

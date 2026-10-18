@@ -12,6 +12,7 @@ using Verse;
 
 namespace RimWorldLoadingOptimizer
 {
+    [Hook]
     public static class HarmonyRebuildTiming
     {
         private const string Feature = "Harmony rebuild timing";
@@ -44,21 +45,12 @@ namespace RimWorldLoadingOptimizer
             assemblyReferences = AccessTools.Property(T("Mono.Cecil.ModuleDefinition"), "AssemblyReferences");
             dependencies = loader == null ? null : AccessTools.Field(loader, "dependencies");
             state = AccessTools.Field(T("HarmonyLib.HarmonySharedState"), "state")?.GetValue(null) as Dictionary<MethodBase, byte[]>;
-            if (assemblyReferences == null || dependencies == null || state == null)
+            bool Has(MethodBase method, string parameter, Type type) => method.GetParameters().Any(p => p.Name == parameter && p.ParameterType == type);
+            var methods = new MethodBase[] { update, create, copy, generate, slow, scan, load, detour };
+            if (assemblyReferences == null || dependencies == null || state == null || methods.Any(m => m == null)
+                || !Has(update, "original", typeof(MethodBase)) || !Has(generate, "structuredHelper", typeof(bool)) || !scan.GetParameters().Any(p => p.Name == "module"))
             {
                 Log.Message($"[RLO] {Feature}: Harmony's internals do not have the expected shape. The Harmony rebuild timing report is skipped; nothing is broken.");
-                return;
-            }
-            if (!Fingerprint.Matches(Feature,
-                Fingerprint.Known(update, "4F007C93FF50DD95"),
-                Fingerprint.Known(create, "E08133BE98F80F7A"),
-                Fingerprint.Known(copy, "A42CDD9F5D3F9A16"),
-                Fingerprint.Known(generate, "C830F7F89F2A09F2", "70FA6453A755267A", "7F428227DC9587CB"),
-                Fingerprint.Known(slow, "1DF21651824663A3"),
-                Fingerprint.Known(scan, "0995A15C7BF271F3"),
-                Fingerprint.Known(load, "7141C1E3A7D26AB8"),
-                Fingerprint.Known(detour, "1D823234BBA87170")))
-            {
                 return;
             }
             HarmonyMethod H(string name) => new HarmonyMethod(typeof(HarmonyRebuildTiming), name);

@@ -22,12 +22,12 @@ namespace RimWorldLoadingOptimizer
         {
             var target = AccessTools.Method(typeof(DesignationCategoryDef), "ResolveDesignators");
             var lambda = AccessTools.Method(typeof(DesignationCategoryDef), "<ResolveDesignators>b__24_0");
-            var known = VersionCheck.Known(Fingerprint.Known(target, "449408DE610261C1", "76F6E33AE59F1DC3"), Fingerprint.Known(lambda, "3DAF10F9A009DA50", "8020BE24A816E57E"));
-            if (!known && !VersionCheck.Pattern("Designator index", target, code => VersionCheck.Calls(code, Where) == 1, "filters the buildable defs with one Enumerable.Where call"))
+            var code = VersionCheck.Code(target, lambda);
+            if (!VersionCheck.Pattern("Designator index", target, code => VersionCheck.Calls(code, Where) == 1, "filters the buildable defs with one Enumerable.Where call"))
             {
                 return;
             }
-            check = new SelfCheck("Designator index", known, 10);
+            check = new SelfCheck("Designator index", code, 10);
             harmony.Patch(target, transpiler: new HarmonyMethod(typeof(DesignatorIndex), nameof(Transpiler)));
             LeanFixes.Reports.Add(() => $"designator index: {calls} categories, {builds} index builds, {mismatches} verify mismatches");
         }

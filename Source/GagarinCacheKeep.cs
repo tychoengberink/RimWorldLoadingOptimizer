@@ -25,7 +25,7 @@ namespace RimWorldLoadingOptimizer
         private static Func<IDictionary> hashes, hashesInt;
         private static Func<object> runningMods;
         private static Func<string> modListPath, unifiedPath, hashPath, hashIntPath;
-        private static MethodInfo dumpModList, dumpHashes, dumpHashesInt;
+        private static MethodInfo dumpModList, dumpHashes, dumpHashesInt, changed, loadHashes, loadHashesInt;
         private static bool rebuilt, pruned, modListWritten;
         private static int prunedCount;
 
@@ -65,12 +65,19 @@ namespace RimWorldLoadingOptimizer
             var setter = AccessTools.PropertySetter(context, "IsUsingCache");
             dumpModList = AccessTools.Method(modSet, "Dump");
             var dump = AccessTools.Method(hashing, "Dump");
-            if (!Fingerprint.Matches(Feature,
-                    Fingerprint.Known(finished, "CA1105A53C1647D9"),
-                    Fingerprint.Known(setter, "3BCC30CD5478812F"),
-                    Fingerprint.Known(dumpModList, "6C3D6DF3389BDF7F"),
-                    Fingerprint.Known(dump, "079CE9B6920F85D9"),
-                    Fingerprint.Known(AccessTools.PropertyGetter(env, "CacheExists"), "D34A16C7739F5EB3")))
+            changed = AccessTools.Method(modSet, "Changed", new[] { typeof(List<string>), typeof(string) });
+            loadHashes = AccessTools.Method(hashing, "Load", new[] { typeof(string) });
+            loadHashesInt = AccessTools.Method(hashing, "LoadInt", new[] { typeof(string) });
+            if (finished == null || dumpModList == null || dump == null || changed == null || loadHashes == null || loadHashesInt == null)
+            {
+                VersionCheck.Skip(Feature, "a method it needs no longer exists");
+                return;
+            }
+            var modListGetter = AccessTools.PropertyGetter(env, "ModListFilePath");
+            var unifiedGetter = AccessTools.PropertyGetter(env, "UnifiedXmlFilePath");
+            var delete = AccessTools.Method(typeof(File), nameof(File.Delete), new[] { typeof(string) });
+            if (!VersionCheck.Pattern(Feature, setter, code => VersionCheck.Calls(code, delete) >= 2 && VersionCheck.Calls(code, modListGetter) > 0 && VersionCheck.Calls(code, unifiedGetter) > 0,
+                    "deletes the mod list and the cache file when the cache is turned off"))
             {
                 return;
             }
@@ -133,8 +140,19 @@ namespace RimWorldLoadingOptimizer
                         tableInt.Remove(key);
                     }
                     prunedCount = Math.Max(stale.Count, staleInt.Count);
-                    dumpHashes.Invoke(null, new object[] { table, hashPath() });
-                    dumpHashesInt.Invoke(null, new object[] { tableInt, hashIntPath() });
+                    var path = hashPath();
+                    var pathInt = hashIntPath();
+                    var before = File.ReadAllBytes(path);
+                    var beforeInt = File.ReadAllBytes(pathInt);
+                    dumpHashes.Invoke(null, new object[] { table, path });
+                    dumpHashesInt.Invoke(null, new object[] { tableInt, pathInt });
+                    if (!Same(table, (IDictionary)loadHashes.Invoke(null, new object[] { path })) || !Same(tableInt, (IDictionary)loadHashesInt.Invoke(null, new object[] { pathInt })))
+                    {
+                        File.WriteAllBytes(path, before);
+                        File.WriteAllBytes(pathInt, beforeInt);
+                        VersionCheck.Skip(Feature, "Missile Girl did not read its hash file back as written");
+                        return;
+                    }
                     pruned = true;
                 }
             }
@@ -152,13 +170,38 @@ namespace RimWorldLoadingOptimizer
                 {
                     return;
                 }
-                dumpModList.Invoke(null, new[] { runningMods(), modListPath() });
+                var path = modListPath();
+                var mods = runningMods();
+                dumpModList.Invoke(null, new[] { mods, path });
+                var ids = ((IEnumerable<ModContentPack>)mods).Select(m => m.PackageId).ToList();
+                if ((bool)changed.Invoke(null, new object[] { ids, path }))
+                {
+                    File.Delete(path);
+                    VersionCheck.Skip(Feature, "Missile Girl did not read its mod list back as written");
+                    return;
+                }
                 modListWritten = true;
             }
             catch (Exception e)
             {
                 Log.Message($"[RLO] {Feature}: could not write Missile Girl's mod list ({e.GetType().Name}: {e.Message}); the next start may be cold.");
             }
+        }
+
+        private static bool Same(IDictionary written, IDictionary read)
+        {
+            if (read == null || read.Count != written.Count)
+            {
+                return false;
+            }
+            foreach (DictionaryEntry pair in written)
+            {
+                if (!read.Contains(pair.Key) || !Equals(read[pair.Key], pair.Value))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         public static string Stats() => !rebuilt

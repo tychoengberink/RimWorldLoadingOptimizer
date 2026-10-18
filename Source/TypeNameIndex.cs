@@ -36,7 +36,7 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip("Def type name lookups", "GenTypes.GetTypeInAnyAssemblyRaw or AllActiveAssemblies no longer exists");
                 return;
             }
-            check = new SelfCheck("Def type name lookups", VersionCheck.Known(Fingerprint.Known(raw, "DF60D54276C7BDD1", "592CFBFFBEAD7F19"), Fingerprint.Known(AccessTools.EnumeratorMoveNext(getter), "FDCF63F8727F0C37", "DE6251F281093029")));
+            check = new SelfCheck("Def type name lookups", VersionCheck.Code(raw, AccessTools.EnumeratorMoveNext(getter)));
             allActive = AccessTools.MethodDelegate<Func<IEnumerable<Assembly>>>(getter);
             original = AccessTools.MethodDelegate<Func<string, Type>>((MethodInfo)raw);
             harmony.Patch(raw, prefix: new HarmonyMethod(typeof(TypeNameIndex), nameof(Prefix)));

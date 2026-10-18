@@ -20,8 +20,7 @@ namespace RimWorldLoadingOptimizer
         {
             var pack = AccessTools.Method(typeof(StaticTextureAtlas), "CalcRectsForAtlasNew");
             var indexOf = AccessTools.Method(typeof(List<Texture2D>), nameof(List<Texture2D>.IndexOf), new[] { typeof(Texture2D) });
-            if (!VersionCheck.Known(Fingerprint.Known(pack, "0ED3A9E12385C842", "71631602102F9D51"))
-                && !VersionCheck.Pattern("Atlas packing lookups", pack, code => VersionCheck.Calls(code, indexOf) == 1, "looks up each texture with one List.IndexOf call"))
+            if (!VersionCheck.Pattern("Atlas packing lookups", pack, code => VersionCheck.Calls(code, indexOf) == 1, "looks up each texture with one List.IndexOf call"))
             {
                 return;
             }

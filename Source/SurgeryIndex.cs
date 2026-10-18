@@ -27,7 +27,7 @@ namespace RimWorldLoadingOptimizer
             }
             UnlockedCache = AccessTools.FieldRefAccess<ResearchProjectDef, List<Def>>(unlockedField);
             SurgeryCache = AccessTools.FieldRefAccess<RecipeDef, bool?>(surgeryField);
-            check = new SelfCheck("Surgery index", VersionCheck.Known(Fingerprint.Known(unlocked, "44C6E6A900DE84FC", "7E7F4A04B95ADF25"), Fingerprint.Known(surgery, "5E3C9FE2FC98FDDE", "7B035F4EE8F7FCBA"), Fingerprint.Known(AccessTools.EnumeratorMoveNext(allUsers), "2F9D95E7037F88F6", "8854E37F42492D34")));
+            check = new SelfCheck("Surgery index", VersionCheck.Code(unlocked, surgery, AccessTools.EnumeratorMoveNext(allUsers)));
             harmony.Patch(unlocked, prefix: new HarmonyMethod(typeof(SurgeryIndex), nameof(Prefix)));
             LeanFixes.Reports.Add(Stats);
         }

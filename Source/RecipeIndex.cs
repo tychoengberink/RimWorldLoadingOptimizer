@@ -20,7 +20,7 @@ namespace RimWorldLoadingOptimizer
         private static int identityCheckedAt = int.MinValue;
 
         // Alpha Implants' static constructor reads AllRecipes for every ThingDef and runs no other code in between
-        // (checked by its IL hash), so one full check at the start of that loop covers all of its reads.
+        // (compared with the original on its first reads), so one full check at the start of that loop covers all of its reads.
         private const string Warmer = "VFECore.AlphaImplants";
         private static Type warmer;
         private static bool warm;
@@ -28,6 +28,7 @@ namespace RimWorldLoadingOptimizer
         private static MethodBase getter;
         private static int state;
         private static SelfCheck check;
+        private static SelfCheck warmCheck;
         [ThreadStatic] private static bool bypass;
 
         public static int Mismatches;
@@ -43,7 +44,7 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip("Recipe index", "ThingDef.AllRecipes no longer exists");
                 return;
             }
-            check = new SelfCheck("Recipe index", VersionCheck.Known(Fingerprint.Known(getter, "BFFB5F09B346E1F5", "04C7808287A8B54D")));
+            check = new SelfCheck("Recipe index", VersionCheck.Code(getter));
             harmony.Patch(getter, prefix: new HarmonyMethod(typeof(RecipeIndex), nameof(Prefix)));
             harmony.Patch(AccessTools.Method(typeof(PlayDataLoader), nameof(PlayDataLoader.ClearAllPlayData)),
                 postfix: new HarmonyMethod(typeof(RecipeIndex), nameof(Reset)));
@@ -62,7 +63,8 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             warm = false;
-            warmer = Fingerprint.Matches("Recipe index (Alpha Implants warm-up)", Fingerprint.Known(type.TypeInitializer, "77567A7CF3EFE009")) && Fingerprint.OnlyOurs(getter) ? type : null;
+            warmCheck ??= new SelfCheck("Recipe index (Alpha Implants warm-up)", VersionCheck.Code(type.TypeInitializer));
+            warmer = !warmCheck.IsOff && Fingerprint.OnlyOurs(getter) ? type : null;
         }
 
         private static void Ended(Type type)
@@ -112,7 +114,8 @@ namespace RimWorldLoadingOptimizer
                 {
                     var recipes = DefDatabase<RecipeDef>.AllDefsListForReading;
                     var inWarmup = warmer != null && CtorBracket.Inside(warmer);
-                    if (inWarmup && warm && byUser != null)
+                    var servedWarm = inWarmup && warm && byUser != null && !warmCheck.IsOff;
+                    if (servedWarm)
                     {
                         WarmServed++;
                     }
@@ -146,10 +149,14 @@ namespace RimWorldLoadingOptimizer
                     {
                         cached.AddRange(users);
                     }
-                    if (RLOMod.Verify || check.IsChecking)
+                    if (RLOMod.Verify || check.IsChecking || servedWarm && warmCheck.IsChecking)
                     {
                         var original = Original(__instance);
                         var same = cached.SequenceEqual(original);
+                        if (servedWarm)
+                        {
+                            warmCheck.Report(same, $"recipes of {__instance.defName}");
+                        }
                         check.Report(same, $"recipes of {__instance.defName}");
                         if (!same)
                         {

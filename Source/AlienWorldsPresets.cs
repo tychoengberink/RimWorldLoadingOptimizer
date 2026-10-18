@@ -33,6 +33,7 @@ namespace RimWorldLoadingOptimizer
         private static string cachePath;
         private static string engine;
         private static bool active;
+        private static SelfCheck check;
 
         private static Dictionary<string, (string sha, long length)> stored;
         private static Dictionary<string, (string sha, long length)> current;
@@ -52,9 +53,8 @@ namespace RimWorldLoadingOptimizer
             }
             var refresh = AccessTools.Method(type, "Refresh");
             duplicate = AccessTools.Method(type, "duplicateTexture");
-            if (!Fingerprint.Matches(Feature,
-                Fingerprint.Known(refresh, "D51EDD5A0FEBA284", "2AEFE36965CC7D63"),
-                Fingerprint.Known(duplicate, "067FE2616CED4A70", "71012E0966A24592")))
+            check = new SelfCheck(Feature, VersionCheck.Code(refresh, duplicate), 6);
+            if (check.IsOff)
             {
                 return;
             }
@@ -160,7 +160,7 @@ namespace RimWorldLoadingOptimizer
         public static byte[] EncodeOrReuse(string itemPath, bool reportFailure)
         {
             var texture = ContentFinder<Texture2D>.Get(itemPath, reportFailure);
-            if (!active || current == null)
+            if (!active || current == null || check.IsOff)
             {
                 return ImageConversion.EncodeToPNG(duplicateTexture(texture));
             }
@@ -175,7 +175,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (key != null && stored.TryGetValue(key, out var entry) && previous.TryGetValue(entry.sha, out var cached) && cached.Length == entry.length)
             {
-                if (!RLOMod.Verify)
+                if (!RLOMod.Verify && !check.IsChecking)
                 {
                     reused++;
                     current[key] = entry;
@@ -183,7 +183,9 @@ namespace RimWorldLoadingOptimizer
                 }
                 var original = ImageConversion.EncodeToPNG(duplicateTexture(texture));
                 verified++;
-                if (!original.AsSpan().SequenceEqual(cached))
+                var same = original.AsSpan().SequenceEqual(cached);
+                check.Report(same, $"image for '{itemPath}'");
+                if (!same && RLOMod.Verify)
                 {
                     mismatches++;
                     Log.Warning($"[RLO] {Feature} verify: image for '{itemPath}' differs from last start's ({original.Length} vs {cached.Length} bytes)");
@@ -212,7 +214,7 @@ namespace RimWorldLoadingOptimizer
             }
             try
             {
-                if (__exception == null && manager.GetValue(null) != null)
+                if (__exception == null && !check.IsOff && manager.GetValue(null) != null)
                 {
                     Save(current);
                 }

@@ -42,11 +42,7 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip("Texture lookup index", "ContentFinder.Get no longer exists");
                 return;
             }
-#if RW17
-            check = new SelfCheck("Texture lookup index", VersionCheck.Known(Fingerprint.Known(Original, "D4D313BA56F77956", "B802294668DE64B1")));
-#else
-            check = new SelfCheck("Texture lookup index", VersionCheck.Known(Fingerprint.Known(Original, "D4D313BA56F77956")));
-#endif
+            check = new SelfCheck("Texture lookup index", VersionCheck.Code(Original));
             Installed = true;
             var transpiler = new HarmonyMethod(typeof(TextureLookup), nameof(Transpiler)) { priority = Priority.Last };
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ClearDestroy)),

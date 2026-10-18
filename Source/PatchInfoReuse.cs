@@ -1,7 +1,9 @@
 #if RW17
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using HarmonyLib;
@@ -18,6 +20,7 @@ namespace RimWorldLoadingOptimizer
         private static MethodInfo deserializeMethod;
         private static Func<byte[], PatchInfo> deserialize;
         private static long recorded, hits, misses, mismatches;
+        private static SelfCheck check;
 
         public static void Install(Harmony harmony)
         {
@@ -35,11 +38,18 @@ namespace RimWorldLoadingOptimizer
                 Log.Message($"[RLO] {Feature}: Harmony's patch state does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
-            if (!Fingerprint.Matches(Feature,
-                Fingerprint.Known(getPatchInfo, "FCBBA976F9FCCF54"),
-                Fingerprint.Known(prepare, "D9F69F4344DA456D"),
-                Fingerprint.Known(deserializeMethod, "FE17A8A11D095128"),
-                Fingerprint.Known(update, "1648080B49C56B0C", "3675DFA4F81955B2", "8FF18CEE9F51D7A9")))
+            if (getPatchInfo == null || prepare == null || update == null)
+            {
+                VersionCheck.Skip(Feature, "a method it needs no longer exists");
+                return;
+            }
+            if (!VersionCheck.Pattern(Feature, prepare, code => VersionCheck.Calls(code, getPatchInfo) == 1 && code.All(OnlyReadsVersionCount),
+                "reads only the version count from the patch state"))
+            {
+                return;
+            }
+            check = new SelfCheck(Feature, VersionCheck.Code(getPatchInfo, prepare, deserializeMethod, update));
+            if (check.IsOff)
             {
                 return;
             }
@@ -47,6 +57,27 @@ namespace RimWorldLoadingOptimizer
             harmony.Patch(getPatchInfo, transpiler: new HarmonyMethod(typeof(PatchInfoReuse), nameof(RecordTranspiler)));
             harmony.Patch(prepare, transpiler: new HarmonyMethod(typeof(PatchInfoReuse), nameof(PrepareTranspiler)));
             LeanFixes.Reports.Add(Stats);
+        }
+
+        private static bool OnlyReadsVersionCount(CodeInstruction instruction)
+        {
+            switch (instruction.operand)
+            {
+                case FieldInfo field:
+                    if (field.DeclaringType == typeof(PatchInfo))
+                    {
+                        return field.Name == nameof(PatchInfo.VersionCount) && instruction.opcode == OpCodes.Ldfld;
+                    }
+                    return instruction.opcode != OpCodes.Stfld && instruction.opcode != OpCodes.Stsfld || !field.FieldType.IsAssignableFrom(typeof(PatchInfo));
+                case MethodBase method:
+                    if (method.DeclaringType == typeof(PatchInfo))
+                    {
+                        return method is ConstructorInfo ? instruction.opcode == OpCodes.Newobj : method.Name == "get_" + nameof(PatchInfo.VersionCount);
+                    }
+                    return method == getPatchInfo || method.GetParameters().All(p => p.ParameterType != typeof(PatchInfo));
+                default:
+                    return true;
+            }
         }
 
         public static IEnumerable<CodeInstruction> RecordTranspiler(IEnumerable<CodeInstruction> instructions) =>
@@ -77,15 +108,20 @@ namespace RimWorldLoadingOptimizer
             {
                 return null;
             }
+            if (check.IsOff)
+            {
+                return deserialize(bytes);
+            }
             if (!versions.TryGetValue(bytes, out var version))
             {
                 Interlocked.Increment(ref misses);
                 return Deserialize(bytes);
             }
             Interlocked.Increment(ref hits);
-            if (RLOMod.Verify)
+            if (RLOMod.Verify || check.IsChecking)
             {
                 var fresh = deserialize(bytes).VersionCount;
+                check.Report(fresh == version.Value, $"version of {original.DeclaringType?.FullName}.{original.Name}");
                 if (fresh != version.Value)
                 {
                     if (Interlocked.Increment(ref mismatches) <= 10)

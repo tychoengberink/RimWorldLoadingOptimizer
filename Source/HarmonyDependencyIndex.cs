@@ -29,6 +29,10 @@ namespace RimWorldLoadingOptimizer
         private static Func<object, IEnumerable> references;
         private static Func<object, string> runtimeFullName;
         private static int redirected;
+        private static SelfCheck check;
+        private static ConstructorInfo loaderCtor;
+        private static FieldInfo[] loaderFields;
+        [ThreadStatic] private static bool bypass;
         private static long served, fallbacks, ticks, verifyMismatches;
 
         public static void Install(Harmony harmony)
@@ -46,10 +50,18 @@ namespace RimWorldLoadingOptimizer
                 Log.Message($"[RLO] {Feature}: Harmony's generated assembly loader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
-            if (!Fingerprint.Matches(Feature, Fingerprint.Known(ctor, "0995A15C7BF271F3")))
+            var closures = PatchProcessor.ReadMethodBody(ctor)
+                .Where(p => p.Key == OpCodes.Ldftn)
+                .Select(p => p.Value as MethodBase)
+                .Where(m => m != null && m.DeclaringType?.DeclaringType == loader)
+                .Distinct();
+            check = new SelfCheck(Feature, VersionCheck.Code(new MethodBase[] { ctor, fullName }.Concat(closures).ToArray()));
+            if (check.IsOff)
             {
                 return;
             }
+            loaderCtor = ctor;
+            loaderFields = AccessTools.GetDeclaredFields(loader).Where(f => !f.IsStatic).ToArray();
             var module = Expression.Parameter(typeof(object));
             references = Expression.Lambda<Func<object, IEnumerable>>(Expression.Convert(Expression.Call(Expression.Convert(module, moduleType), referencesGetter), typeof(IEnumerable)), module).Compile();
             var reference = Expression.Parameter(typeof(object));
@@ -69,6 +81,10 @@ namespace RimWorldLoadingOptimizer
                 Log.Message($"[RLO] {Feature}: the assembly list in Harmony's generated assembly loader was not found exactly once. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
+            if (check.IsChecking)
+            {
+                harmony.Patch(ctor, finalizer: new HarmonyMethod(typeof(HarmonyDependencyIndex), nameof(Compare)));
+            }
             LeanFixes.Reports.Add(Stats);
         }
 
@@ -85,6 +101,76 @@ namespace RimWorldLoadingOptimizer
             list.Insert(at[0] + 1, new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(HarmonyDependencyIndex), nameof(Candidates))));
             redirected = 1;
             return list;
+        }
+
+        public static Exception Compare(object __instance, object[] __args, Exception __exception)
+        {
+            if (bypass || !check.IsChecking || __instance == null)
+            {
+                return __exception;
+            }
+            object original = null;
+            Exception originalException = null;
+            bypass = true;
+            try
+            {
+                original = loaderCtor.Invoke(__args);
+            }
+            catch (TargetInvocationException e)
+            {
+                originalException = e.InnerException ?? e;
+            }
+            catch (Exception)
+            {
+                return __exception;
+            }
+            finally
+            {
+                bypass = false;
+            }
+            bool same;
+            if (__exception != null || originalException != null)
+            {
+                same = __exception != null && originalException != null && __exception.GetType() == originalException.GetType() && __exception.Message == originalException.Message;
+            }
+            else
+            {
+                same = loaderFields.All(f => Same(f.GetValue(__instance), f.GetValue(original)));
+            }
+            check.Report(same, "assemblies bound for a generated Harmony method");
+            if (same)
+            {
+                return __exception;
+            }
+            if (originalException != null)
+            {
+                return originalException;
+            }
+            foreach (var field in loaderFields)
+            {
+                field.SetValue(__instance, field.GetValue(original));
+            }
+            return null;
+        }
+
+        private static bool Same(object a, object b)
+        {
+            if (a is IDictionary x && b is IDictionary y)
+            {
+                if (x.Count != y.Count)
+                {
+                    return false;
+                }
+                foreach (DictionaryEntry entry in x)
+                {
+                    if (!y.Contains(entry.Key) || !Same(entry.Value, y[entry.Key]))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return a is string || a is ValueType ? Equals(a, b) : ReferenceEquals(a, b);
         }
 
         private static void Add(Assembly assembly)
@@ -129,6 +215,10 @@ namespace RimWorldLoadingOptimizer
 
         public static Assembly[] Candidates(AppDomain domain, object module)
         {
+            if (bypass || check.IsOff)
+            {
+                return domain.GetAssemblies();
+            }
             var start = Stopwatch.GetTimestamp();
             try
             {

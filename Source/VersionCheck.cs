@@ -18,31 +18,11 @@ namespace RimWorldLoadingOptimizer
 
         private static readonly object trustGate = new object();
         private static HashSet<string> trusted;
-        [ThreadStatic] private static string pendingKey;
 
         private static string TrustFile => Path.Combine(GenFilePaths.SaveDataFolderPath, "RimWorldLoadingOptimizer", "verified-code.txt");
 
-        public static bool Known(params (MethodBase method, string[] known)[] targets)
-        {
-            pendingKey = null;
-            if (targets.Any(t => t.method == null))
-            {
-                return false;
-            }
-            if (!forceSelfCheck && targets.All(t => Fingerprint.MatchedHash(t.method, t.known) != null))
-            {
-                return true;
-            }
-            pendingKey = string.Join(";", targets.Select(t => Fingerprint.Normalized(t.method) ?? Fingerprint.Of(t.method)));
-            return false;
-        }
-
-        internal static string TakePendingKey()
-        {
-            var key = pendingKey;
-            pendingKey = null;
-            return key;
-        }
+        public static string Code(params MethodBase[] methods) =>
+            methods.Any(m => m == null) ? null : string.Join(";", methods.Select(m => Fingerprint.Normalized(m) ?? Fingerprint.Of(m)));
 
         internal static bool Trusted(string feature, string key)
         {
@@ -122,6 +102,18 @@ namespace RimWorldLoadingOptimizer
         public static int Calls(List<CodeInstruction> code, MethodBase target) =>
             code.Count(i => i.operand is MethodBase m && m == target && (i.opcode == OpCodes.Call || i.opcode == OpCodes.Callvirt));
 
+        public static IEnumerable<MethodBase> Called(List<CodeInstruction> code) =>
+            code.Where(i => i.opcode == OpCodes.Call || i.opcode == OpCodes.Callvirt || i.opcode == OpCodes.Newobj).Select(i => i.operand as MethodBase);
+
+        public static bool CallsExactly(List<CodeInstruction> code, params MethodBase[] expected) =>
+            expected.All(m => m != null) && Called(code).Select(Key).OrderBy(k => k, StringComparer.Ordinal).SequenceEqual(expected.Select(Key).OrderBy(k => k, StringComparer.Ordinal));
+
+        public static bool CallsExactly(List<CodeInstruction> code, string expected) =>
+            Called(code).Select(m => m == null ? "?" : $"{m.DeclaringType?.Name}.{m.Name}").OrderBy(k => k, StringComparer.Ordinal)
+                .SequenceEqual(expected.Split(',').OrderBy(k => k, StringComparer.Ordinal));
+
+        private static string Key(MethodBase method) => method == null ? "?" : $"{method.DeclaringType?.FullName}::{method}";
+
         internal static void Register(SelfCheck check)
         {
             lock (checks)
@@ -150,7 +142,7 @@ namespace RimWorldLoadingOptimizer
             {
                 if (checks.Count == 0)
                 {
-                    return "self-checks: none needed (all code versions known)";
+                    return "self-checks: none needed (all code versions compared before)";
                 }
                 return "self-checks: " + string.Join(", ", checks.Select(c => c.Summary));
             }
@@ -170,16 +162,22 @@ namespace RimWorldLoadingOptimizer
         private string difference;
         private readonly string key;
 
-        public SelfCheck(string feature, bool known, int needed = 200)
+        public SelfCheck(string feature, string code, int needed = 200)
         {
             this.feature = feature;
             this.needed = needed;
-            key = known ? null : VersionCheck.TakePendingKey();
-            state = known || VersionCheck.Trusted(feature, key) ? Trusted : Checking;
+            key = code;
+            if (code == null)
+            {
+                state = Off;
+                VersionCheck.Skip(feature, "a method it needs no longer exists");
+                return;
+            }
+            state = VersionCheck.Trusted(feature, key) ? Trusted : Checking;
             if (state == Checking)
             {
                 VersionCheck.Register(this);
-                Log.Message($"[RLO] {feature}: this code version is not in RimWorld Loading Optimizer's list; the first {needed} results are compared with the original code before the speedup takes over.");
+                Log.Message($"[RLO] {feature}: first start with this code; the first {needed} results are compared with the original code before the speedup takes over.");
             }
         }
 
@@ -216,7 +214,7 @@ namespace RimWorldLoadingOptimizer
                     case Off:
                         return $"{feature} switched off after {matched} matching results ({difference ?? "result differed"})";
                     default:
-                        return $"{feature} still checking ({matched} of {needed} results compared)";
+                        return matched == 0 ? $"{feature} not used this start" : $"{feature} still checking ({matched} of {needed} results compared)";
                 }
             }
         }

@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Threading.Tasks;
 using HarmonyLib;
 using Verse;
@@ -34,10 +35,12 @@ namespace RimWorldLoadingOptimizer
         {
             var bake = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases));
             stampMethod = AccessTools.Method(typeof(StaticTextureAtlas), "TryWriteSourceStamp", new[] { typeof(BinaryWriter), typeof(Texture2D) });
-            if (!Fingerprint.Matches("Atlas source stamps",
-                Fingerprint.Known(bake, "516529BC05D9B5EE", "45434BFD7AD5A8A9"),
-                Fingerprint.Known(AccessTools.Method(typeof(StaticTextureAtlas), "TryGetCacheKey"), "31922490706299AC", "F74EA4FF5C50B4FA"),
-                Fingerprint.Known(stampMethod, "4DED400458B2EBF0", "11386B8F876A15F3")))
+            if (bake == null || stampMethod == null)
+            {
+                VersionCheck.Skip("Atlas source stamps", "a method it needs no longer exists");
+                return;
+            }
+            if (!VersionCheck.Pattern("Atlas source stamps", stampMethod, code => VersionCheck.CallsExactly(code, StampCalls()) && !code.Any(i => i.opcode == OpCodes.Ldfld || i.opcode == OpCodes.Ldsfld), "writes only the path and the content hash or file length and time"))
             {
                 return;
             }
@@ -54,6 +57,27 @@ namespace RimWorldLoadingOptimizer
             MainMenu.UnpatchAfterStartup(bake);
             MainMenu.UnpatchAfterStartup(stampMethod);
             LeanFixes.Reports.Add(Stats);
+        }
+
+        private static MethodBase[] StampCalls()
+        {
+            var writeString = AccessTools.Method(typeof(BinaryWriter), nameof(BinaryWriter.Write), new[] { typeof(string) });
+            var writeLong = AccessTools.Method(typeof(BinaryWriter), nameof(BinaryWriter.Write), new[] { typeof(long) });
+            return new MethodBase[]
+            {
+                AccessTools.DeclaredPropertyGetter(typeof(Texture2D), nameof(Texture2D.CoreTexture)),
+                AccessTools.PropertyGetter(typeof(Waylith.Rendering.Texture2D), nameof(Waylith.Rendering.Texture2D.SourcePath)),
+                writeString,
+                AccessTools.Method(typeof(ContentPack), nameof(ContentPack.TryGetTextureContentHash)),
+                writeString,
+                AccessTools.Constructor(typeof(FileInfo), new[] { typeof(string) }),
+                AccessTools.PropertyGetter(typeof(FileSystemInfo), nameof(FileSystemInfo.Exists)),
+                AccessTools.PropertyGetter(typeof(FileInfo), nameof(FileInfo.Length)),
+                writeLong,
+                AccessTools.PropertyGetter(typeof(FileSystemInfo), nameof(FileSystemInfo.LastWriteTimeUtc)),
+                AccessTools.PropertyGetter(typeof(DateTime), nameof(DateTime.Ticks)),
+                writeLong,
+            };
         }
 
         public static void BakePrefix()

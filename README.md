@@ -87,7 +87,7 @@ Put RimWorld Loading Optimizer directly after Harmony (its About.xml asks to loa
 | Harmony dependency name index (1.7) | Harmony 3 `GeneratedAssemblyLoader` constructor (`AppDomain.GetAssemblies` call) | Each generated method binds its references from an index of loaded assemblies by name instead of comparing them with every loaded assembly; Harmony's own name and hash checks still run (3.5 s to 0.1 s) |
 | XML previous-sibling cursor (1.7) | `XmlLinkedNode.PreviousSibling` (startup only) | Walks forward from the last previous sibling found instead of from the first child; removing or inserting many nodes in document order is no longer quadratic (Adaptive Storage Framework's def replacement: ~20 s to 0.4 s on cold starts), same nodes |
 | Mesh buffer pool (1.7) | Waylith `MeshUploader.AllocateMeshBuffer` | While the device-local memory budget is used up, and only until 10 s after the main menu, small mesh buffers (up to 256 KB) are placed in a VMA pool with 32 MB blocks instead of one driver allocation each (the frame before the main menu: ~16 s to 0.1 s). Each buffer stays its own VkBuffer; the pool is emptied and destroyed before the allocator. Own setting |
-| Mesh staging (1.7) | Waylith `MeshUploader.CreateDeviceLocalBuffer` | One mapped staging buffer per upload command buffer instead of one per mesh stream; also times mesh uploads for the startup report. Own setting |
+| Mesh upload timing (1.7) | Waylith `MeshUploader` upload methods | Report only: times mesh uploads for the first 10 s after startup (main menu or straight into a game). Changes nothing |
 | Atlas source stamps (1.7) | `StaticTextureAtlas.TryWriteSourceStamp` | File size and date of every atlas source texture are read on worker threads before baking; same cache key bytes. Own setting |
 | GC latency (1.7) | `GCSettings.LatencyMode` | SustainedLowLatency from RimWorld Loading Optimizer's start until the main menu, so the runtime avoids blocking full memory clean-ups while loading; set back at the main menu. Follows the "skip the forced memory clean-up" setting |
 | Startup report | `RuntimeHelpers.RunClassConstructor` | Logs the slowest mod static constructors |
@@ -108,7 +108,6 @@ Each of these targets one mod, can be switched on separately in Mod Settings, an
 | Children Wear Anything, Vehicle Framework, AV Mechanoid Skins | Route their texture lookups through RimWorld Loading Optimizer's texture index |
 | Vehicle Framework (1.7) | While it builds its pattern materials, each pattern texture is decoded to pixels once instead of six times; the repeats get a copy of the same pixels |
 | CombatAI | Faster label scan, and its label patches are applied on the main thread |
-| Linkable Groups | Indexed facility links |
 | Loading Progress | Installs the support above before Loading Progress runs the static constructors |
 | Giddy-Up 2 (1.7) | Remembers its rider draw offsets between starts, keyed on the exact texture content |
 | Worksites Expanded (1.7) | Answers its tome-trader check directly while no game is loaded instead of an exception caught tens of thousands of times |
@@ -130,12 +129,14 @@ Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assemb
 - **Cache invalidation:**
   - Caches are invalidated by content signatures and on `ClearAllPlayData` / `ClearDestroy`, which cover language changes and hot reload.
   - Hits are re-validated against the owning source.
-- **Mod and game updates (1.6):** every speedup checks a fingerprint of the code it works on. For a known version it runs straight away. For an unknown version:
-  - a speedup that changes one call checks that the exact call is still there;
-  - a speedup that replaces a method lets the original run next to it for its first results (200 by default), compares them, and only takes over when all of them match. On any difference it switches off for that start and the original code runs (`[RLO] <feature>: a result differed from the original code …`);
-  - a passed check is remembered for that exact code version in `RimWorldLoadingOptimizer/verified-code.txt`;
-  - four speedups that depend on another mod's internals (Linkable Groups, mod assembly loading, the Alpha Implants warm-up and the early loader budget) still need a known version.
-  The startup report lists every check in a `self-checks:` line. Re-implemented game getters also step aside when another mod patches the same method.
+- **Mod and game updates:** no speedup depends on a list of known game or mod versions. Every speedup first checks that the methods and fields it needs still exist, then:
+  - a speedup that only measures or reports, or only marks a point in time, needs nothing more;
+  - a speedup that changes one call checks that the call it needs is still there (and only that);
+  - a speedup that replaces a result lets the original run next to it for its first results (200 by default, fewer for expensive ones), compares them, and only takes over when all of them match. On any difference it switches off for that start and the original code runs (`[RLO] <feature>: a result differed from the original code …`);
+  - a passed check is remembered for that exact code in `RimWorldLoadingOptimizer/verified-code.txt`, so the comparison runs once after every game or mod update;
+  - two speedups also depend on internals a comparison cannot fully cover, so they additionally check that the Harmony or System.Xml methods they build on still make exactly the calls they were written around: Harmony rebuild coalescing (test, off by default), and reading Missile Girl's cache on several threads, which also compares its first read of every new code version with Missile Girl's own read and uses Missile Girl's result for that start;
+  - faster mod assembly loading on 1.6 still needs a known version.
+  The startup report lists the checks in `code checks:` and `self-checks:` lines. Re-implemented game getters also step aside when another mod patches the same method.
 - **Other optimizers:** when another optimizer (for example Performance Fish or Performance Optimizer) replaces or rewrites a method that a speedup also works on, that speedup steps aside and leaves the method to the other optimizer. Patches that only add work before or after a method don't count.
 - **Atlas cache files:** each cached atlas carries a 64-bit checksum that is verified while loading; a damaged or truncated file is rebaked instead of shown.
 - **Transpilers:** they only redirect specific calls and leave the rest of the method intact, so other mods' transpilers still find their anchors. A transpiler that does not find the exact calls it expects leaves the method unchanged.
@@ -148,13 +149,13 @@ Environment variables for testing; none are needed for normal play.
 |---|---|
 | `LEANMEMORY_VERIFY=1` | Runs the original code next to every speedup and logs mismatches |
 | `LEANMEMORY_ALLOFF=1` | Starts with every feature off, like the "off" step of the measurement |
-| `LEANMEMORY_IGNORE_FINGERPRINTS=1` | Uses speedups even when the original method changed (logged as a warning) |
-| `LEANMEMORY_SELFCHECK=1` | Treats every code version as unknown, so every speedup that can runs its self-check (results are not remembered) |
+| `LEANMEMORY_IGNORE_FINGERPRINTS=1` | Uses the few speedups that still need exact code even when that code changed (logged as a warning) |
+| `LEANMEMORY_SELFCHECK=1` | Ignores `verified-code.txt`, so every speedup that can runs its self-check again (results are not remembered) |
 | `LEANMEMORY_NOATLASFLUSH=1`, `LEANMEMORY_NOATLASPACKING=1` | Switch off the atlas baking memory fix or the atlas packing index (1.6) |
 | `LEANMEMORY_NOATLASCACHE=1`, `LEANMEMORY_NOBOOST=1`, `LEANMEMORY_NOPREFETCH=1` | Switch off the atlas cache, faster early content loading or texture read-ahead |
 | `LEANMEMORY_PROFILE=1` | Adds a startup profile and phase timeline to the startup report |
 | `LEANMEMORY_STRINGSTATS=1`, `LEANMEMORY_OBJECTSTATS=1`, `LEANMEMORY_XMLSTATS=1`, `LEANMEMORY_HEAPSTATS=1` | Memory statistics in the log |
-| `CTORS2_OFF=a,b` | Switches off single startup-code fixes: `lunar`, `av`, `linkable`, `vehicles`, `bracket`, or `all` |
+| `CTORS2_OFF=a,b` | Switches off single startup-code fixes: `lunar`, `av`, `vehicles`, `bracket`, or `all` |
 | `CTORS2_VERIFY=1` | Verify mode for the startup-code fixes only |
 | `CTORS2_TIMING=1` | Times selected mod static constructors |
 | `PREXML2_OFF=a,b` | Switches off single mod-constructor speedups: `reflcache`, `asmcache`, `earlytypes`, `loadfrom`, `ilscan`, `cai`, or `all` |

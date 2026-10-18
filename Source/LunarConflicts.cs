@@ -31,16 +31,16 @@ namespace RimWorldLoadingOptimizer
             }
             var sharedGet = AccessTools.Method(AccessTools.TypeByName("HarmonyLib.HarmonySharedState"), "GetPatchInfo");
             var processorGet = AccessTools.Method(typeof(PatchProcessor), nameof(PatchProcessor.GetPatchInfo));
-            var known = VersionCheck.Known(
-                Fingerprint.Known(conflicts, "13B83E8A3F48C1FF"),
-                Fingerprint.Known(GetPatchInfo, "5DD47414AB626F77"),
-                Fingerprint.Known(processorGet, "3FBEB5C86979520A", "AA845EE094F90A6A", "5AB5534B8F297319"),
-                Fingerprint.Known(sharedGet, "FCBBA976F9FCCF54"));
-            if (!known && !VersionCheck.Pattern("Lunar conflict check", conflicts, code => VersionCheck.Calls(code, GetPatchInfo) >= 1, "reads patch info with Harmony.GetPatchInfo"))
+            var code = VersionCheck.Code(
+                conflicts,
+                GetPatchInfo,
+                processorGet,
+                sharedGet);
+            if (!VersionCheck.Pattern("Lunar conflict check", conflicts, code => VersionCheck.Calls(code, GetPatchInfo) >= 1, "reads patch info with Harmony.GetPatchInfo"))
             {
                 return;
             }
-            check = new SelfCheck("Lunar conflict check", known);
+            check = new SelfCheck("Lunar conflict check", code);
             harmony.Patch(conflicts, transpiler: new HarmonyMethod(typeof(LunarConflicts), nameof(Transpiler)));
             Ctors2Mod.Reports.Add(Stats);
         }
