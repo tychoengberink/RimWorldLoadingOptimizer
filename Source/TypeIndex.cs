@@ -18,16 +18,15 @@ namespace RimWorldLoadingOptimizer
         public static int Lookups;
         public static int CachedHits;
         public static int Mismatches;
+        private static SelfCheck check;
+        [ThreadStatic] private static bool bypass;
 
         public static void Install(Harmony harmony)
         {
-            if (!Fingerprint.Matches("TypeByName index",
+            check = new SelfCheck("TypeByName index", VersionCheck.Known(
                 Fingerprint.Known(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.TypeByName)), "624D91367FA5A6CB", "5DB8125A670F78A7"),
                 Fingerprint.Known(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllTypes)), "E5988DC554860258", "4865BF6750797681"),
-                Fingerprint.Known(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllAssemblies)), "5A35D5946C2A7BFC", "6C8092C81C75E970")))
-            {
-                return;
-            }
+                Fingerprint.Known(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllAssemblies)), "5A35D5946C2A7BFC", "6C8092C81C75E970")), 25);
             harmony.Patch(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.TypeByName)), prefix: new HarmonyMethod(typeof(TypeIndex), nameof(Prefix)) { priority = Priority.Last });
         }
 
@@ -83,7 +82,7 @@ namespace RimWorldLoadingOptimizer
 
         public static bool Prefix(string name, ref Type __result)
         {
-            if (string.IsNullOrEmpty(name) || name.IndexOf('[') >= 0 || name.IndexOf(',') >= 0)
+            if (bypass || check.IsOff || string.IsNullOrEmpty(name) || name.IndexOf('[') >= 0 || name.IndexOf(',') >= 0)
             {
                 return true;
             }
@@ -92,7 +91,7 @@ namespace RimWorldLoadingOptimizer
                 if (found.TryGetValue(name, out var cached))
                 {
                     CachedHits++;
-                    __result = cached;
+                    __result = Checked(name, cached);
                     return false;
                 }
             }
@@ -114,17 +113,8 @@ namespace RimWorldLoadingOptimizer
                 {
                     return true;
                 }
-                if (RLOMod.Verify)
-                {
-                    var source = AccessTools.AllTypes().ToArray();
-                    var original = source.FirstOrDefault(t => t.FullName == name) ?? source.FirstOrDefault(t => t.Name == name);
-                    if (original != type)
-                    {
-                        Mismatches++;
-                        Log.Warning($"[RLO] type index mismatch for {name}: {type} vs {original}");
-                    }
-                }
             }
+            type = Checked(name, type);
             if (type != null && type.FullName == name)
             {
                 lock (gate)
@@ -134,6 +124,31 @@ namespace RimWorldLoadingOptimizer
             }
             __result = type;
             return false;
+        }
+
+        private static Type Checked(string name, Type type)
+        {
+            if (!RLOMod.Verify && !check.IsChecking)
+            {
+                return type;
+            }
+            Type original;
+            bypass = true;
+            try
+            {
+                original = AccessTools.TypeByName(name);
+            }
+            finally
+            {
+                bypass = false;
+            }
+            check.Report(original == type, $"type {name}");
+            if (original != type)
+            {
+                Mismatches++;
+                Log.Warning($"[RLO] type index mismatch for {name}: {type} vs {original}");
+            }
+            return original;
         }
 
         public static string Stats() => $"type index: {Lookups} slow-path lookups, {CachedHits} cached hits, {byFullName.Count} types, {Mismatches} verify mismatches";

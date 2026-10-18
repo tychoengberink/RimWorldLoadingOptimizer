@@ -14,18 +14,61 @@ namespace RimWorldLoadingOptimizer
         private static int replaced = -1, scanned, fallbacks, mismatches, withTargets;
         private static long ticks;
         private static readonly MethodInfo original = AccessTools.Method(typeof(PatchProcessor), nameof(PatchProcessor.ReadMethodBody), new[] { typeof(MethodBase) });
+        private static SelfCheck check;
 
         public static void Install(Harmony harmony)
         {
             var type = AccessTools.TypeByName("LunarFramework.Patching.HarmonyInliningFixer");
-            var apply = type == null ? null : AccessTools.Method(type, "Apply");
-            if (apply == null || !Fingerprint.Matches("Lunar inlining fixer",
-                Fingerprint.Known(apply, "EB15E93BFD0A2FCE", "0EB2AD996306A30A"),
-                Fingerprint.Known(original, "05BA8CAC5E457CEB", "9AAB7BE113AD5532", "40080DF59A0325D6", "70F162883228B841")))
+            if (type == null)
             {
                 return;
             }
+            var apply = AccessTools.Method(type, "Apply");
+            if (apply == null || original == null)
+            {
+                VersionCheck.Skip("Lunar inlining fixer", "HarmonyInliningFixer.Apply or PatchProcessor.ReadMethodBody no longer exists");
+                return;
+            }
+            var known = VersionCheck.Known(
+                Fingerprint.Known(apply, "EB15E93BFD0A2FCE", "0EB2AD996306A30A"),
+                Fingerprint.Known(original, "05BA8CAC5E457CEB", "9AAB7BE113AD5532", "40080DF59A0325D6", "70F162883228B841"));
+            if (!known && !VersionCheck.Pattern("Lunar inlining fixer", apply, code => VersionCheck.Calls(code, original) >= 1 && LooksOnlyForMethods(type, code),
+                "reads method bodies only to look for called methods"))
+            {
+                return;
+            }
+            check = new SelfCheck("Lunar inlining fixer", known);
             harmony.Patch(apply, transpiler: new HarmonyMethod(typeof(LunarInlining), nameof(Transpiler)));
+        }
+
+        private static bool LooksOnlyForMethods(Type type, List<CodeInstruction> apply)
+        {
+            bool IsMethodCheck(CodeInstruction i) => i.opcode == OpCodes.Isinst && i.operand is Type t && t == typeof(MethodBase);
+            if (apply.Any(IsMethodCheck))
+            {
+                return true;
+            }
+            foreach (var method in type.GetNestedTypes(AccessTools.all).SelectMany(t => AccessTools.GetDeclaredMethods(t)).Concat(AccessTools.GetDeclaredMethods(type)))
+            {
+                if (!method.Name.StartsWith("<Apply>"))
+                {
+                    continue;
+                }
+                List<CodeInstruction> code;
+                try
+                {
+                    code = PatchProcessor.GetOriginalInstructions(method);
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+                if (code.Any(IsMethodCheck))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
@@ -47,6 +90,10 @@ namespace RimWorldLoadingOptimizer
 
         public static IEnumerable<KeyValuePair<OpCode, object>> ReadMethodBody(MethodBase method)
         {
+            if (check.IsOff)
+            {
+                return PatchProcessor.ReadMethodBody(method);
+            }
             var start = Stopwatch.GetTimestamp();
             scanned++;
             List<KeyValuePair<OpCode, object>> fast;
@@ -69,15 +116,19 @@ namespace RimWorldLoadingOptimizer
                 withTargets++;
             }
             ticks += Stopwatch.GetTimestamp() - start;
-            if (RLOMod.Verify)
+            if (RLOMod.Verify || check.IsChecking)
             {
-                var slow = PatchProcessor.ReadMethodBody(method).Select(e => e.Value).OfType<MethodBase>().ToList();
-                if (!slow.SequenceEqual(fast.Select(e => (MethodBase)e.Value)))
+                var body = PatchProcessor.ReadMethodBody(method).ToList();
+                var slow = body.Select(e => e.Value).OfType<MethodBase>().ToList();
+                var same = slow.SequenceEqual(fast.Select(e => (MethodBase)e.Value));
+                check.Report(same, $"method operands of {method.Name}");
+                if (!same)
                 {
                     if (++mismatches <= 10)
                     {
                         Log.Warning($"[RLO] Lunar scan verify mismatch for {method.FullDescription()}: fast {fast.Count}, original {slow.Count} method operands");
                     }
+                    return body;
                 }
             }
             return fast;

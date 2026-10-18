@@ -13,27 +13,35 @@ namespace RimWorldLoadingOptimizer
         private static readonly Dictionary<MethodBase, (byte[] bytes, Patches patches)> cache = new Dictionary<MethodBase, (byte[], Patches)>();
         private static Dictionary<MethodBase, byte[]> state;
         private static int methods, calls, hits, misses, checks, mismatches;
+        private static SelfCheck check;
 
         public static void Install(Harmony harmony)
         {
-            state = AccessTools.Field(AccessTools.TypeByName("HarmonyLib.HarmonySharedState"), "state")?.GetValue(null) as Dictionary<MethodBase, byte[]>;
             var group = ModTypes.Find("LunarFramework.Patching.PatchGroup");
-            var check = group == null ? null : AccessTools.Method(group, "CheckForConflicts", new[] { typeof(string), typeof(Action<MethodBase, Patch>) });
-            if (state == null || check == null)
+            if (group == null)
             {
+                return;
+            }
+            state = AccessTools.Field(AccessTools.TypeByName("HarmonyLib.HarmonySharedState"), "state")?.GetValue(null) as Dictionary<MethodBase, byte[]>;
+            var conflicts = AccessTools.Method(group, "CheckForConflicts", new[] { typeof(string), typeof(Action<MethodBase, Patch>) });
+            if (state == null || conflicts == null || GetPatchInfo == null)
+            {
+                VersionCheck.Skip("Lunar conflict check", "HarmonySharedState.state, Harmony.GetPatchInfo or PatchGroup.CheckForConflicts no longer exists");
                 return;
             }
             var sharedGet = AccessTools.Method(AccessTools.TypeByName("HarmonyLib.HarmonySharedState"), "GetPatchInfo");
             var processorGet = AccessTools.Method(typeof(PatchProcessor), nameof(PatchProcessor.GetPatchInfo));
-            if (!Fingerprint.Matches("Lunar conflict check",
-                    Fingerprint.Known(check, "13B83E8A3F48C1FF"),
-                    Fingerprint.Known(GetPatchInfo, "5DD47414AB626F77"),
-                    Fingerprint.Known(processorGet, "3FBEB5C86979520A", "AA845EE094F90A6A", "5AB5534B8F297319"),
-                    Fingerprint.Known(sharedGet, "FCBBA976F9FCCF54")))
+            var known = VersionCheck.Known(
+                Fingerprint.Known(conflicts, "13B83E8A3F48C1FF"),
+                Fingerprint.Known(GetPatchInfo, "5DD47414AB626F77"),
+                Fingerprint.Known(processorGet, "3FBEB5C86979520A", "AA845EE094F90A6A", "5AB5534B8F297319"),
+                Fingerprint.Known(sharedGet, "FCBBA976F9FCCF54"));
+            if (!known && !VersionCheck.Pattern("Lunar conflict check", conflicts, code => VersionCheck.Calls(code, GetPatchInfo) >= 1, "reads patch info with Harmony.GetPatchInfo"))
             {
                 return;
             }
-            harmony.Patch(check, transpiler: new HarmonyMethod(typeof(LunarConflicts), nameof(Transpiler)));
+            check = new SelfCheck("Lunar conflict check", known);
+            harmony.Patch(conflicts, transpiler: new HarmonyMethod(typeof(LunarConflicts), nameof(Transpiler)));
             Ctors2Mod.Reports.Add(Stats);
         }
 
@@ -54,7 +62,7 @@ namespace RimWorldLoadingOptimizer
         public static Patches Info(MethodBase method)
         {
             calls++;
-            if (method == null)
+            if (method == null || check.IsOff)
             {
                 return Harmony.GetPatchInfo(method);
             }
@@ -62,9 +70,15 @@ namespace RimWorldLoadingOptimizer
             if (before != null && cache.TryGetValue(method, out var entry) && ReferenceEquals(entry.bytes, before))
             {
                 hits++;
-                if (Ctors2Mod.Verify)
+                if (Ctors2Mod.Verify || check.IsChecking)
                 {
-                    Compare(method, entry.patches, Harmony.GetPatchInfo(method));
+                    var fresh = Harmony.GetPatchInfo(method);
+                    var same = Compare(method, entry.patches, fresh);
+                    check.Report(same, $"patch info of {method.Name}");
+                    if (!same)
+                    {
+                        return fresh;
+                    }
                 }
                 return entry.patches;
             }
@@ -77,7 +91,7 @@ namespace RimWorldLoadingOptimizer
             return patches;
         }
 
-        private static void Compare(MethodBase method, Patches cached, Patches fresh)
+        private static bool Compare(MethodBase method, Patches cached, Patches fresh)
         {
             checks++;
             bool Same(IEnumerable<Patch> a, IEnumerable<Patch> b) => a.Select(Key).SequenceEqual(b.Select(Key));
@@ -88,7 +102,9 @@ namespace RimWorldLoadingOptimizer
                 {
                     Log.Warning($"[RLO] lunar verify mismatch for {method.FullDescription()}");
                 }
+                return false;
             }
+            return true;
         }
 
         private static string Key(Patch p) => $"{p.index}|{p.owner}|{p.priority}|{string.Join(",", p.before ?? new string[0])}|{string.Join(",", p.after ?? new string[0])}|{p.debug}|{p.PatchMethod?.MetadataToken}|{p.PatchMethod?.Module.ModuleVersionId}";

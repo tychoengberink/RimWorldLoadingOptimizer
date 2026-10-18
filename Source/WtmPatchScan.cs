@@ -17,6 +17,7 @@ namespace RimWorldLoadingOptimizer
         private static bool? verified;
         private static int mismatches = -1, entries;
         private static long precomputeTicks, verifyTicks;
+        private static SelfCheck check;
 
         public static void InstallEarly(Harmony harmony)
         {
@@ -50,8 +51,9 @@ namespace RimWorldLoadingOptimizer
             }
             tryResolvePatches = AccessTools.Method(modCore, "TryResolvePatches");
             probablyAddedBy = AccessTools.Field(modCore, "probablyAddedBy")?.GetValue(null) as Dictionary<string, ModContentPack>;
-            if (tryResolvePatches == null || probablyAddedBy == null)
+            if (tryResolvePatches == null || probablyAddedBy == null || AccessTools.Method(modCore, "DefWriter") == null)
             {
+                VersionCheck.Skip("What's That Mod patch scan", "ModCore.TryResolvePatches, DefWriter or probablyAddedBy no longer exists");
                 modCore = null;
                 return false;
             }
@@ -62,9 +64,13 @@ namespace RimWorldLoadingOptimizer
         {
             if (verified == null)
             {
-                verified = Resolve() && Fingerprint.Matches("What's That Mod patch scan",
-                    Fingerprint.Known(AccessTools.Method(modCore, "DefWriter"), "4E13A7480F7666F5"),
-                    Fingerprint.Known(tryResolvePatches, "5647A9F09195401A"));
+                verified = Resolve();
+                if (verified.Value)
+                {
+                    check = new SelfCheck("What's That Mod patch scan", VersionCheck.Known(
+                        Fingerprint.Known(AccessTools.Method(modCore, "DefWriter"), "4E13A7480F7666F5"),
+                        Fingerprint.Known(tryResolvePatches, "5647A9F09195401A")), 1);
+                }
             }
             return verified.Value;
         }
@@ -96,6 +102,7 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
+        [Hook]
         public static void BeforeClearCachedPatches()
         {
             if (precomputed || consumed)
@@ -127,7 +134,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             consumed = true;
-            if (RLOMod.Verify)
+            if (RLOMod.Verify || check.IsChecking)
             {
                 var fast = new Dictionary<string, ModContentPack>(probablyAddedBy);
                 probablyAddedBy.Clear();
@@ -145,6 +152,12 @@ namespace RimWorldLoadingOptimizer
                         }
                     }
                 }
+                check.Report(mismatches == 0, $"{mismatches} of {probablyAddedBy.Count} defNames");
+                if (mismatches != 0)
+                {
+                    probablyAddedBy.Clear();
+                    return;
+                }
             }
             skipping = true;
         }
@@ -159,7 +172,7 @@ namespace RimWorldLoadingOptimizer
         public static string Stats()
         {
             var msPerTick = 1000.0 / Stopwatch.Frequency;
-            return $"What's That Mod: precomputed {precomputed} ({entries} defNames in {precomputeTicks * msPerTick:F0} ms at ClearCachedPatches), late patches {lateInstalled}, used {consumed}{(RLOMod.Verify ? $", original rescan {verifyTicks * msPerTick:F0} ms, {mismatches} verify mismatches" : "")}";
+            return $"What's That Mod: precomputed {precomputed} ({entries} defNames in {precomputeTicks * msPerTick:F0} ms at ClearCachedPatches), late patches {lateInstalled}, used {consumed}{(mismatches >= 0 ? $", original rescan {verifyTicks * msPerTick:F0} ms, {mismatches} verify mismatches" : "")}";
         }
     }
 }

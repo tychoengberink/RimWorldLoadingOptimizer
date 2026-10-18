@@ -17,24 +17,27 @@ namespace RimWorldLoadingOptimizer
 
         private static Dictionary<RecipeDef, List<ThingDef>> users;
         private static int installed, patchedMethods, served, surgeries, mismatches;
+        private static SelfCheck check;
 
         public static void Install(Harmony harmony)
         {
             var rebuilder = ModTypes.Find("PeteTimesSix.ResearchReinvented_SteppingStones.PreregRebuilders.PreregRebuilder");
-            var extensions = ModTypes.Find("PeteTimesSix.ResearchReinvented_SteppingStones.Extensions.RecipeDefExtensions");
-            var entry = rebuilder == null ? null : AccessTools.Method(rebuilder, "SetPrerequisitesOnOrphans");
-            if (entry == null || extensions == null)
+            if (rebuilder == null)
             {
                 return;
             }
-            if (!Fingerprint.Matches("Research Reinvented: Stepping Stones recipe users",
+            var extensions = ModTypes.Find("PeteTimesSix.ResearchReinvented_SteppingStones.Extensions.RecipeDefExtensions");
+            var entry = AccessTools.Method(rebuilder, "SetPrerequisitesOnOrphans");
+            if (entry == null || extensions == null || AllRecipeUsers == null || IsSurgeryGetter == null)
+            {
+                VersionCheck.Skip("Research Reinvented: Stepping Stones recipe users", "PreregRebuilder.SetPrerequisitesOnOrphans, RecipeDefExtensions or a RecipeDef getter no longer exists");
+                return;
+            }
+            check = new SelfCheck("Research Reinvented: Stepping Stones recipe users", VersionCheck.Known(
                 Fingerprint.Known(entry, "DA8D84A498E939B2"),
                 Fingerprint.Known(AllRecipeUsers, "2E918FB1ADB1135C", "8762E8B936E55A89"),
                 Fingerprint.Known(AccessTools.EnumeratorMoveNext(AllRecipeUsers), "2F9D95E7037F88F6", "8854E37F42492D34"),
-                Fingerprint.Known(IsSurgeryGetter, "5E3C9FE2FC98FDDE", "7B035F4EE8F7FCBA")))
-            {
-                return;
-            }
+                Fingerprint.Known(IsSurgeryGetter, "5E3C9FE2FC98FDDE", "7B035F4EE8F7FCBA")));
             var transpiler = new HarmonyMethod(typeof(RrssRecipes), nameof(Transpiler));
             foreach (var method in AccessTools.GetDeclaredMethods(rebuilder).Concat(AccessTools.GetDeclaredMethods(extensions)))
             {
@@ -105,15 +108,25 @@ namespace RimWorldLoadingOptimizer
 
         public static IEnumerable<ThingDef> Users(RecipeDef recipe)
         {
-            if (users == null || recipe == null || !UnityData.IsInMainThread)
+            if (users == null || recipe == null || check.IsOff || !UnityData.IsInMainThread)
             {
                 return recipe.AllRecipeUsers;
             }
             served++;
             var result = Enumerate(recipe, users.TryGetValue(recipe, out var list) ? list : NoUsers);
-            if (RLOMod.Verify && !result.SequenceEqual(recipe.AllRecipeUsers) && mismatches++ < 10)
+            if (RLOMod.Verify || check.IsChecking)
             {
-                Log.Warning($"[RLO] Research Reinvented: Stepping Stones verify mismatch: recipe users of {recipe.defName}");
+                var original = recipe.AllRecipeUsers.ToList();
+                var same = result.SequenceEqual(original);
+                check.Report(same, $"recipe users of {recipe.defName}");
+                if (!same)
+                {
+                    if (mismatches++ < 10)
+                    {
+                        Log.Warning($"[RLO] Research Reinvented: Stepping Stones verify mismatch: recipe users of {recipe.defName}");
+                    }
+                    return original;
+                }
             }
             return result;
         }
@@ -136,7 +149,7 @@ namespace RimWorldLoadingOptimizer
 
         public static bool IsSurgery(RecipeDef recipe)
         {
-            if (users == null || recipe == null || !UnityData.IsInMainThread)
+            if (users == null || recipe == null || check.IsOff || !UnityData.IsInMainThread)
             {
                 return recipe.IsSurgery;
             }
@@ -153,9 +166,17 @@ namespace RimWorldLoadingOptimizer
                         break;
                     }
                 }
-                if (RLOMod.Verify && cached.Value != recipe.AllRecipeUsers.Any(u => u.category == ThingCategory.Pawn) && mismatches++ < 10)
+                if (RLOMod.Verify || check.IsChecking)
                 {
-                    Log.Warning($"[RLO] Research Reinvented: Stepping Stones verify mismatch: IsSurgery of {recipe.defName}");
+                    var fast = cached.Value;
+                    cached = null;
+                    var original = recipe.IsSurgery;
+                    check.Report(fast == original, $"IsSurgery of {recipe.defName}");
+                    if (fast != original && mismatches++ < 10)
+                    {
+                        Log.Warning($"[RLO] Research Reinvented: Stepping Stones verify mismatch: IsSurgery of {recipe.defName}");
+                    }
+                    return original;
                 }
             }
             return cached.Value;

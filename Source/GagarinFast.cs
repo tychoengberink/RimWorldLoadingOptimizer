@@ -36,17 +36,23 @@ namespace RimWorldLoadingOptimizer
 
         private static bool missileGirl;
 
+        private static SelfCheck patchCheck;
+
         public static void Install(Harmony harmony, bool parallelXmlLoader)
         {
             GagarinFast.harmony = harmony;
             missileGirl = RLOMod.Settings.Supports("missilegirl");
-            reusePatches = !parallelXmlLoader && Fingerprint.Matches("Reuse of parsed patch files",
-                Fingerprint.Known(AccessTools.Method(typeof(ModContentPack), "LoadPatches"), "7BD200C227994829", "38D8E170612E6A8C"),
+            reusePatches = !parallelXmlLoader && AccessTools.Method(typeof(ModContentPack), "LoadPatches") != null && AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)) != null;
+            if (reusePatches)
+            {
+                patchCheck = new SelfCheck("Reuse of parsed patch files", VersionCheck.Known(
+                    Fingerprint.Known(AccessTools.Method(typeof(ModContentPack), "LoadPatches"), "7BD200C227994829", "38D8E170612E6A8C"),
 #if RW17
-                Fingerprint.Known(AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)), "443A7DDA2E4D9183", "B562C17CC83C679E", "760A5C052131CDB0", "C466BF8CB37814BD"));
+                    Fingerprint.Known(AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)), "443A7DDA2E4D9183", "B562C17CC83C679E", "760A5C052131CDB0", "C466BF8CB37814BD")), 20);
 #else
-                Fingerprint.Known(AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)), "443A7DDA2E4D9183", "B562C17CC83C679E"));
+                    Fingerprint.Known(AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)), "443A7DDA2E4D9183", "B562C17CC83C679E")), 20);
 #endif
+            }
             var loadModXml = AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML));
             if (parallelXmlLoader)
             {
@@ -117,13 +123,10 @@ namespace RimWorldLoadingOptimizer
                 skippedNote = "gagarin members changed";
                 return;
             }
-            if (!Fingerprint.Matches("Faster Missile Girl cache load", Fingerprint.Known(loadMethod, "A45EE8A2551B3B1D", "42AFA8C7AEFCE6D8")))
-            {
-                skippedNote = "gagarin cache loader changed";
-                return;
-            }
             var code = PatchProcessor.GetOriginalInstructions(loadMethod);
-            if (code.Count(i => i.Calls(DocumentLoad)) != 1 || code.Count(i => i.Calls(ImportNode)) != 1 || code.Count(i => i.opcode == OpCodes.Newobj && Equals(i.operand, AssetConstructor)) != 1)
+            var assetAt = code.FindIndex(i => i.opcode == OpCodes.Newobj && Equals(i.operand, AssetConstructor));
+            if (code.Count(i => i.Calls(DocumentLoad)) != 1 || code.Count(i => i.Calls(ImportNode)) != 1 || code.Count(i => i.opcode == OpCodes.Newobj && Equals(i.operand, AssetConstructor)) != 1
+                || assetAt + 1 >= code.Count || code[assetAt + 1].opcode != OpCodes.Pop)
             {
                 skippedNote = "gagarin cache loader reads its cache another way";
                 return;
@@ -510,7 +513,7 @@ namespace RimWorldLoadingOptimizer
 
         public static bool AssetsPrefix(ModContentPack mod, string folderPath, List<string> foldersToLoadDebug, ref LoadableXmlAsset[] __result)
         {
-            if (bypass || mod == null || foldersToLoadDebug != null || folderPath != "Patches/" || loadingPatchesOf != mod)
+            if (bypass || mod == null || foldersToLoadDebug != null || folderPath != "Patches/" || loadingPatchesOf != mod || patchCheck.IsOff)
             {
                 return true;
             }
@@ -525,9 +528,9 @@ namespace RimWorldLoadingOptimizer
             }
             __result = stored;
             reused++;
-            if (RLOMod.Verify)
+            if (RLOMod.Verify || patchCheck.IsChecking)
             {
-                VerifyPatches(mod, stored);
+                __result = VerifyPatches(mod, stored);
             }
             return false;
         }
@@ -545,7 +548,7 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        private static void VerifyPatches(ModContentPack mod, LoadableXmlAsset[] stored)
+        private static LoadableXmlAsset[] VerifyPatches(ModContentPack mod, LoadableXmlAsset[] stored)
         {
             LoadableXmlAsset[] fresh;
             bypass = true;
@@ -564,11 +567,14 @@ namespace RimWorldLoadingOptimizer
                     && (fresh[i].xmlDoc == null) == (stored[i].xmlDoc == null)
                     && (fresh[i].xmlDoc == null || fresh[i].xmlDoc.OuterXml == stored[i].xmlDoc.OuterXml);
             }
+            patchCheck.Report(same, $"patch files of {mod.PackageId}");
             if (!same)
             {
                 reuseMismatches++;
                 Log.Warning($"[RLO] reused patch files differ for {mod.PackageId}");
+                return fresh;
             }
+            return stored;
         }
 
         public static string Stats()

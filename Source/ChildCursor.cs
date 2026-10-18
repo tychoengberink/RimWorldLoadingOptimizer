@@ -45,6 +45,7 @@ namespace RimWorldLoadingOptimizer
             harmony.Patch(AccessTools.Method(typeof(XmlInheritance), nameof(XmlInheritance.Resolve)), postfix: new HarmonyMethod(typeof(ChildCursor), nameof(ResolvePostfix)) { priority = Priority.Last });
         }
 
+        [Hook]
         public static void WindowPrefix(XmlDocument xmlDoc)
         {
             inWindow = true;
@@ -52,6 +53,7 @@ namespace RimWorldLoadingOptimizer
             activeDoc = xmlDoc;
         }
 
+        [Hook]
         public static void ResolvePostfix()
         {
             if (!inWindow || windowThread != Thread.CurrentThread || activeDoc == null || slots != null)
@@ -68,6 +70,7 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
+        [Hook]
         public static Exception WindowFinalizer(Exception __exception)
         {
             if (windowThread == Thread.CurrentThread)

@@ -22,10 +22,9 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var targets = AccessTools.GetDeclaredMethods(manager).Where(m => Names.Contains(m.Name) && !m.ContainsGenericParameters && IlScan.CallsAny(m, OriginalGet)).ToList();
-            var known = targets.Select(m => Fingerprint.Known(m, "7A65E0C1F1FFE990", "6D1DF63CFB3866ED", "14DFFC847596B7A9")).ToArray();
-            if (targets.Count != 3 || !Fingerprint.Matches("AV Mechanoid Skins texture checks", known)
-                || known.Select(k => Fingerprint.MatchedHash(k.Item1, k.Item2)).Distinct().Count() != targets.Count)
+            if (targets.Count != 3)
             {
+                VersionCheck.Skip("AV Mechanoid Skins texture checks", $"expected 3 texture check methods that call ContentFinder.Get, found {targets.Count}");
                 return;
             }
             foreach (var method in targets)

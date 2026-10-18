@@ -60,7 +60,7 @@ On 1.7 the atlas cache and audio streaming switch themselves off, because the ga
 
 ### Windows, 5.1 (2026-10-15)
 
-- RimWorld 1.7.4979 (rev109) with all five DLCs, Harmony 3.0.0-rc.3, RimWorld Loading Optimizer 5.1 development build (develop at e9494e2) with default settings, 2026-10-15. Run with the RimMods benchmark runner, which loads to the main menu and closes the game.
+- RimWorld 1.7.4979 (rev109) with all five DLCs, Harmony 3.0.0-rc.3, RimWorld Loading Optimizer 5.1 development build (develop at e9494e2) with default settings, 2026-10-15. Each start loads to the main menu and closes the game.
 - 1,481 mods: the Progression packs 1–3 list after removing a few slow mods, so these numbers cannot be compared with the 2026-10-14 ones below. No Prepatcher, Graphics Settings+ or Melee Animation.
 - Load Them Last reorders this list and restarts the game once on every start. It puts the mods in the same order each time, so Missile Girl's cache stays valid; the times are from the restarted game, and the first start adds about 30 s of wall time.
 - "Support off" = RimWorld Loading Optimizer on, but with the support for all 18 other mods switched off in its settings, so only its own speedups for the game and Harmony run.

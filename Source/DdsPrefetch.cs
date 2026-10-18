@@ -34,6 +34,7 @@ namespace RimWorldLoadingOptimizer
         private static Dictionary<ModContentPack, int> firstOfMod;
         private static bool buffers;
         private static bool vanillaBuffers;
+        private static SelfCheck ddsCheck;
         private static readonly object windowGate = new object();
         private static readonly ConcurrentDictionary<string, Entry> ready = new ConcurrentDictionary<string, Entry>(StringComparer.Ordinal);
         private static volatile Dictionary<string, int> indexOf;
@@ -61,8 +62,7 @@ namespace RimWorldLoadingOptimizer
             var parameters = loadDds?.GetParameters();
             buffers = RLOMod.Settings.Supports("graphicssettings") && loadDds != null && loadDds.ReturnType == typeof(Texture2D) && parameters.Length == 3
                 && parameters[0].ParameterType == typeof(string) && parameters[0].Name == "path"
-                && parameters[1].ParameterType == typeof(bool).MakeByRefType() && parameters[1].Name == "hasMipMaps"
-                && Fingerprint.Matches("Graphics Settings+ texture buffers (falls back to read-ahead)", Fingerprint.Known(loadDds, "538A89F2DA2F1CDD"));
+                && parameters[1].ParameterType == typeof(bool).MakeByRefType() && parameters[1].Name == "hasMipMaps";
             if (buffers && PatchProcessor.GetOriginalInstructions(loadDds).Count(i => i.Calls(SpanGetter)) != 1)
             {
                 buffers = false;
@@ -77,9 +77,13 @@ namespace RimWorldLoadingOptimizer
             var vanillaDds = AccessTools.Method(typeof(ModDdsLoader), nameof(ModDdsLoader.TryLoadDds), new[] { typeof(RimWorld.IO.VirtualFile) });
             if (loadDds == null && vanillaDds != null)
             {
-                vanillaBuffers = Fingerprint.Matches("DDS buffers for the game's own loader (falls back to read-ahead)",
-                    Fingerprint.Known(vanillaDds, "99750911902CE3DE", "63F4A2F55326D769"),
-                    Fingerprint.Known(AccessTools.Method(typeof(ModDdsLoader), "CreateTexture"), "88A100D322858A46", "D9C69C63A9F531F0"));
+                vanillaBuffers = AccessTools.Method(typeof(ModDdsLoader), "CreateTexture") != null;
+                if (vanillaBuffers)
+                {
+                    ddsCheck = new SelfCheck("DDS buffers for the game's own loader (falls back to read-ahead)", VersionCheck.Known(
+                        Fingerprint.Known(vanillaDds, "99750911902CE3DE", "63F4A2F55326D769"),
+                        Fingerprint.Known(AccessTools.Method(typeof(ModDdsLoader), "CreateTexture"), "88A100D322858A46", "D9C69C63A9F531F0")), 50);
+                }
                 buffers = vanillaBuffers;
             }
             if (vanillaDds != null)
@@ -326,7 +330,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return true;
             }
-            if (!vanillaBuffers)
+            if (!vanillaBuffers || ddsCheck.IsOff)
             {
                 if (!buffers && map.TryGetValue(file.FullPath, out var warmIndex))
                 {
@@ -370,11 +374,7 @@ namespace RimWorldLoadingOptimizer
                 texture.anisoLevel = 0;
                 texture.Apply(!mipMaps, true);
                 Hits++;
-                if (RLOMod.Verify)
-                {
-                    Compare(file, texture);
-                }
-                __result = texture;
+                __result = RLOMod.Verify || ddsCheck.IsChecking ? Compare(file, texture) : texture;
                 return false;
             }
             finally
@@ -383,7 +383,7 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        private static void Compare(RimWorld.IO.VirtualFile file, Texture2D texture)
+        private static Texture2D Compare(RimWorld.IO.VirtualFile file, Texture2D texture)
         {
             Texture2D vanilla = null;
             bypass = true;
@@ -399,18 +399,21 @@ namespace RimWorldLoadingOptimizer
                 bypass = false;
             }
             VerifyChecks++;
-            if (vanilla == null || vanilla.width != texture.width || vanilla.height != texture.height || vanilla.format != texture.format
-                || vanilla.mipmapCount != texture.mipmapCount || vanilla.name != texture.name || vanilla.filterMode != texture.filterMode || vanilla.anisoLevel != texture.anisoLevel)
+            var same = vanilla != null && vanilla.width == texture.width && vanilla.height == texture.height && vanilla.format == texture.format
+                && vanilla.mipmapCount == texture.mipmapCount && vanilla.name == texture.name && vanilla.filterMode == texture.filterMode
+                && vanilla.anisoLevel == texture.anisoLevel && vanilla.isReadable == texture.isReadable;
+            ddsCheck.Report(same, $"texture {file.FullPath}");
+            if (!same)
             {
                 if (VerifyMismatches++ < 10)
                 {
                     Log.Warning($"[RLO] DDS buffer verify mismatch for {file.FullPath}");
                 }
+                UnityEngine.Object.DestroyImmediate(texture);
+                return vanilla;
             }
-            if (vanilla != null)
-            {
-                UnityEngine.Object.DestroyImmediate(vanilla);
-            }
+            UnityEngine.Object.DestroyImmediate(vanilla);
+            return texture;
         }
 
         private static unsafe bool Parse(Entry entry, out uint width, out uint height, out uint mips, out TextureFormat format, out int offset)

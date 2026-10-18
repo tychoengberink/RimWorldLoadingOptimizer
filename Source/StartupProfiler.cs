@@ -11,6 +11,7 @@ using Verse;
 
 namespace RimWorldLoadingOptimizer
 {
+    [Hook]
     public static class StartupProfiler
     {
         private static string ModOf(Type type)
@@ -286,6 +287,12 @@ namespace RimWorldLoadingOptimizer
                 DdsPrefetch.Stats,
 #endif
                 Fingerprint.Stats,
+                VersionCheck.Stats,
+                OptimizerOverlap.Stats,
+#if !RW17
+                AtlasFlush.Stats,
+                AtlasPacking.Stats,
+#endif
 #if RW17
                 () => $"runtime: JIT {System.Runtime.JitInfo.GetCompiledMethodCount()} methods in {System.Runtime.JitInfo.GetCompilationTime().TotalSeconds:F1} s, GC collections {GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)} (gen0/1/2), GC pauses {GC.GetTotalPauseDuration().TotalSeconds:F1} s, {AppDomain.CurrentDomain.GetAssemblies().Length} assemblies loaded",
 #endif

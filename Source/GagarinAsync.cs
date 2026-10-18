@@ -27,6 +27,7 @@ namespace RimWorldLoadingOptimizer
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)), prefix: new HarmonyMethod(typeof(GagarinAsync), nameof(ParsePrefix)));
         }
 
+        [Hook]
         public static void ParsePrefix()
         {
             if (attempted)
@@ -38,10 +39,6 @@ namespace RimWorldLoadingOptimizer
             var save = type == null ? null : AccessTools.Method(type, "Save");
             var clean = type == null ? null : AccessTools.Method(type, "Clean");
             if (save == null || clean == null)
-            {
-                return;
-            }
-            if (!Fingerprint.Matches("Missile Girl background cache write", Fingerprint.Known(save, "0F967FD16F60343F", "B7DCAD4B24AB6AAC"), Fingerprint.Known(clean, "0303C036B1E2BC7E", "0BFD6EB9F6900BC0")))
             {
                 return;
             }

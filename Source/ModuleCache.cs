@@ -27,27 +27,30 @@ namespace RimWorldLoadingOptimizer
         private static long rescans;
 #endif
         private static bool installed;
+        private static SelfCheck check;
         [ThreadStatic] private static bool bypass;
         private static long hits, misses, mismatches;
 
         public static void Install(Harmony harmony)
         {
             var target = AccessTools.Method(typeof(AccessTools), nameof(AccessTools.GetMethodByModuleAndToken));
-#if RW17
-            if (!Fingerprint.Matches("Harmony module cache", Fingerprint.Known(target, "72843BE77F2A63CD", "8FC8E731CC03B7C8", "20441ABE42CC22DF", "B9B9E24F59BDF221")))
-#else
-            if (!Fingerprint.Matches("Harmony module cache", Fingerprint.Known(target, "72843BE77F2A63CD", "8FC8E731CC03B7C8")))
-#endif
+            if (target == null)
             {
+                VersionCheck.Skip("Harmony module cache", "AccessTools.GetMethodByModuleAndToken no longer exists");
                 return;
             }
+#if RW17
+            check = new SelfCheck("Harmony module cache", VersionCheck.Known(Fingerprint.Known(target, "72843BE77F2A63CD", "8FC8E731CC03B7C8", "20441ABE42CC22DF", "B9B9E24F59BDF221")));
+#else
+            check = new SelfCheck("Harmony module cache", VersionCheck.Known(Fingerprint.Known(target, "72843BE77F2A63CD", "8FC8E731CC03B7C8")));
+#endif
             harmony.Patch(target, prefix: new HarmonyMethod(typeof(ModuleCache), nameof(Prefix)));
             installed = true;
         }
 
         public static bool Prefix(string moduleGUID, int token, ref MethodInfo __result)
         {
-            if (bypass || moduleGUID == null)
+            if (bypass || moduleGUID == null || check.IsOff)
             {
                 return true;
             }
@@ -99,12 +102,13 @@ namespace RimWorldLoadingOptimizer
                 }
             }
             __result = (MethodInfo)module.ResolveMethod(token);
-            if (RLOMod.Verify)
+            if (RLOMod.Verify || check.IsChecking)
             {
                 bypass = true;
                 try
                 {
                     var original = AccessTools.GetMethodByModuleAndToken(moduleGUID, token);
+                    check.Report(original == __result, $"module {moduleGUID} token {token}");
                     if (original != __result)
                     {
                         lock (modules)

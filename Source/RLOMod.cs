@@ -31,8 +31,8 @@ namespace RimWorldLoadingOptimizer
         public bool startupPhases = true;
         public bool loadingBanner = true;
         public bool defLoadingFixes = true;
-#if RW17
         public bool earlyContent = true;
+#if RW17
         public bool backgroundGc = true;
         public bool soundReadAhead = true;
         public bool precompilePatched = true;
@@ -47,6 +47,10 @@ namespace RimWorldLoadingOptimizer
         public bool gagarinCacheKeep = false;
         public bool gameSoundReadAhead = false;
         public bool seedIconReadAhead = false;
+#endif
+#if !RW17
+        public bool atlasFlush = true;
+        public bool atlasPacking = true;
 #endif
         public bool gagarinFast = true;
         public bool typeIndex = true;
@@ -94,8 +98,8 @@ namespace RimWorldLoadingOptimizer
             Scribe_Values.Look(ref startupPhases, "startupPhases", true);
             Scribe_Values.Look(ref loadingBanner, "loadingBanner", true);
             Scribe_Values.Look(ref defLoadingFixes, "defLoadingFixes", true);
-#if RW17
             Scribe_Values.Look(ref earlyContent, "earlyContent", true);
+#if RW17
             Scribe_Values.Look(ref backgroundGc, "backgroundGc", true);
             Scribe_Values.Look(ref soundReadAhead, "soundReadAhead", true);
             Scribe_Values.Look(ref precompilePatched, "precompilePatched", true);
@@ -110,6 +114,10 @@ namespace RimWorldLoadingOptimizer
             Scribe_Values.Look(ref gagarinCacheKeep, "gagarinCacheKeep", false);
             Scribe_Values.Look(ref gameSoundReadAhead, "gameSoundReadAhead", false);
             Scribe_Values.Look(ref seedIconReadAhead, "seedIconReadAhead", false);
+#endif
+#if !RW17
+            Scribe_Values.Look(ref atlasFlush, "atlasFlush", true);
+            Scribe_Values.Look(ref atlasPacking, "atlasPacking", true);
 #endif
             Scribe_Values.Look(ref gagarinFast, "gagarinFast", true);
             Scribe_Values.Look(ref typeIndex, "typeIndex", true);
@@ -151,8 +159,8 @@ namespace RimWorldLoadingOptimizer
                     fastXPath = false, shadowedTextures = false, recipeIndex = false, categoryCache = false, textureLookup = false,
                     ddsFallback = false, audioStreaming = false, xmlRelease = false, ddsPrefetch = false, earlyLoadBoost = false, thinkKeys = false, harmonyModuleCache = false, harmonyIdentityMap = false, startupPhases = false, defLoadingFixes = false, gagarinFast = false, typeIndex = false, atlasCache = false, fasterModConstructors = false
                 };
-#if RW17
                 settings.earlyContent = false;
+#if RW17
                 settings.backgroundGc = false;
                 settings.soundReadAhead = false;
                 settings.precompilePatched = false;
@@ -167,6 +175,10 @@ namespace RimWorldLoadingOptimizer
                 settings.gagarinCacheKeep = false;
                 settings.gameSoundReadAhead = false;
                 settings.seedIconReadAhead = false;
+#endif
+#if !RW17
+                settings.atlasFlush = false;
+                settings.atlasPacking = false;
 #endif
             }
             Settings = settings;
@@ -262,6 +274,10 @@ namespace RimWorldLoadingOptimizer
             Try("mesh buffer pool", settings.meshPool && Environment.GetEnvironmentVariable("LEANMEMORY_NOMESHPOOL") != "1", () => MeshPool.Install(harmony));
             Try("GC fallback report", settings.startupReport, GcFallback.Install);
 #endif
+#if !RW17
+            Try("atlas flush", settings.atlasFlush && Environment.GetEnvironmentVariable("LEANMEMORY_NOATLASFLUSH") != "1", () => AtlasFlush.Install(harmony));
+            Try("atlas packing lookups", settings.atlasPacking && Environment.GetEnvironmentVariable("LEANMEMORY_NOATLASPACKING") != "1", () => AtlasPacking.Install(harmony));
+#endif
             Try("category cache", settings.categoryCache, () => CategoryCache.Install(harmony));
             Try("recipe index", settings.recipeIndex, () => RecipeIndex.Install(harmony));
             Try("texture lookup index", settings.textureLookup && !Compatibility.LazyTextures, () => TextureLookup.Install(harmony));
@@ -276,8 +292,8 @@ namespace RimWorldLoadingOptimizer
             Try("DDS prefetch", settings.ddsPrefetch && !imageOpt && !Compatibility.LazyTextures && Environment.GetEnvironmentVariable("LEANMEMORY_NOPREFETCH") != "1", () => DdsPrefetch.Install(harmony));
 #endif
             Try("faster mod startup code", Ctors2Mod.Needed(settings), () => Ctors2Mod.Install(harmony));
-#if RW17
             Try("early content loading", settings.earlyContent, () => EarlyContent.Install(harmony));
+#if RW17
             Try("skip load-end memory clean-up", settings.backgroundGc, () => BackgroundGc.Install(harmony));
 #endif
             Try("XML child list cursor", settings.defLoadingFixes, () => ChildCursor.Install(harmony));
@@ -287,11 +303,12 @@ namespace RimWorldLoadingOptimizer
             Try("surgery index", settings.defLoadingFixes, () => SurgeryIndex.Install(harmony));
             Try("type name lookups", settings.defLoadingFixes, () => TypeNameIndex.Install(harmony));
             Try("vanilla facility link lookup", settings.defLoadingFixes, () => FacilityFast.Install(harmony));
-            Try("Missile Girl background cache write", settings.defLoadingFixes && settings.gagarinFast && !xmlCache, () => GagarinAsync.Install(harmony));
+            Try("Missile Girl background cache write", settings.defLoadingFixes && settings.gagarinFast && settings.Supports("missilegirl") && !xmlCache, () => GagarinAsync.Install(harmony));
 #if RW17
             Try("Missile Girl cache kept after a rebuild", settings.gagarinCacheKeep && settings.gagarinFast && settings.Supports("missilegirl") && !xmlCache, () => GagarinCacheKeep.Install(harmony));
 #endif
             Try("startup phase fixes", true, () => LeanFixes.Install(harmony, settings, Try));
+            Try("optimizer overlap check", true, () => OptimizerOverlap.Install(harmony));
 #if RW17
             Try("Giddy-Up draw offsets", settings.Supports("giddyup"), () => GiddyUpOffsets.Install(harmony));
             Try("Worksites Expanded trader count", settings.Supports("miningoutpost"), () => WorksitesTraders.Install(harmony));
@@ -411,8 +428,8 @@ namespace RimWorldLoadingOptimizer
 #endif
             list.CheckboxLabeled("Type name index", ref settings.typeIndex, "Answer AccessTools.TypeByName lookups for types that are not found directly from one index, instead of listing every type of every assembly per call (mods probing for absent mods).");
             list.CheckboxLabeled("Faster def loading", ref settings.defLoadingFixes, "Faster reading of long XML lists, one-pass surgery recipe checks, indexed type name lookups, and Missile Girl's cache file written in the background. Same results.");
-#if RW17
             list.CheckboxLabeled("Load sounds and textures during XML loading", ref settings.earlyContent, "Load every mod's sounds and textures while the game reads and patches the XML, instead of waiting until the XML is done. Same order, same content.");
+#if RW17
             list.CheckboxLabeled("Skip the forced memory clean-up at the end of loading", ref settings.backgroundGc, "Just before the main menu the game forces a full memory clean-up and waits for it (several seconds with many mods). Skip it; the runtime cleans up as usual while you play. Same game; memory is freed a little later.");
             list.CheckboxLabeled("Decode mod sounds ahead", ref settings.soundReadAhead, "While mod data loads, a background thread already opens and decodes the mods' sound files, so the game finds them ready instead of loading them one by one. Uses at most 256 MB of extra memory during loading. Sounds are identical.");
             list.CheckboxLabeled("Pre-compile patched methods", ref settings.precompilePatched, "Remembers which methods were patched by mods at the main menu and compiles them on spare CPU cores early in the next start, so less compiling happens on the loading thread. Only the timing of compilation changes.");
@@ -426,6 +443,10 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Keep Missile Girl's rebuilt cache usable (test)", ref settings.gagarinCacheKeep, "When Missile Girl rebuilds its XML cache (for example after a mod or game update), it deletes its own mod list file and keeps hashes of files that are no longer loaded, so the next start is slow again. After a rebuild, write the mod list again and drop those hashes with Missile Girl's own functions. Missile Girl still checks every file on the next start. Off by default until it is verified after real mod updates; this works around a Missile Girl issue.");
             list.CheckboxLabeled("Prepare the game's own sounds ahead (test)", ref settings.gameSoundReadAhead, "Open the game's built-in sound files on worker threads while mod data loads, so they are ready when the sound definitions are resolved. Uses up to 128 MB of extra memory during loading. Off by default until it shows a gain.");
             list.CheckboxLabeled("Prepare PA Dynamic Seed Icons' images ahead (test)", ref settings.seedIconReadAhead, "Read and decode PA Dynamic Seed Icons' cached seed icon images on worker threads; its own code still makes every texture on the main thread. Uses up to 160 MB of extra memory during loading. Off by default until it shows a gain.");
+#endif
+#if !RW17
+            list.CheckboxLabeled("Free atlas baking memory after every atlas", ref settings.atlasFlush, "While the texture atlases are baked, send the graphics commands after every atlas, so the graphics driver can free that atlas's temporary buffers right away instead of keeping all of them until loading is done.");
+            list.CheckboxLabeled("Faster atlas packing", ref settings.atlasPacking, "When the texture atlases are packed, find each texture's place from an index instead of searching the whole texture list for every texture. The atlases come out the same.");
 #endif
             list.CheckboxLabeled("Faster mod constructors", ref settings.fasterModConstructors, "Makes the first part of startup, where every mod sets itself up, faster by remembering answers that mods ask the game for again and again. Part of it needs Prepatcher. Same results.");
             list.CheckboxLabeled("Show the RimWorld Loading Optimizer banner while loading", ref settings.loadingBanner, "A bar at the top of the loading screen that shows RimWorld Loading Optimizer is active, live counters, and the last measured result on this PC.");

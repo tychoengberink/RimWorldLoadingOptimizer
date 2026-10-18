@@ -15,13 +15,16 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
     public static class MeleeAnimationIndex
     {
         private const string TypeName = "AM.Retexture.RetextureUtility";
+        private const string Feature = "Melee Animation retexture scan index";
         private static readonly bool verify = RLOMod.Verify;
         private static readonly List<(ModContentPack, Texture2D, string)> none = new List<(ModContentPack, Texture2D, string)>();
         private static Func<IEnumerable<(ModContentPack, Texture2D, string)>> original;
         private static Dictionary<string, List<(ModContentPack, Texture2D, string)>> index;
         private static long signature;
         private static bool bypass;
+        [ThreadStatic] private static bool comparing;
         [ThreadStatic] private static string path;
+        private static SelfCheck check;
         private static int lookups, builds, entries, callChecks, reportChecks, mismatches;
         private static double buildMs;
 
@@ -46,16 +49,24 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
             var type = typeof(RetextureUtility);
             var report = AccessTools.Method(type, nameof(RetextureUtility.GetTextureReport));
             var scan = AccessTools.Method(type, "GetAllModTextures");
-            if (!Fingerprint.Matches("Melee Animation retexture scan index",
+            var resolve = AccessTools.Method(type, "ResolveTexturePath");
+            var known = VersionCheck.Known(
                 Fingerprint.Known(report, "031A432060E19808"),
                 Fingerprint.Known(scan, "60638841598E4B70"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(scan), "AFEBCFAC0730547C")))
+                Fingerprint.Known(AccessTools.EnumeratorMoveNext(scan), "AFEBCFAC0730547C"));
+            if (!known && !VersionCheck.Pattern(Feature, report, code => VersionCheck.Calls(code, resolve) == 1 && VersionCheck.Calls(code, scan) == 1,
+                "calls ResolveTexturePath and GetAllModTextures once each"))
             {
                 return;
             }
+            check = new SelfCheck(Feature, known);
             original = AccessTools.MethodDelegate<Func<IEnumerable<(ModContentPack, Texture2D, string)>>>(scan);
             var harmony = new Harmony("aruclya.rimworldloadingoptimizer.meleeanimation");
             harmony.Patch(report, transpiler: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(Transpiler)));
+            if (!known)
+            {
+                harmony.Patch(report, prefix: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(ComparePrefix)), finalizer: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(CompareFinalizer)));
+            }
             harmony.Patch(AccessTools.Method(type, nameof(RetextureUtility.PreCacheAllTextureReports)), postfix: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(PreCachePostfix)));
             Log.Message("[RLO] Melee Animation: retexture scan index installed" + (verify ? " (verify mode)" : ""));
         }
@@ -85,7 +96,7 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
 
         public static IEnumerable<(ModContentPack, Texture2D, string)> Lookup()
         {
-            if (bypass)
+            if (bypass || check.IsOff)
             {
                 return original();
             }
@@ -100,11 +111,51 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
             {
                 found = none;
             }
-            if (verify)
+            if (verify && !CheckCall(key, found))
             {
-                CheckCall(key, found);
+                return original();
             }
             return found;
+        }
+
+        private static void ComparePrefix(ref bool __state)
+        {
+            if (bypass || comparing || !check.IsChecking)
+            {
+                return;
+            }
+            bypass = true;
+            __state = true;
+        }
+
+        private static void CompareFinalizer(ThingDef weapon, int pass, bool full, bool __state, ActiveTextureReport __result, Exception __exception)
+        {
+            if (!__state)
+            {
+                return;
+            }
+            bypass = false;
+            if (__exception != null)
+            {
+                return;
+            }
+            ActiveTextureReport fast;
+            comparing = true;
+            try
+            {
+                fast = RetextureUtility.GetTextureReport(weapon, pass, full, false, false);
+            }
+            finally
+            {
+                comparing = false;
+            }
+            reportChecks++;
+            var same = SameReport(fast, __result);
+            check.Report(same, $"report for {weapon?.defName}");
+            if (!same)
+            {
+                Mismatch($"report for {weapon?.defName} full={full}: original '{Describe(__result)}', index '{Describe(fast)}'");
+            }
         }
 
         private static long Signature()
@@ -140,7 +191,7 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
             buildMs += watch.Elapsed.TotalMilliseconds;
         }
 
-        private static void CheckCall(string key, List<(ModContentPack, Texture2D, string)> found)
+        private static bool CheckCall(string key, List<(ModContentPack, Texture2D, string)> found)
         {
             callChecks++;
             var expected = original().Where(e => e.Item3 == key).ToList();
@@ -149,10 +200,12 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
             {
                 same = ReferenceEquals(expected[i].Item1, found[i].Item1) && ReferenceEquals(expected[i].Item2, found[i].Item2) && expected[i].Item3 == found[i].Item3;
             }
+            check.Report(same, $"scan for '{key}'");
             if (!same)
             {
                 Mismatch($"scan for '{key}': original {expected.Count} entries, index {found.Count}");
             }
+            return same;
         }
 
         private static void PreCachePostfix()
@@ -183,7 +236,9 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
                         bypass = false;
                     }
                     reportChecks++;
-                    if (!SameReport(fast, slow))
+                    var same = SameReport(fast, slow);
+                    check.Report(same, $"report for {weapon.defName}");
+                    if (!same)
                     {
                         Mismatch($"report for {weapon.defName} full={full}: original '{Describe(slow)}', index '{Describe(fast)}'");
                     }
@@ -232,7 +287,7 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
 
         private static void Report(string when)
         {
-            var verifyText = verify ? $"; verify: {callChecks} scans and {reportChecks} reports compared, {mismatches} mismatches" : "";
+            var verifyText = verify || reportChecks > 0 ? $"; verify: {callChecks} scans and {reportChecks} reports compared, {mismatches} mismatches" : "";
             Log.Message($"[RLO] Melee Animation: {when}: {lookups} indexed scans, {builds} index builds ({entries} textures, {index?.Count ?? 0} paths, {buildMs:F0} ms){verifyText}");
         }
     }

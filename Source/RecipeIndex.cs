@@ -27,6 +27,8 @@ namespace RimWorldLoadingOptimizer
 
         private static MethodBase getter;
         private static int state;
+        private static SelfCheck check;
+        [ThreadStatic] private static bool bypass;
 
         public static int Mismatches;
         public static int Served;
@@ -36,10 +38,12 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             getter = AccessTools.PropertyGetter(typeof(ThingDef), nameof(ThingDef.AllRecipes));
-            if (!Fingerprint.Matches("Recipe index", Fingerprint.Known(getter, "BFFB5F09B346E1F5", "04C7808287A8B54D")))
+            if (getter == null)
             {
+                VersionCheck.Skip("Recipe index", "ThingDef.AllRecipes no longer exists");
                 return;
             }
+            check = new SelfCheck("Recipe index", VersionCheck.Known(Fingerprint.Known(getter, "BFFB5F09B346E1F5", "04C7808287A8B54D")));
             harmony.Patch(getter, prefix: new HarmonyMethod(typeof(RecipeIndex), nameof(Prefix)));
             harmony.Patch(AccessTools.Method(typeof(PlayDataLoader), nameof(PlayDataLoader.ClearAllPlayData)),
                 postfix: new HarmonyMethod(typeof(RecipeIndex), nameof(Reset)));
@@ -83,6 +87,10 @@ namespace RimWorldLoadingOptimizer
 
         public static bool Prefix(ThingDef __instance, ref List<RecipeDef> __result)
         {
+            if (bypass || check.IsOff)
+            {
+                return true;
+            }
             if (state == 0)
             {
                 state = Fingerprint.OnlyOurs(getter) ? 1 : 2;
@@ -138,12 +146,19 @@ namespace RimWorldLoadingOptimizer
                     {
                         cached.AddRange(users);
                     }
-                    if (RLOMod.Verify && !cached.SequenceEqual(Vanilla(__instance, recipes)))
+                    if (RLOMod.Verify || check.IsChecking)
                     {
-                        warm = false;
-                        if (Mismatches++ < 10)
+                        var original = Original(__instance);
+                        var same = cached.SequenceEqual(original);
+                        check.Report(same, $"recipes of {__instance.defName}");
+                        if (!same)
                         {
-                            Log.Warning($"[RLO] recipe index mismatch for {__instance.defName}");
+                            warm = false;
+                            cached = original;
+                            if (Mismatches++ < 10)
+                            {
+                                Log.Warning($"[RLO] recipe index mismatch for {__instance.defName}");
+                            }
                         }
                     }
                     Cached(__instance) = cached;
@@ -154,21 +169,18 @@ namespace RimWorldLoadingOptimizer
             return false;
         }
 
-        private static List<RecipeDef> Vanilla(ThingDef def, List<RecipeDef> recipes)
+        private static List<RecipeDef> Original(ThingDef def)
         {
-            var list = new List<RecipeDef>();
-            if (def.recipes != null)
+            Cached(def) = null;
+            bypass = true;
+            try
             {
-                list.AddRange(def.recipes);
+                return def.AllRecipes;
             }
-            foreach (var recipe in recipes)
+            finally
             {
-                if (recipe.recipeUsers != null && recipe.recipeUsers.Contains(def))
-                {
-                    list.Add(recipe);
-                }
+                bypass = false;
             }
-            return list;
         }
 
         private static long Signature(List<RecipeDef> recipes)

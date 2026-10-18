@@ -48,6 +48,7 @@ namespace RimWorldLoadingOptimizer
 
         private static bool lateInstalled;
 
+        [Hook]
         public static void BeforeStaticConstructors()
         {
             InstallLate();

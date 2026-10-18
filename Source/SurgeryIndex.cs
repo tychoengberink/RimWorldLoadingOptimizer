@@ -7,27 +7,34 @@ namespace RimWorldLoadingOptimizer
 {
     public static class SurgeryIndex
     {
-        private static readonly AccessTools.FieldRef<ResearchProjectDef, List<Def>> UnlockedCache = AccessTools.FieldRefAccess<ResearchProjectDef, List<Def>>("cachedUnlockedDefs");
-        private static readonly AccessTools.FieldRef<RecipeDef, bool?> SurgeryCache = AccessTools.FieldRefAccess<RecipeDef, bool?>("isSurgeryCached");
+        private static AccessTools.FieldRef<ResearchProjectDef, List<Def>> UnlockedCache;
+        private static AccessTools.FieldRef<RecipeDef, bool?> SurgeryCache;
         private static int builds, filled, mismatches;
         private static long ticks;
+        private static SelfCheck check;
 
         public static void Install(Harmony harmony)
         {
             var unlocked = AccessTools.PropertyGetter(typeof(ResearchProjectDef), nameof(ResearchProjectDef.UnlockedDefs));
             var surgery = AccessTools.PropertyGetter(typeof(RecipeDef), nameof(RecipeDef.IsSurgery));
-            var users = AccessTools.EnumeratorMoveNext(AccessTools.PropertyGetter(typeof(RecipeDef), nameof(RecipeDef.AllRecipeUsers)));
-            if (!Fingerprint.Matches("Surgery index", Fingerprint.Known(unlocked, "44C6E6A900DE84FC", "7E7F4A04B95ADF25"), Fingerprint.Known(surgery, "5E3C9FE2FC98FDDE", "7B035F4EE8F7FCBA"), Fingerprint.Known(users, "2F9D95E7037F88F6", "8854E37F42492D34")))
+            var allUsers = AccessTools.PropertyGetter(typeof(RecipeDef), nameof(RecipeDef.AllRecipeUsers));
+            var unlockedField = AccessTools.Field(typeof(ResearchProjectDef), "cachedUnlockedDefs");
+            var surgeryField = AccessTools.Field(typeof(RecipeDef), "isSurgeryCached");
+            if (unlocked == null || surgery == null || allUsers == null || unlockedField?.FieldType != typeof(List<Def>) || surgeryField?.FieldType != typeof(bool?))
             {
+                VersionCheck.Skip("Surgery index", "ResearchProjectDef.UnlockedDefs, RecipeDef.IsSurgery or their cache fields no longer exist");
                 return;
             }
+            UnlockedCache = AccessTools.FieldRefAccess<ResearchProjectDef, List<Def>>(unlockedField);
+            SurgeryCache = AccessTools.FieldRefAccess<RecipeDef, bool?>(surgeryField);
+            check = new SelfCheck("Surgery index", VersionCheck.Known(Fingerprint.Known(unlocked, "44C6E6A900DE84FC", "7E7F4A04B95ADF25"), Fingerprint.Known(surgery, "5E3C9FE2FC98FDDE", "7B035F4EE8F7FCBA"), Fingerprint.Known(AccessTools.EnumeratorMoveNext(allUsers), "2F9D95E7037F88F6", "8854E37F42492D34")));
             harmony.Patch(unlocked, prefix: new HarmonyMethod(typeof(SurgeryIndex), nameof(Prefix)));
             LeanFixes.Reports.Add(Stats);
         }
 
         public static void Prefix(ResearchProjectDef __instance)
         {
-            if (UnlockedCache(__instance) != null)
+            if (check.IsOff || UnlockedCache(__instance) != null)
             {
                 return;
             }
@@ -92,21 +99,14 @@ namespace RimWorldLoadingOptimizer
                     continue;
                 }
                 value = value || pawnRecipes.Contains(recipe);
-                if (RLOMod.Verify)
+                if (RLOMod.Verify || check.IsChecking)
                 {
-                    var slow = false;
-                    foreach (var user in recipe.AllRecipeUsers)
-                    {
-                        if (user.category == ThingCategory.Pawn)
-                        {
-                            slow = true;
-                            break;
-                        }
-                    }
+                    var slow = recipe.IsSurgery;
+                    check.Report(slow == value, $"IsSurgery of {recipe.defName}");
                     if (slow != value)
                     {
                         mismatches++;
-                        value = slow;
+                        break;
                     }
                 }
                 SurgeryCache(recipe) = value;

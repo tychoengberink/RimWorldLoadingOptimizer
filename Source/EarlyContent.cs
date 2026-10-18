@@ -1,4 +1,3 @@
-#if RW17
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -28,6 +27,7 @@ namespace RimWorldLoadingOptimizer
             }
             var loadModXml = AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML));
             var update = AccessTools.Method(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsUpdate));
+#if RW17
             if (!Fingerprint.Matches("Early content loading",
                 Fingerprint.Known(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModContent)), "4FD7CF066764C53F"),
                 Fingerprint.Known(AccessTools.Method(typeof(ModContentPack), nameof(ModContentPack.ReloadContent)), "A63148270987DB1D"),
@@ -35,6 +35,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
+#endif
             var list = (List<Action>)AccessTools.Field(typeof(LongEventHandler), "toExecuteWhenFinished").GetValue(null);
             var reloads = new List<int>();
             for (var i = 0; i < list.Count; i++)
@@ -157,4 +158,3 @@ namespace RimWorldLoadingOptimizer
         }
     }
 }
-#endif

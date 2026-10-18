@@ -64,7 +64,10 @@ Put RimWorld Loading Optimizer directly after Harmony (its About.xml asks to loa
 | Audio | `ShouldStreamAudioClipFromFile`, `Thread.Sleep` (acts only on the flagged audio-load path; removed at the main menu) | Streams .ogg files of 100 KB or more the way the game already streams files over 300 KB, and yields instead of sleeping 1 ms per clip (audio load 13 s to 7 s) |
 | Read textures ahead | Without Graphics Settings+: `ModDdsLoader.TryLoadDds` (fingerprint-checked). With Graphics Settings+: nothing unless its support is switched on | Four to eight background threads read the DDS files into native memory (at most 768 MB ahead) in load order, and the texture is built from that buffer instead of the main thread page-faulting a memory-mapped file (texture loading 85 s to 30 s, verified identical). Anything unusual falls back to the game's loader. With Graphics Settings+ and its support off, the files are only read ahead into the OS file cache |
 | Faster early content loading | Faster Game Loading's early loader budget | While defs still load, mod content may use 250 ms per frame instead of 50 ms, and no frames are skipped |
-| Atlas cache | `GlobalTextureAtlasManager.BakeStaticAtlases` | Stores the baked static atlases (pixels, rects, masks) on disk, keyed by every input texture (mod, path, size, format, file size and time) and the relevant settings, and loads them on the next start instead of baking (~12 s and ~10 GB of peak memory saved; ~0.8 GB on disk under `RimWorldLoadingOptimizer/atlas`). If the baked atlases are not readable on a system (seen on Windows), caching switches itself off until the game, mods, settings or RimWorld Loading Optimizer change |
+| Atlas cache | `GlobalTextureAtlasManager.BakeStaticAtlases` | Stores the baked static atlases (pixels, rects, masks) on disk, keyed by every input texture (mod, path, size, format, file size and time; for textures from asset bundles the bundle file's size and time, for the game's built-in textures their resource path) and the relevant settings, and loads them on the next start instead of baking (~12 s and ~10 GB of peak memory saved; about 3.5 GB on disk for the Progression packs list, under `RimWorldLoadingOptimizer/atlas`). If the baked atlases are not readable on a system (seen on Windows), caching switches itself off until the game, mods, settings or RimWorld Loading Optimizer change |
+| Atlas baking memory (1.6) | `StaticTextureAtlas.Bake` | Sends the graphics commands after every atlas, so the driver frees each atlas's temporary buffers right away instead of keeping all of them until loading ends (peak memory 80 → 45 GB on the Progression packs list, Mac) |
+| Atlas packing (1.6) | The `List.IndexOf` call in `StaticTextureAtlas.CalcRectsForAtlasNew` | Finds each texture's place in the atlas from an index instead of searching the whole texture list; the atlases come out the same |
+| Load mod content during XML loading | The queued `ModContentPack.ReloadContent` steps | Mod sounds and textures load on the main thread while the game reads and patches the XML on its loading thread, instead of after it. A bar on the loading screen shows the progress |
 | Think tree keys | `ThinkTreeKeyAssigner.AssignSingleKey` | Vanilla re-probes every taken key for each copied node (258 M probes); resuming each probe chain gives the identical keys with 119 k probes (−4.4 s) |
 | Harmony module cache | `AccessTools.GetMethodByModuleAndToken` | Caches the module scan Harmony repeats for every existing patch whenever a method is patched again |
 | Faster Harmony patching | MonoMod `MMReflectionImporter.ImportReference`, `ReflectionHelper._ResolveReflection` | Harmony turns every method, field and type a patch uses into Mono.Cecil and back; RimWorld Loading Optimizer remembers the object it came from, so the way back is a lookup. Same generated code (verified: 497,711 lookups, 0 mismatches). Scenario 2 warm: −7 s |
@@ -86,7 +89,7 @@ Put RimWorld Loading Optimizer directly after Harmony (its About.xml asks to loa
 
 ### Extra support for other mods (off by default)
 
-Each of these targets one mod, can be switched on separately in Mod Settings, and only acts when that mod is active. None of them re-implements the mod's own code: the mod's code still runs, and RimWorld Loading Optimizer only adds an index, a cache or a redirect around it. Each checks a fingerprint of the code it touches and switches itself off when that mod changes.
+Each of these targets one mod, can be switched on separately in Mod Settings, and only acts when that mod is active. None of them re-implements the mod's own code: the mod's code still runs, and RimWorld Loading Optimizer only adds an index, a cache or a redirect around it. When that mod changes, each one either checks that the exact call it changes is still there, or compares its first results with the mod's own code and switches itself off for that start if they differ.
 
 | Mod | What RimWorld Loading Optimizer does |
 |---|---|
@@ -121,7 +124,13 @@ Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assemb
 - **Cache invalidation:**
   - Caches are invalidated by content signatures and on `ClearAllPlayData` / `ClearDestroy`, which cover language changes and hot reload.
   - Hits are re-validated against the owning source.
-- **Mod and game updates:** every speedup that touches another mod's, Harmony's or the game's method checks a fingerprint (SHA-256 of the method's IL) against the versions it was verified on. If the original changed, that speedup stays off, the original code runs, and the log says which one (`[RLO] <feature>: … is not the version RimWorld Loading Optimizer was checked against …`). Re-implemented game getters also step aside when another mod patches the same method. Melee Animation and Lunar also check the exact code pattern they patch.
+- **Mod and game updates (1.6):** every speedup checks a fingerprint of the code it works on. For a known version it runs straight away. For an unknown version:
+  - a speedup that changes one call checks that the exact call is still there;
+  - a speedup that replaces a method lets the original run next to it for its first results (200 by default), compares them, and only takes over when all of them match. On any difference it switches off for that start and the original code runs (`[RLO] <feature>: a result differed from the original code …`);
+  - a passed check is remembered for that exact code version in `RimWorldLoadingOptimizer/verified-code.txt`;
+  - four speedups that depend on another mod's internals (Linkable Groups, mod assembly loading, the Alpha Implants warm-up and the early loader budget) still need a known version.
+  The startup report lists every check in a `self-checks:` line. Re-implemented game getters also step aside when another mod patches the same method.
+- **Other optimizers:** when another optimizer (for example Performance Fish or Performance Optimizer) replaces or rewrites a method that a speedup also works on, that speedup steps aside and leaves the method to the other optimizer. Patches that only add work before or after a method don't count.
 - **Atlas cache files:** each cached atlas carries a 64-bit checksum that is verified while loading; a damaged or truncated file is rebaked instead of shown.
 - **Transpilers:** they only redirect specific calls and leave the rest of the method intact, so other mods' transpilers still find their anchors. A transpiler that does not find the exact calls it expects leaves the method unchanged.
 
@@ -134,6 +143,8 @@ Environment variables for testing; none are needed for normal play.
 | `LEANMEMORY_VERIFY=1` | Runs the original code next to every speedup and logs mismatches |
 | `LEANMEMORY_ALLOFF=1` | Starts with every feature off, like the "off" step of the measurement |
 | `LEANMEMORY_IGNORE_FINGERPRINTS=1` | Uses speedups even when the original method changed (logged as a warning) |
+| `LEANMEMORY_SELFCHECK=1` | Treats every code version as unknown, so every speedup that can runs its self-check (results are not remembered) |
+| `LEANMEMORY_NOATLASFLUSH=1`, `LEANMEMORY_NOATLASPACKING=1` | Switch off the atlas baking memory fix or the atlas packing index (1.6) |
 | `LEANMEMORY_NOATLASCACHE=1`, `LEANMEMORY_NOBOOST=1`, `LEANMEMORY_NOPREFETCH=1` | Switch off the atlas cache, faster early content loading or texture read-ahead |
 | `LEANMEMORY_PROFILE=1` | Adds a startup profile and phase timeline to the startup report |
 | `LEANMEMORY_STRINGSTATS=1`, `LEANMEMORY_OBJECTSTATS=1`, `LEANMEMORY_XMLSTATS=1`, `LEANMEMORY_HEAPSTATS=1` | Memory statistics in the log |

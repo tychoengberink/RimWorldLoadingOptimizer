@@ -28,6 +28,7 @@ namespace RimWorldLoadingOptimizer
         private static readonly Dictionary<string, int> missKinds = new Dictionary<string, int>();
 
         private static bool installed;
+        private static SelfCheck check;
         public static int Updates;
 
         public static void Install(Harmony harmony)
@@ -44,7 +45,12 @@ namespace RimWorldLoadingOptimizer
             var transpile = AccessTools.Method(T("HarmonyLib.CodeTranspiler"), "GetResult");
             var generate = AccessTools.Method(T("MonoMod.Utils.DynamicMethodDefinition"), "Generate", new[] { typeof(object) });
             var update = AccessTools.Method(T("HarmonyLib.PatchFunctions"), "UpdateWrapper");
-            if (!Fingerprint.Matches("Harmony identity map",
+            if (imports.Any(m => m == null) || resolve == null || prepare == null || create == null || transpile == null || generate == null || update == null)
+            {
+                VersionCheck.Skip("Harmony identity map", "a Harmony method it hooks no longer exists");
+                return;
+            }
+            check = new SelfCheck("Harmony identity map", VersionCheck.Known(
                 Fingerprint.Known(imports[0], Known.TypeImport),
                 Fingerprint.Known(imports[1], Known.FieldImport),
                 Fingerprint.Known(imports[2], Known.MethodImport),
@@ -53,10 +59,7 @@ namespace RimWorldLoadingOptimizer
                 Fingerprint.Known(create, Known.Create),
                 Fingerprint.Known(transpile, Known.Transpile),
                 Fingerprint.Known(generate, Known.Generate),
-                Fingerprint.Known(update, Known.Update)))
-            {
-                return;
-            }
+                Fingerprint.Known(update, Known.Update)));
             var post = new HarmonyMethod(typeof(HarmonyIdentityMap), nameof(ImportPost));
             foreach (var import in imports)
             {
@@ -172,7 +175,7 @@ namespace RimWorldLoadingOptimizer
 
         public static bool ResolvePre(object mref, object modules, ref MemberInfo __result)
         {
-            if (generating == 0 || wrapperDepth == 0 || inVerify || mref == null)
+            if (generating == 0 || wrapperDepth == 0 || inVerify || mref == null || check.IsOff)
             {
                 return true;
             }
@@ -190,7 +193,7 @@ namespace RimWorldLoadingOptimizer
                 }
                 return true;
             }
-            if (!verify)
+            if (!verify && !check.IsChecking)
             {
                 __result = found;
                 return false;
@@ -211,6 +214,7 @@ namespace RimWorldLoadingOptimizer
             {
                 inVerify = false;
             }
+            check.Report(ReferenceEquals(expected, found) || SameMember(expected, found), $"member {mref}");
             if (ReferenceEquals(expected, found))
             {
                 Interlocked.Increment(ref sameObject);

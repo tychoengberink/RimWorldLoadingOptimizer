@@ -23,16 +23,22 @@ namespace RimWorldLoadingOptimizer
         private static Dictionary<string, Entry> index;
         private static int[] unindexed;
         private static long fast, slow, builds, mismatches, ticks;
+        private static SelfCheck check;
+        private static Func<string, Type> original;
+        [ThreadStatic] private static bool bypass;
 
         public static void Install(Harmony harmony)
         {
             var raw = AccessTools.Method(typeof(GenTypes), "GetTypeInAnyAssemblyRaw");
             var getter = AccessTools.PropertyGetter(typeof(GenTypes), "AllActiveAssemblies");
-            if (!Fingerprint.Matches("Def type name lookups", Fingerprint.Known(raw, "DF60D54276C7BDD1", "592CFBFFBEAD7F19"), Fingerprint.Known(AccessTools.EnumeratorMoveNext(getter), "FDCF63F8727F0C37", "DE6251F281093029")))
+            if (raw == null || getter == null)
             {
+                VersionCheck.Skip("Def type name lookups", "GenTypes.GetTypeInAnyAssemblyRaw or AllActiveAssemblies no longer exists");
                 return;
             }
+            check = new SelfCheck("Def type name lookups", VersionCheck.Known(Fingerprint.Known(raw, "DF60D54276C7BDD1", "592CFBFFBEAD7F19"), Fingerprint.Known(AccessTools.EnumeratorMoveNext(getter), "FDCF63F8727F0C37", "DE6251F281093029")));
             allActive = AccessTools.MethodDelegate<Func<IEnumerable<Assembly>>>(getter);
+            original = AccessTools.MethodDelegate<Func<string, Type>>((MethodInfo)raw);
             harmony.Patch(raw, prefix: new HarmonyMethod(typeof(TypeNameIndex), nameof(Prefix)));
             LeanFixes.Reports.Add(Stats);
         }
@@ -215,26 +221,25 @@ namespace RimWorldLoadingOptimizer
             return entry.Type;
         }
 
-        private static Type Vanilla(string typeName)
+        private static Type Original(string typeName)
         {
-            var type = typeof(GenTypes).Assembly.GetType(typeName, false, true);
-            if (type != null)
+            bypass = true;
+            try
             {
-                return type;
+                return original(typeName);
             }
-            foreach (var assembly in allActive())
+            finally
             {
-                var found = assembly.GetType(typeName, false, true);
-                if (found != null)
-                {
-                    return found;
-                }
+                bypass = false;
             }
-            return Type.GetType(typeName, false, true);
         }
 
         public static bool Prefix(string typeName, ref Type __result)
         {
+            if (bypass || check.IsOff)
+            {
+                return true;
+            }
             if (!Simple(typeName))
             {
                 slow++;
@@ -255,9 +260,10 @@ namespace RimWorldLoadingOptimizer
                 skipped = unindexed;
             }
             var result = Lookup(typeName, assemblies, map, skipped);
-            if (RLOMod.Verify)
+            if (RLOMod.Verify || check.IsChecking)
             {
-                var expected = Vanilla(typeName);
+                var expected = Original(typeName);
+                check.Report(expected == result, $"type {typeName}");
                 if (expected != result)
                 {
                     Interlocked.Increment(ref mismatches);
