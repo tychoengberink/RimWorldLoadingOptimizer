@@ -17,8 +17,8 @@
 - Mod sounds and textures load while the game reads and patches the XML, as on 1.7. A bar on the loading screen shows the progress.
 
 ### Removed
-- Linkable Groups support (it was already off on the current version of that mod and saved about 0.1 s).
-- 1.7 mesh staging buffer (one staging buffer per mesh upload batch) and its setting: ten A/B save loads showed no measurable gain beyond noise.
+- Linkable Groups support.
+- 1.7 mesh staging buffer and its setting.
 
 ## 5.1
 
