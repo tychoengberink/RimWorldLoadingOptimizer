@@ -10,31 +10,37 @@ Every speedup has a verification mode that recomputes the result the original wa
 
 ## Benchmarks
 
-"Off" = every speedup switched off (`LEANMEMORY_ALLOFF=1`); the mod stays loaded for the measurement and the log reports. Warm = Missile Girl's XML cache was used; cold = it was not (first start after a mod or mod-list change). Faster Game Loading, Loading Progress and Missile Girl were active in every start. RimWorld 1.6 and 1.7 run different builds with different speedups, so their results are kept separate.
+"Off" = every speedup switched off (`LEANMEMORY_ALLOFF=1`); the mod stays loaded for the measurement and the log reports. "Current" = this version; 5.0 and 5.1.0 are the previous releases on the same list in the same session. Warm = Missile Girl's XML cache was used; cold = it was not (first start after a mod or mod-list change). Loading Progress and Missile Girl were active in every start, plus Performance Optimizer in the 2026-10-18 starts and Faster Game Loading in the earlier ones. RimWorld 1.6 and 1.7 run different builds with different speedups, so their results are kept separate.
 
 - Mac: Apple M5 Pro, 24 GB unified memory, macOS. On 1.6 all textures were pre-converted to DDS with todds (RimSort).
 - Windows PC: AMD Ryzen 7 5800X3D, 32 GB, RTX 5080, Windows 11.
 
 ### RimWorld 1.6
 
-| Machine | Start | Off | On | Change | Peak memory (off → on) |
-|---|---|---|---|---|---|
-| Mac | cold | 17:03 | **5:41** | −67% | 54.3 → 53.7 GB |
+| Machine | Start | Off | 5.0 | Current | Change (off → current) | Peak memory (off / 5.0 / current) |
+|---|---|---|---|---|---|---|
+| Mac ¹ | cold | 16:36 | 4:58 | **2:59** | −82% | 80.8 / 80.3 / 40.5 GB |
+| Mac ¹ | warm | – | 3:47 | **2:12** | – | – / 76.2 / 40.3 GB |
+
+¹ RimWorld 1.6.4871, 2026-10-18, 1,486 mods: the current Progression packs 1–3 list, DDS textures, Steam closed. Off cannot start warm on this list (see [BENCHMARK.md](BENCHMARK.md#rimworld-16-mac-2026-10-18)). The first start after an install or mod change takes about a minute longer (4:07) because it writes the atlas cache.
 
 ### RimWorld 1.7
 
+| Machine | Start | 5.1.0 | Current | Current, all mod support on | Peak memory (5.1.0 / current) |
+|---|---|---|---|---|---|
+| Mac ² | cold | 1:38 | **1:18** | – | 22.8 / 22.4 GB |
+| Mac ² | warm | 1:05 | 1:09 | **1:03** | 23.2 / 22.8 GB |
+
+² RimWorld 1.7.4981, 2026-10-18, 1,482 mods: the same Progression packs list, Steam closed. 5.1.0 has the support for other mods on by default, the current version off (only Missile Girl support was switched on, so warm starts work). With the same settings the current version is about 2 s faster warm. No start with the optimizer off was measured on this build; see [BENCHMARK.md](BENCHMARK.md#mac-2026-10-18).
+
 | Machine | Start | Off | On | Change | Peak memory (off → on) |
 |---|---|---|---|---|---|
-| Windows ² | cold | 4:40 | **2:11** | −53% | 18.7 → 17.4 GB |
-| Windows ² | warm | 4:06 | **1:54** | −54% | 17.3 → 16.4 GB |
-| Mac ¹ | warm | 3:42 | **2:19** | −37% | 26.9 → 27.5 GB |
-| Mac ¹ | cold | – | **2:35** | – | – → 27.1 GB |
+| Windows ³ | cold | 4:40 | **2:11** | −53% | 18.7 → 17.4 GB |
+| Windows ³ | warm | 4:06 | **1:54** | −54% | 17.3 → 16.4 GB |
+
+³ 5.1 development build on RimWorld 1.7.4979, 2026-10-15, with 1,481 mods: the Progression packs list after removing a few slow mods. Earlier results on the full list are in [BENCHMARK.md](BENCHMARK.md#windows-51-2026-10-14).
 
 Times are to the main menu. "–" means not measured.
-
-¹ Test runs, not a clean benchmark: a test build, time until the save starts loading instead of the main menu, and macOS swapping because the list needs about 27 GB on a 24 GB Mac.
-
-² 5.1 development build on RimWorld 1.7.4979, 2026-10-15, with 1,481 mods: the Progression packs list after removing a few slow mods. Earlier results on the full list are in [BENCHMARK.md](BENCHMARK.md#windows-51-2026-10-14).
 
 The full test setup, the phase times and the single starts are in [BENCHMARK.md](BENCHMARK.md).
 

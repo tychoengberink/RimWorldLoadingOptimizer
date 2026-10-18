@@ -4,26 +4,34 @@ All numbers come from the Progression packs 1–3 mod list, described below, so 
 
 ## Summary
 
+"Current" is the version in this repository; 5.0 and 5.1.0 are the previous releases, measured on the same list in the same session.
+
 ### RimWorld 1.6
 
-| Machine | Start | Off | On | Change | Peak memory (off → on) |
-|---|---|---|---|---|---|
-| Mac | cold | 17:03 | **5:41** | −67% | 54.3 → 53.7 GB |
+| Machine | Start | Off | 5.0 | Current | Change (off → current) | Peak memory (off / 5.0 / current) |
+|---|---|---|---|---|---|---|
+| Mac ¹ | cold | 16:36 | 4:58 | **2:59** | −82% | 80.8 / 80.3 / 40.5 GB |
+| Mac ¹ | warm | – | 3:47 | **2:12** | – | – / 76.2 / 40.3 GB |
+
+¹ RimWorld 1.6.4871, 2026-10-18, 1,486 mods: the current Progression packs 1–3 list, DDS textures, Steam closed. Off cannot start warm on this list (see [RimWorld 1.6](#rimworld-16-mac-2026-10-18)). The first start after an install or mod change takes about a minute longer (4:07) because it writes the atlas cache.
 
 ### RimWorld 1.7
 
+| Machine | Start | 5.1.0 | Current | Current, all mod support on | Peak memory (5.1.0 / current) |
+|---|---|---|---|---|---|
+| Mac ² | cold | 1:38 | **1:18** | – | 22.8 / 22.4 GB |
+| Mac ² | warm | 1:05 | 1:09 | **1:03** | 23.2 / 22.8 GB |
+
+² RimWorld 1.7.4981, 2026-10-18, 1,482 mods: the same Progression packs list, Steam closed. 5.1.0 has the support for other mods on by default, the current version off (only Missile Girl support was switched on, so warm starts work). With the same settings the current version is about 2 s faster warm. No start with the optimizer off was measured on this build; see [Mac, 2026-10-18](#mac-2026-10-18).
+
 | Machine | Start | Off | On | Change | Peak memory (off → on) |
 |---|---|---|---|---|---|
-| Windows ² | cold | 4:40 | **2:11** | −53% | 18.7 → 17.4 GB |
-| Windows ² | warm | 4:06 | **1:54** | −54% | 17.3 → 16.4 GB |
-| Mac ¹ | warm | 3:42 | **2:19** | −37% | 26.9 → 27.5 GB |
-| Mac ¹ | cold | – | **2:35** | – | – → 27.1 GB |
+| Windows ³ | cold | 4:40 | **2:11** | −53% | 18.7 → 17.4 GB |
+| Windows ³ | warm | 4:06 | **1:54** | −54% | 17.3 → 16.4 GB |
+
+³ 5.1 development build on RimWorld 1.7.4979, 2026-10-15, with 1,481 mods: the Progression packs list after removing a few slow mods. Earlier results on the full list are under [Windows, 5.1 (2026-10-14)](#windows-51-2026-10-14).
 
 Times are to the main menu. "–" means not measured.
-
-¹ Test runs, not a clean benchmark: a test build, time until the save starts loading instead of the main menu, and macOS swapping because the list needs about 27 GB on a 24 GB Mac. See [Mac, 1.7](#mac-17).
-
-² 5.1 development build on RimWorld 1.7.4979, 2026-10-15, with 1,481 mods: the Progression packs list after removing a few slow mods. Earlier results on the full list are under [Windows, 5.1 (2026-10-14)](#windows-51-2026-10-14).
 
 ## Hardware
 
@@ -42,21 +50,74 @@ Times are to the main menu. "–" means not measured.
 - Warm = Missile Girl's XML cache was used (a normal start). Cold = it was not (first start after a mod update or a mod list change).
 - One start per scenario unless noted. RimWorld Loading Optimizer sits directly after Harmony.
 - Correctness: every speedup has a verification mode (`LEANMEMORY_VERIFY=1`) that recomputes the result the original way.
-- Other performance mods were active in every list: Faster Game Loading, Loading Progress and Missile Girl. The numbers are measured **on top of** these.
+- Other performance mods were active in every list: Loading Progress and Missile Girl, plus Performance Optimizer in the 2026-10-18 lists and Faster Game Loading in the earlier ones. The numbers are measured **on top of** these.
 
-## RimWorld 1.6 (Mac, 5.0)
+## RimWorld 1.6 (Mac, 2026-10-18)
 
-- RimWorld 1.6 with all five DLCs, RimWorld Loading Optimizer 5.0 with default settings, 2026-10-12. Later versions do not change anything on 1.6.
-- Mod list: the Progression pack collections [1/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521297585), [2/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521319712) and [3/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3637541646) with Prepatcher, saved in Load Them Last's order so the game does not restart itself.
-- **All mod textures were pre-converted to DDS** with todds (bundled with RimSort), non-UI textures above 2048 px downscaled: `todds -f BC1 -af BC7 -on -vf -fs -ss /Textures/ -t <steamapps/workshop/content/294100>`. Reading textures ahead, one of the biggest gains, only applies to DDS. In-game texture compression on (default).
-- All speedups reported 0 mismatches in verification starts, including all 83,778 textures compared with what the game's own loader builds.
+- RimWorld 1.6.4871 (rev597) with all five DLCs, 2026-10-18. Default settings: mod support switched off (the default), except Missile Girl support (see warm starts below).
+- Mod list: the current Progression pack collections [1/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521297585), [2/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521319712) and [3/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3637541646), 1,486 mods, Steam closed. Mods the packs removed are disabled; four newly added mods could not be downloaded offline. Loading Progress, Missile Girl and Performance Optimizer are in the packs.
+- **All mod textures were pre-converted to DDS** with todds (bundled with RimSort), non-UI textures above 2048 px downscaled: `todds -f BC1 -af BC7 -on -vf -fs -ss /Textures/ -t <steamapps/workshop/content/294100>`. In-game texture compression on (default).
+- 5.0 and off ran on the same list in the same session, so all three columns are directly comparable.
 
-- Cold start phases: XML patching 528.9 → **39.7 s**, texture loading 99.0 → **26.7 s**.
-- No warm start was measured: after a switch from another mod list, Missile Girl needs three starts before its XML cache is used again (the first logs "Mod list changed", the second "Total number of files changed. Reseting cache", the third "Mod list changed" again), with or without RimWorld Loading Optimizer. The 5.0 starts on this list all fell inside that cycle, so only the cold result is listed.
+| Start | Off | 5.0 | Current |
+|---|---|---|---|
+| cold | 1,024.3 / 967.5 s | 296.1 / 300.5 s | 247.1 ⁴ / 178.6 s |
+| warm | – | 226.3 / 227.6 s | 132.6 / 131.6 s |
+| peak memory | 80.8 GB | 75.9–80.3 GB | 40.1–45.3 GB |
+| XML patching (cold) | 459.6–517.0 s | 26.7–27.2 s | 28.1–30.0 s |
+| atlas baking | – | 33.4–37.0 s | 3.9–4.2 s |
+| TPS, colony save ⁵ | – | 509.2 / 528.7 | 538.0 / 517.1 |
+
+⁴ First start after the install: it bakes the atlases and writes them to the atlas cache (~3.5 GB on disk). Later starts load them (24 of 25 atlases).
+
+⁵ A new colony on this list, game speed 4, 60 s measured after a 120 s warm-up. Performance Optimizer keeps patching in the background for the first ~90 s of play, so shorter warm-ups measure that instead. 5.0 and the current version are equal within noise, as expected: RimWorld Loading Optimizer only changes loading.
+
+- What the current version adds on 1.6 compared with 5.0:
+  - The atlas cache now covers textures from asset bundles and Resources: 24 of 25 atlases cached (5.0: 2 of 25).
+  - The graphics driver gets each baked atlas right away instead of collecting all of them, which roughly halves peak memory.
+  - Atlas packing finds textures by reference.
+  - Mod content loads while the XML loads (1,486 of 1,486 mods).
+- Correctness:
+  - Two verification starts reported 0 mismatches.
+  - Every atlas loaded from the cache was identical to a fresh bake.
+  - The error log was the same as with 5.0.
+  - The colony played normally.
+- Stability: 0 crashes in about 30 starts with the current version. 5.0 crashed twice in 9 starts (once while loading textures, once in the pawn renderer during play); neither crash happened with the current version.
+- Warm starts: on this list Missile Girl resets its XML cache on every start ("Total number of files changed. Reseting cache"). It only starts warm when RimWorld Loading Optimizer's Missile Girl support is switched on, which is why off has no warm result.
 
 ## RimWorld 1.7
 
 On 1.7 the atlas cache and audio streaming switch themselves off, because the game does that work itself.
+
+### Mac, 2026-10-18
+
+- RimWorld 1.7.4981 (rev136) with all five DLCs, 2026-10-18, Steam closed. Harmony mod 3.0.1.0 (library 3.0.0-rc.3).
+- The Progression packs 1–3 list as on 1.6, 1,482 mods: Prepatcher, CAI 5000, Only If Tolerance Below and Better Prerequisites have no 1.7 version, and VE Base Generation and four newly added pack mods could not be downloaded offline.
+- Load Them Last restarted the game once on every start; the times are from the restarted game.
+- 5.1.0 runs with its defaults (support for all other mods on). The current version runs with its defaults (support for other mods off) plus Missile Girl support, and in a second set with all 18 mod supports on.
+
+| Start | 5.1.0 | Current | Current, all mod support on |
+|---|---|---|---|
+| cold | 98.0 s | 78.5 / 77.7 s | – |
+| warm | 64.4 / 64.8 s | 69.0 / 68.7 s | 64.7 ⁴ / 61.4 / 64.1 s |
+| peak memory | 22.5–23.2 GB | 22.3–22.9 GB | 22.8–23.0 GB |
+| static constructors (warm) | 11.9 s | 18.5 s | 11.8 s |
+| TPS, colony save ⁵ | 864.4 / 868.8 | 893.4 / 891.3 | – |
+| longest frame while playing ⁵ | 1,754 / 1,816 ms | 205 / 220 ms | – |
+
+⁴ First start with Giddy-Up 2 and Alien Worlds Framework support on: it writes their caches.
+
+⁵ A new colony on this list, game speed 4, 60 s measured after a 120 s warm-up.
+
+- Cold starts are 20 s faster than 5.1.0: on this game build 5.1.0 switches eight of its speedups off, because the game code they were checked against changed (sound read-ahead, atlas page buffers, mesh staging buffer, mesh buffer pool, XML previous-sibling cursor, fast content bundle lookups, Missile Girl's multi-threaded cache read and Linkable Groups facility links). The current version knows this game build, and checks code it does not know by what that code does instead of by its exact version, so all of them except Linkable Groups stay on.
+- Warm with default settings the current version is about 4 s slower than 5.1.0, because the static constructors take 6.6 s longer, mostly those of mods it has extra support for (Giddy-Up 2, Alien Worlds Framework, Vehicle Framework, Cherry Picker). That support is off by default now; switched on, the current version is about 2 s faster than 5.1.0.
+- Correctness:
+  - A verification start reported 0 mismatches for every speedup.
+  - A start that forced every version-free check passed all of them.
+  - The error log was identical to 5.1.0's, at the main menu and while playing.
+  - The colony played normally.
+- Linkable Groups support switches itself off on this list, because that mod changed; its setup takes 137 ms anyway.
+- The first start after the game was installed took 254.8 s (with an earlier build): the game's own atlas cache was still empty and it prepared every texture for the first time. Later starts load 15 of its 22 atlas pages from that cache.
 
 ### Windows, 5.1 (2026-10-15)
 
@@ -81,17 +142,6 @@ On 1.7 the atlas cache and audio streaming switch themselves off, because the ga
 - Cold: average of 2 starts per column. XML patching went from 9.4 to 11.7 s, most likely because mod sounds and textures now load at the same time. The first "on" start after the "off" starts took 5:18 and is left out: pre-compiling patched methods and the JIT profile only help from the second start.
 - Warm: average of 3 starts. No warm "off" start was measured; compared with the cold "off" starts it is −46%, which includes Missile Girl's cache.
 
-### Mac, 1.7
-
-These starts tested correctness and TPS rather than load time, so they differ from the method above:
-
-- RimWorld 1.7.4977 (rev926), Progression packs 1–3 plus three test mods (def hashes, TPS, running with Steam closed), 2026-10-13.
-- A 5.1 development build with every feature compiled in (the ones that do not apply to 1.7 switch themselves off), not the exact build in this repository.
-- The game went straight into a save, so the time is the `startup finished … at … s` line, up to the moment the save starts loading.
-- Warm: off 225.6, 221.1, 219.5 and 223.8 s; on 147.1, 137.7, 140.2, 135.5 and 136.6 s. Cold: one start with RimWorld Loading Optimizer on.
-- TPS on a test save (60 s at speed 4): 350 off, 502 on on average, but single starts ranged from 207 to 569 because of the memory pressure, so this only shows it does not get slower.
-- Correctness: all ~118,000 defs were compared field by field with the optimizer on and off. Apart from 32 defs that also differ between two starts with the same setting (random values), they were identical, and so was the set of error messages. An earlier build gave 601 defs fewer random texture variants than vanilla; that was fixed before the last two "on" starts.
-
 ## Measure it yourself
 
 Mod Settings → RimWorld Loading Optimizer → "Measure how much RimWorld Loading Optimizer saves on your PC" runs the same A/B comparison. It needs two restarts and writes every start to `RimWorldLoadingOptimizer/measurements.csv` in the RimWorld save data folder. See the README.
@@ -99,6 +149,6 @@ Mod Settings → RimWorld Loading Optimizer → "Measure how much RimWorld Loadi
 ## Not verified yet
 
 - RimWorld 1.6 on Windows and Linux; RimWorld 1.7 on Linux.
-- RimWorld 1.7 on the Mac with the exact build in this repository, timed to the main menu.
+- RimWorld 1.7.4981 with the optimizer off on the Mac.
 - RimWorld 1.7 warm starts with RimWorld Loading Optimizer off on Windows on the full Progression packs list.
 - Other mod lists and other hardware.
