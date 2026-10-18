@@ -423,15 +423,15 @@ namespace RimWorldLoadingOptimizer
             var load = AccessTools.Method(Reader, "Load");
             var add = AccessTools.Method(Reader, "Add");
             if (!Fingerprint.Matches("Fast content bundle lookups",
-                Fingerprint.Known(BundlesCached, "31BEF324BCEEB3A3", "E53E3DCCD9A2EAA0"),
-                Fingerprint.Known(BundlesUncached, "CA4DDD75F0EB8D20", "ABE94861D20EE2B1"),
-                Fingerprint.Known(BundlesStamp, "10FECC823644C13F", "3F2E6BE7758897E1"),
-                Fingerprint.Known(BundleLoad, "511A977FFDB448DB"),
-                Fingerprint.Known(BundleNames, "7141E6725935DB6B"),
-                Fingerprint.Known(assetNames, "0246209DC1CC3B49"),
-                Fingerprint.Known(lookup, "2D103CB183F3338C"),
-                Fingerprint.Known(load, "14EB43EE93D96A98", "C30F690A23105717"),
-                Fingerprint.Known(add, "FA1CBE72A67EDFB6")))
+                Fingerprint.Known(BundlesCached, "31BEF324BCEEB3A3", "E53E3DCCD9A2EAA0", "E58242CDAC3C383B", "F5ACDB3CC0076413"),
+                Fingerprint.Known(BundlesUncached, "CA4DDD75F0EB8D20", "ABE94861D20EE2B1", "53CDFA3625336D55"),
+                Fingerprint.Known(BundlesStamp, "10FECC823644C13F", "3F2E6BE7758897E1", "1BB4D65FD5959F85"),
+                Fingerprint.Known(BundleLoad, "511A977FFDB448DB", "37DAE16A13128E81", "793653BCDCD8C51D"),
+                Fingerprint.Known(BundleNames, "7141E6725935DB6B", "A82143A1CC3605CB", "6F72022B71604E51"),
+                Fingerprint.Known(assetNames, "0246209DC1CC3B49", "9DD1571FC99C751C", "E4767AA4EDB3FF12"),
+                Fingerprint.Known(lookup, "2D103CB183F3338C", "F01FD9B607196604", "448BE879CCE10F89"),
+                Fingerprint.Known(load, "14EB43EE93D96A98", "C30F690A23105717", "9BACF4C86AD5807A", "9DB1894E980D738C"),
+                Fingerprint.Known(add, "FA1CBE72A67EDFB6", "FF1CD22A0E143850", "3B9D5A1F188FA5CF")))
             {
                 return;
             }
@@ -452,7 +452,7 @@ namespace RimWorldLoadingOptimizer
         // ContentFinder<Texture2D>.TryFindAssetInModBundles with the same cache and stamp, around the faster search.
         private static Texture2D NativeBundles(string itemPath)
         {
-            if (bundleCache == null || itemPath == null || !BundlesUnpatched())
+            if (bundleCache == null || itemPath == null || !UnityData.IsInMainThread || !BundlesUnpatched())
             {
                 return ContentFinder<Texture2D>.TryFindAssetInModBundles(itemPath);
             }

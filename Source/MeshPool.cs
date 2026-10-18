@@ -45,6 +45,7 @@ namespace RimWorldLoadingOptimizer
         private static VmaPool pool;
         private static VmaAllocator poolAllocator;
         private static bool failed;
+        private static bool fallbackSeen;
         private static long pooled, refused, freed, peak, leftAtShutdown;
 
         public static void Install(Harmony harmony)
@@ -59,8 +60,8 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             if (!Fingerprint.Matches(Feature,
-                    Fingerprint.Known(allocate, "661045207CDF7941", "9E9234562939A849"),
-                    Fingerprint.Known(shutdown, ShutdownHash, "694A474CC13BDCC4"),
+                    Fingerprint.Known(allocate, "661045207CDF7941", "9E9234562939A849", "27885B74DD7AB907", "B2EFDF235C97E8D4"),
+                    Fingerprint.Known(shutdown, ShutdownHash, "694A474CC13BDCC4", "6862E7A580E2536E", "D802A58E5D94899D"),
                     Fingerprint.Known(free, FreeHash)))
             {
                 return;
@@ -128,7 +129,11 @@ namespace RimWorldLoadingOptimizer
         // are taken: no host fallback window, never a fallback before (so DeviceLocalHasRoom is not consulted either).
         public static bool AllocatePrefix(MeshUploader __instance, long bytes, VkBufferUsageFlags usage, ref bool hostResident, ref BufferAllocationInfo __result)
         {
-            if (bytes <= 0 || bytes > MaxPooledBytes || hostFallbackUntilFrameOf(__instance) >= 0 || renderFrameSerialOf(__instance) < hostFallbackUntilFrameOf(__instance))
+            if (hostFallbackUntilFrameOf(__instance) >= 0)
+            {
+                fallbackSeen = true;
+            }
+            if (fallbackSeen || bytes <= 0 || bytes > MaxPooledBytes || renderFrameSerialOf(__instance) < hostFallbackUntilFrameOf(__instance))
             {
                 return true;
             }

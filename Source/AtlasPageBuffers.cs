@@ -34,7 +34,7 @@ namespace RimWorldLoadingOptimizer
                 Fingerprint.Known(bake, "45434BFD7AD5A8A9"),
                 Fingerprint.Known(AccessTools.Method(source, "TryOpen"), "A2C673D6F21BD239"),
                 Fingerprint.Known(AccessTools.Method(source, "Dispose"), "B84E6FDCE38F9583"),
-                Fingerprint.Known(AccessTools.Method(store, "Store"), "5F42E9546B3CD097"),
+                Fingerprint.Known(AccessTools.Method(store, "Store"), "5F42E9546B3CD097", "EF8B254229171DEF", "76646C991E66C5C1"),
                 Fingerprint.Known(AccessTools.Method(store, "ReleaseBuffers"), "06DEC407375A2CF0"),
                 Fingerprint.Known(AccessTools.Method(store, "NewBufferPool"), "EE90BB14052FB05A")))
             {

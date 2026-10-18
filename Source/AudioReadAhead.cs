@@ -85,7 +85,7 @@ namespace RimWorldLoadingOptimizer
                 Fingerprint.Known(AccessTools.EnumeratorMoveNext(AccessTools.Method(loaderType, nameof(ModContentLoader<AudioClip>.LoadAllForMod))), "00DBB5662C88C818"),
                 Fingerprint.Known(AccessTools.Method(typeof(AudioClip), nameof(AudioClip.LoadFromFile)), "388C47436D6C44AD"),
                 Fingerprint.Known(openForPrefetch, "80A34DCBF94CC177"),
-                Fingerprint.Known(AccessTools.Method(typeof(AudioClip), "Open"), "40AE3817CE1013B4"),
+                Fingerprint.Known(AccessTools.Method(typeof(AudioClip), "Open"), "40AE3817CE1013B4", "44EF9117FF80BCEC", "67E9B5D3BA5AAF10"),
                 Fingerprint.Known(AccessTools.Method(prefetcher, "Enqueue"), "D61923B0BE9AC58C"),
                 Fingerprint.Known(AccessTools.Method(prefetcher, nameof(AssetPrefetcher.TryTakeAudio)), "D867DEE606810A20"),
                 Fingerprint.Known(AccessTools.Method(prefetcher, "TryClaim"), "408F3EEEAB082546"),
