@@ -42,7 +42,6 @@ namespace RimWorldLoadingOptimizer
         public bool harmonyCoalesce = false;
         public bool atlasPageBuffers = true;
         public bool meshPool = true;
-        public bool meshStaging = true;
         public bool atlasStamps = true;
         public bool gagarinCacheKeep = false;
         public bool gameSoundReadAhead = false;
@@ -109,7 +108,6 @@ namespace RimWorldLoadingOptimizer
             Scribe_Values.Look(ref harmonyCoalesce, "harmonyCoalesce", false);
             Scribe_Values.Look(ref atlasPageBuffers, "atlasPageBuffers", true);
             Scribe_Values.Look(ref meshPool, "meshPool", true);
-            Scribe_Values.Look(ref meshStaging, "meshStaging", true);
             Scribe_Values.Look(ref atlasStamps, "atlasStamps", true);
             Scribe_Values.Look(ref gagarinCacheKeep, "gagarinCacheKeep", false);
             Scribe_Values.Look(ref gameSoundReadAhead, "gameSoundReadAhead", false);
@@ -170,7 +168,6 @@ namespace RimWorldLoadingOptimizer
                 settings.harmonyCoalesce = false;
                 settings.atlasPageBuffers = false;
                 settings.meshPool = false;
-                settings.meshStaging = false;
                 settings.atlasStamps = false;
                 settings.gagarinCacheKeep = false;
                 settings.gameSoundReadAhead = false;
@@ -270,7 +267,7 @@ namespace RimWorldLoadingOptimizer
             Try("atlas cache miss report", settings.startupReport, () => AtlasMisses.Install(harmony));
             Try("atlas page buffers", settings.atlasPageBuffers, () => AtlasPageBuffers.Install(harmony));
             Try("atlas source stamps", settings.atlasStamps, () => AtlasStamps.Install(harmony));
-            Try("mesh upload timing and staging buffer", settings.startupReport || settings.meshStaging, () => MeshStaging.Install(harmony, settings.meshStaging));
+            Try("mesh upload timing", settings.startupReport, () => MeshUploadTiming.Install(harmony));
             Try("mesh buffer pool", settings.meshPool && Environment.GetEnvironmentVariable("LEANMEMORY_NOMESHPOOL") != "1", () => MeshPool.Install(harmony));
             Try("GC fallback report", settings.startupReport, GcFallback.Install);
 #endif
@@ -438,7 +435,6 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Merge repeated Harmony rebuilds (test)", ref settings.harmonyCoalesce, "When a mod patches the same game method from several patch classes, Harmony rebuilds and recompiles that method once per class. Build it once, at the end of that mod's patching, instead. Patch errors still appear exactly where they would otherwise, and the final code is identical. Off by default until it is verified in a full start.");
             list.CheckboxLabeled("Reuse buffers for cached atlas pages", ref settings.atlasPageBuffers, "When the game loads its baked texture atlases from its cache, reuse one buffer for every page instead of allocating a new 85 MB block per page. Less memory churn and fewer long memory clean-ups during atlas baking. Same atlases.");
             list.CheckboxLabeled("Pool small mesh buffers while graphics memory is full", ref settings.meshPool, "With many mod textures the graphics card's memory budget is used up, and the engine's memory allocator then gives every small mesh buffer its own allocation from the driver (tens of thousands, about 15 s in the frame before the main menu, plus wasted graphics memory). While that is the case, and only until shortly after the main menu, small mesh buffers are placed in shared 32 MB blocks instead. Same buffers, same rendering; only where they sit in graphics memory changes. Switch this off if you see graphics problems.");
-            list.CheckboxLabeled("One staging buffer per mesh upload batch", ref settings.meshStaging, "When meshes are uploaded to the graphics card, copy them through one staging buffer per upload batch instead of creating, mapping and freeing one per mesh. Same mesh data.");
             list.CheckboxLabeled("Read atlas source file details in parallel", ref settings.atlasStamps, "Before the texture atlases are baked, read the size and date of every source texture file on worker threads instead of one by one on the main thread. The game's atlas cache keys come out the same.");
             list.CheckboxLabeled("Keep Missile Girl's rebuilt cache usable (test)", ref settings.gagarinCacheKeep, "When Missile Girl rebuilds its XML cache (for example after a mod or game update), it deletes its own mod list file and keeps hashes of files that are no longer loaded, so the next start is slow again. After a rebuild, write the mod list again and drop those hashes with Missile Girl's own functions. Missile Girl still checks every file on the next start. Off by default until it is verified after real mod updates; this works around a Missile Girl issue.");
             list.CheckboxLabeled("Prepare the game's own sounds ahead (test)", ref settings.gameSoundReadAhead, "Open the game's built-in sound files on worker threads while mod data loads, so they are ready when the sound definitions are resolved. Uses up to 128 MB of extra memory during loading. Off by default until it shows a gain.");
