@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using HarmonyLib;
+using Verse;
 
 namespace RimWorldLoadingOptimizer
 {
@@ -70,9 +72,16 @@ namespace RimWorldLoadingOptimizer
             if (cached != null)
             {
                 Interlocked.Increment(ref listHits);
-                if (!ReflCache.Same(cached, fresh))
+                bool unchanged;
+                lock (gate)
                 {
-                    Interlocked.Increment(ref mismatches);
+                    unchanged = generation == seen;
+                }
+                if (unchanged && !ReflCache.Same(cached, fresh) && Interlocked.Increment(ref mismatches) <= 5)
+                {
+                    var added = fresh.Except(cached).Select(a => a.GetName().Name);
+                    var removed = cached.Except(fresh).Select(a => a.GetName().Name);
+                    Log.Warning($"[RLO] assembly list cache verify mismatch: {cached.Length} cached, {fresh.Length} now; added [{string.Join(", ", added)}], removed [{string.Join(", ", removed)}]");
                 }
             }
             lock (gate)
@@ -106,9 +115,9 @@ namespace RimWorldLoadingOptimizer
             if (fullNames.TryGetValue(__instance, out var cached))
             {
                 Interlocked.Increment(ref nameHits);
-                if (cached != __result)
+                if (cached != __result && Interlocked.Increment(ref mismatches) <= 5)
                 {
-                    Interlocked.Increment(ref mismatches);
+                    Log.Warning($"[RLO] assembly name cache verify mismatch: cached {cached}, now {__result}");
                 }
                 return;
             }
