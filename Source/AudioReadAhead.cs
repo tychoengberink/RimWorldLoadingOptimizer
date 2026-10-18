@@ -73,7 +73,7 @@ namespace RimWorldLoadingOptimizer
             if (gateObject == null || ordered == null || pathField?.FieldType != typeof(string) || kindField?.FieldType.IsEnum != true || stateField?.FieldType.IsEnum != true
                 || !Enum.IsDefined(kindField.FieldType, "Audio") || !Enum.IsDefined(stateField.FieldType, "Queued") || openedType == null)
             {
-                Log.Message($"[RLO] {Feature}: the game's asset prefetcher is not the version this was built for; skipped");
+                Log.Message($"[RLO] {Feature}: the game's asset prefetcher no longer has the members it needs; skipped");
                 return;
             }
             var loaderType = typeof(ModContentLoader<AudioClip>);

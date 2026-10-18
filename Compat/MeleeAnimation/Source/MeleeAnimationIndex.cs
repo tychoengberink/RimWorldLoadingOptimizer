@@ -50,20 +50,20 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
             var report = AccessTools.Method(type, nameof(RetextureUtility.GetTextureReport));
             var scan = AccessTools.Method(type, "GetAllModTextures");
             var resolve = AccessTools.Method(type, "ResolveTexturePath");
-            var known = VersionCheck.Known(
-                Fingerprint.Known(report, "031A432060E19808"),
-                Fingerprint.Known(scan, "60638841598E4B70"),
-                Fingerprint.Known(AccessTools.EnumeratorMoveNext(scan), "AFEBCFAC0730547C"));
-            if (!known && !VersionCheck.Pattern(Feature, report, code => VersionCheck.Calls(code, resolve) == 1 && VersionCheck.Calls(code, scan) == 1,
+            if (!VersionCheck.Pattern(Feature, report, code => VersionCheck.Calls(code, resolve) == 1 && VersionCheck.Calls(code, scan) == 1,
                 "calls ResolveTexturePath and GetAllModTextures once each"))
             {
                 return;
             }
-            check = new SelfCheck(Feature, known);
+            check = new SelfCheck(Feature, VersionCheck.Code(report, scan, AccessTools.EnumeratorMoveNext(scan)));
+            if (check.IsOff)
+            {
+                return;
+            }
             original = AccessTools.MethodDelegate<Func<IEnumerable<(ModContentPack, Texture2D, string)>>>(scan);
             var harmony = new Harmony("aruclya.rimworldloadingoptimizer.meleeanimation");
             harmony.Patch(report, transpiler: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(Transpiler)));
-            if (!known)
+            if (check.IsChecking)
             {
                 harmony.Patch(report, prefix: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(ComparePrefix)), finalizer: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(CompareFinalizer)));
             }

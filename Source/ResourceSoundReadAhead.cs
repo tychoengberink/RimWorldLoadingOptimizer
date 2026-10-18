@@ -63,7 +63,7 @@ namespace RimWorldLoadingOptimizer
             extensions = (AccessTools.Field(resources, "AudioClipExtensions")?.GetValue(null) as string[])?.ToArray();
             if (clipCtor == null || extensions == null || clipOpen?.ReturnType != openedType || !typeof(IPrefetchedAsset).IsAssignableFrom(openedType))
             {
-                Log.Message($"[RLO] {Feature}: the game's sound loading is not the version this was built for. This speedup is skipped and the original code runs; nothing is broken.");
+                Log.Message($"[RLO] {Feature}: the game's sound loading no longer has the members it needs. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             var openForPrefetch = AccessTools.Method(typeof(AudioClip), "OpenForPrefetch", new[] { typeof(string) });

@@ -4,7 +4,7 @@
   <author>Aruclya</author>
   <packageId>aruclya.rimworldloadingoptimizer</packageId>
   <url>https://github.com/tychoengberink/RimWorldLoadingOptimizer</url>
-  <modVersion>5.1.0</modVersion>
+  <modVersion>5.2.0</modVersion>
   <supportedVersions>
     <li>1.6</li>
     <li>1.7</li>
@@ -19,7 +19,7 @@ What it does:
 - Frees textures that another mod replaces and that can never be shown.
 - Streams medium-sized sound files from disk, as the game already does for large ones.
 - Speeds up slow startup code in the base game.
-- Extra support for a number of popular mods, which can be switched off per mod in Mod Settings.
+- Extra support for a number of popular mods, which you can switch on per mod in Mod Settings.
 - Shows a small bar on the loading screen while it is active.
 
 Every part can be switched off separately in Mod Settings. Mod Settings also has a button that measures the difference on your own PC (two restarts).

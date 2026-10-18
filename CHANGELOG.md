@@ -1,10 +1,20 @@
 # Changelog
 
-## Unreleased
+## 5.2
 
 ### Changed
-- Speedups no longer depend on lists of known game, Harmony or mod versions, so a game or mod update no longer switches them off. Each speedup checks that what it needs still exists, then either checks the one call it changes or compares its first results with the original code once per new code version. Harmony rebuild coalescing and reading Missile Girl's cache on several threads also check that the Harmony or System.Xml methods they build on still make exactly the calls they were written around. Only faster mod assembly loading on 1.6 still needs a known version.
+- Speedups no longer depend on lists of known game, Harmony or mod versions, so a game or mod update no longer switches them off. Each speedup checks that what it needs still exists, then either checks the one call it changes or compares its first results with the original code once per new code version (remembered in `verified-code.txt`). Harmony rebuild coalescing and reading Missile Girl's cache on several threads also check that the Harmony or System.Xml methods they build on still make exactly the calls they were written around. Only faster mod assembly loading on 1.6 still needs a known version.
+- Extra support for other mods is now off by default; switch on the mods you want in Mod Settings. Choices saved by 5.0 are not carried over.
+- Works with the RimWorld 1.7.4981 beta.
+- Where another optimizer replaces or rewrites the same method, the speedup steps aside and leaves that method to it.
+- Missile Girl's background cache write now follows the Missile Girl setting.
 - The mesh upload timing in the startup report also appears when a save is loaded straight away.
+
+### RimWorld 1.6
+- Atlas baking: the graphics commands are sent after every atlas, so each atlas's temporary buffers are freed right away instead of when loading ends (peak memory on the Progression packs list 80 → 45 GB on a 24 GB Mac).
+- Atlas packing: each texture's place in the atlas is looked up from an index instead of searching the whole texture list. The atlases come out the same.
+- Atlas cache: atlases with textures from asset bundles (DLCs and mods that ship bundles) or from the game's built-in resources can now be cached too; before, only atlases made entirely of mod texture files could be. On the Progression packs list 24 of 25 atlases are cached instead of 2, and baking takes 4 s instead of 39 s.
+- Mod sounds and textures load while the game reads and patches the XML, as on 1.7. A bar on the loading screen shows the progress.
 
 ### Removed
 - Linkable Groups support (it was already off on the current version of that mod and saved about 0.1 s).
@@ -43,17 +53,9 @@
 - The startup report adds memory clean-ups per loading phase, Harmony rebuild timing, atlas cache misses, mesh upload timing and JIT/GC totals.
 
 ### Changed
-- Extra support for other mods is now off by default; switch on the mods you want in Mod Settings. Choices saved by 5.0 are not carried over.
 - On 1.7 the atlas cache and audio streaming switch themselves off: the game now caches baked atlases and loads sounds without the old wait loop itself.
 
 ### RimWorld 1.6
-- Atlas baking: the graphics commands are sent after every atlas, so each atlas's temporary buffers are freed right away instead of when loading ends (peak memory on the Progression packs list 80 → 45 GB on a 24 GB Mac).
-- Atlas packing: each texture's place in the atlas is looked up from an index instead of searching the whole texture list. The atlases come out the same.
-- Atlas cache: atlases with textures from asset bundles (DLCs and mods that ship bundles) or from the game's built-in resources can now be cached too; before, only atlases made entirely of mod texture files could be. On the Progression packs list 24 of 25 atlases are cached instead of 2, and baking takes 4 s instead of 39 s.
-- Mod sounds and textures load while the game reads and patches the XML, as on 1.7. A bar on the loading screen shows the progress.
-- Speedups no longer switch off just because the game, Harmony or a mod changed the code they work on. A speedup that changes one call checks that the call is still there; a speedup that replaces a method compares its first results with the original code and switches off for that start if any result differs. A passed check is remembered for that code version. Because of this the texture lookup index and fast content lookups work again on the current 1.6 build. Four speedups that depend on another mod's internals still need a known version.
-- Where another optimizer replaces or rewrites the same method, the speedup steps aside and leaves that method to it.
-- Missile Girl's background cache write now follows the Missile Girl setting.
 - Recipe index: Alpha Implants' warm-up of every ThingDef's recipes is checked once instead of once per ThingDef.
 - Category cache and texture lookup index: changes are detected by comparing the category tree and the mods' texture lists directly instead of a hash, so a hash collision can no longer hide a change.
 - Content lookups: folder lookups only visit mods that have files under that folder, and texture-index misses no longer scan every mod again.

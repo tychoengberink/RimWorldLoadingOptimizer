@@ -185,7 +185,7 @@ namespace RimWorldLoadingOptimizer
             compile = triple?.GetMethod("Compile", new[] { typeof(MethodBase) });
             if (locker == null || state == null || detours == null || infoArrays.Any(f => f == null) || new object[] { wrapException, configOriginal, configSource, configPersistence, creatorConfig, auxiliary, patchMethods, containerAttributes, attributeType, infoDebugging, detourTarget, detourApplied, jobOriginalField, jobRequestedField }.Any(x => x == null))
             {
-                Log.Message("[RLO] Harmony rebuild coalescing: Harmony's internals differ from the version it was checked against. This speedup is skipped and the original code runs; nothing is broken.");
+                Log.Message("[RLO] Harmony rebuild coalescing: Harmony no longer has the internals it needs. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             var self = typeof(Coalesce);
