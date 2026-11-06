@@ -203,6 +203,12 @@ namespace RimWorldLoadingOptimizer
 #endif
             MainMenu.Install(harmony);
 #if RW17
+            if (GraphicsProfile.Wanted)
+            {
+                Try("graphics profile", true, () => GraphicsProfile.Install(harmony));
+            }
+#endif
+#if RW17
             Try("sound read-ahead", settings.soundReadAhead, AudioReadAhead.Install);
             Try(ResourceSoundReadAhead.Feature, settings.gameSoundReadAhead, () => ResourceSoundReadAhead.Install(harmony));
             if (Verify)
@@ -312,6 +318,7 @@ namespace RimWorldLoadingOptimizer
             Try("XML previous-sibling cursor", settings.defLoadingFixes, () => SiblingCursor.Install(harmony));
 #endif
             Try("surgery index", settings.defLoadingFixes, () => SurgeryIndex.Install(harmony));
+            Try(ThingFilterDisallow.Feature, settings.defLoadingFixes, () => ThingFilterDisallow.Install(harmony));
             Try(ResearchCoordinates.Feature, settings.defLoadingFixes, () => ResearchCoordinates.Install(harmony));
             Try("type name lookups", settings.defLoadingFixes, () => TypeNameIndex.Install(harmony));
             Try("vanilla facility link lookup", settings.defLoadingFixes, () => FacilityFast.Install(harmony));

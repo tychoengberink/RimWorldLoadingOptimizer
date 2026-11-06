@@ -9,6 +9,10 @@
 
 ### Changed
 - Works with RimWorld 1.7.5000.
+- Research tab layout: the node positions are relaxed per research tab instead of over all tabs at once (1.2 → 0.9 s on the Progression packs list).
+- 1.7: graphics with appearance variants look up each texture folder once per graphic instead of once per variant (0.96 → 0.37 s).
+- 1.7: folder lookups in asset bundles use an index of the folders in each bundle (Graphic_Collection setup 1.52 → 0.68 s).
+- Thing filters: the loops that remove disallowed things walk only the things still allowed instead of every thing. It steps aside when another mod patches thing filters.
 - 1.7: decoding mod sounds ahead is off by default. 1.7.5000 streams .ogg sounds instead of decoding them, and on the Progression packs list starts were about 1 s faster without it. It can still be switched on in Mod Settings.
 
 ### Fixed
