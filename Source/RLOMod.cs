@@ -47,6 +47,7 @@ namespace RimWorldLoadingOptimizer
         public bool gameSoundReadAhead = false;
         public bool seedIconReadAhead = false;
         public bool defXmlCache = false;
+        public bool atlasBundleKeys = true;
 #endif
 #if !RW17
         public bool atlasFlush = true;
@@ -114,6 +115,7 @@ namespace RimWorldLoadingOptimizer
             Scribe_Values.Look(ref gameSoundReadAhead, "gameSoundReadAhead", false);
             Scribe_Values.Look(ref seedIconReadAhead, "seedIconReadAhead", false);
             Scribe_Values.Look(ref defXmlCache, "defXmlCache", false);
+            Scribe_Values.Look(ref atlasBundleKeys, "atlasBundleKeys", true);
 #endif
 #if !RW17
             Scribe_Values.Look(ref atlasFlush, "atlasFlush", true);
@@ -175,6 +177,7 @@ namespace RimWorldLoadingOptimizer
                 settings.gameSoundReadAhead = false;
                 settings.seedIconReadAhead = false;
                 settings.defXmlCache = false;
+                settings.atlasBundleKeys = false;
 #endif
 #if !RW17
                 settings.atlasFlush = false;
@@ -271,6 +274,9 @@ namespace RimWorldLoadingOptimizer
             Try("atlas cache miss report", settings.startupReport, () => AtlasMisses.Install(harmony));
             Try("atlas page buffers", settings.atlasPageBuffers, () => AtlasPageBuffers.Install(harmony));
             Try("atlas source stamps", settings.atlasStamps, () => AtlasStamps.Install(harmony));
+#if RW17
+            Try(AtlasBundleKeys.Feature, settings.atlasBundleKeys, () => AtlasBundleKeys.Install(harmony));
+#endif
             Try("mesh upload timing", settings.startupReport, () => MeshUploadTiming.Install(harmony));
             Try("mesh buffer pool", settings.meshPool && Environment.GetEnvironmentVariable("LEANMEMORY_NOMESHPOOL") != "1", () => MeshPool.Install(harmony));
             Try("GC fallback report", settings.startupReport, GcFallback.Install);
@@ -440,6 +446,9 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Reuse buffers for cached atlas pages", ref settings.atlasPageBuffers, "When the game loads its baked texture atlases from its cache, reuse one buffer for every page instead of allocating a new 85 MB block per page. Less memory churn and fewer long memory clean-ups during atlas baking. Same atlases.");
             list.CheckboxLabeled("Pool small mesh buffers while graphics memory is full", ref settings.meshPool, "With many mod textures the graphics card's memory budget is used up, and the engine's memory allocator then gives every small mesh buffer its own allocation from the driver (tens of thousands, about 15 s in the frame before the main menu, plus wasted graphics memory). While that is the case, and only until shortly after the main menu, small mesh buffers are placed in shared 32 MB blocks instead. Same buffers, same rendering; only where they sit in graphics memory changes. Switch this off if you see graphics problems.");
             list.CheckboxLabeled("Read atlas source file details in parallel", ref settings.atlasStamps, "Before the texture atlases are baked, read the size and date of every source texture file on worker threads instead of one by one on the main thread. The game's atlas cache keys come out the same.");
+#if RW17
+            list.CheckboxLabeled("Cache atlas pages with textures from asset bundles", ref settings.atlasBundleKeys, "The game only saves a baked texture atlas page when every texture on it comes from a file, so pages with DLC or mod textures from asset bundles are baked again on every start. Give those textures a cache key from their bundle file (path, size, date and the texture's place in the bundle), the same kind of key the game uses for texture files, so these pages are saved and loaded too.");
+#endif
             list.CheckboxLabeled("Cache the patched def XML (test)", ref settings.defXmlCache, "Saves the def XML after all patches are applied. On the next start with the same mods, files, mod settings and game version, mod XML files are not read and patches are not applied; the saved XML is read on a background thread while the mods start. Missile Girl's own XML cache stays off on those starts. Any change to a Defs, Patches or Assemblies file, the mod list or the game rebuilds it once. Off by default until verified on more mod lists.");
             list.CheckboxLabeled("Keep Missile Girl's rebuilt cache usable (test)", ref settings.gagarinCacheKeep, "When Missile Girl rebuilds its XML cache (for example after a mod or game update), it deletes its own mod list file and keeps hashes of files that are no longer loaded, so the next start is slow again. After a rebuild, write the mod list again and drop those hashes with Missile Girl's own functions. Missile Girl still checks every file on the next start. Off by default until it is verified after real mod updates; this works around a Missile Girl issue.");
             list.CheckboxLabeled("Prepare the game's own sounds ahead (test)", ref settings.gameSoundReadAhead, "Open the game's built-in sound files on worker threads while mod data loads, so they are ready when the sound definitions are resolved. Uses up to 128 MB of extra memory during loading. Off by default until it shows a gain.");

@@ -146,6 +146,10 @@ namespace RimWorldLoadingOptimizer
                 return "texture is gone";
             }
             var path = texture.CoreTexture?.SourcePath;
+            if (path == null && AtlasBundleKeys.TryGet(texture, out _))
+            {
+                return null;
+            }
             if (path == null)
             {
                 return $"'{texture.name}' has no source file (made in code or loaded from a bundle)";
@@ -162,7 +166,7 @@ namespace RimWorldLoadingOptimizer
             var path = texture?.CoreTexture?.SourcePath;
             if (path == null)
             {
-                return "none";
+                return AtlasBundleKeys.TryGet(texture, out var origin) ? origin : "none";
             }
             if (ContentPack.TryGetTextureContentHash(path, out var hash))
             {
