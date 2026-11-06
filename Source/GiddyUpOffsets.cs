@@ -19,7 +19,7 @@ namespace RimWorldLoadingOptimizer
     {
         public const string Feature = "Giddy-Up draw offsets";
 
-        private delegate bool OpenCache(string sourcePath, bool premultiplied, out Waylith.Rendering.ITextureCacheSource file);
+        private delegate bool OpenCache(string sourcePath, bool premultiplied, out Waylith.Graphics.Textures.ITextureCacheSource file);
 
         private sealed class Pending
         {
@@ -61,7 +61,7 @@ namespace RimWorldLoadingOptimizer
             originalReadable = AccessTools.Method(utility, "GetReadableTexture");
             originalBackHeight = AccessTools.Method(utility, "GetBackHeight");
             originalHeight = AccessTools.PropertyGetter(typeof(UnityEngine.Texture), nameof(UnityEngine.Texture.height));
-            var openCache = AccessTools.Method(typeof(Waylith.Rendering.GpuTextureService), "TryOpenTextureCache", new[] { typeof(string), typeof(bool), typeof(Waylith.Rendering.ITextureCacheSource).MakeByRefType() });
+            var openCache = AccessTools.Method(typeof(Waylith.Rendering.GpuTextureService), "TryOpenTextureCache", new[] { typeof(string), typeof(bool), typeof(Waylith.Graphics.Textures.ITextureCacheSource).MakeByRefType() });
             if (setDrawOffset == null || originalHeight == null || openCache?.ReturnType != typeof(bool)
                 || !Takes(originalReadable, typeof(UnityEngine.Texture2D)) || !Takes(originalBackHeight, typeof(int)))
             {

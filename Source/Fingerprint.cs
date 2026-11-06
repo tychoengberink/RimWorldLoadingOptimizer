@@ -289,7 +289,7 @@ namespace RimWorldLoadingOptimizer
             bool prepatcher;
             try
             {
-                prepatcher = RLOMod.Running("zetrith.prepatcher") != null;
+                prepatcher = Compatibility.Prepatcher;
             }
             catch (Exception)
             {

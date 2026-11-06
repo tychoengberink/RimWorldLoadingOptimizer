@@ -45,6 +45,9 @@ namespace RimWorldLoadingOptimizer
 
         public static bool LazyTextures;
 
+        public static bool Prepatcher => RLOMod.Running("zetrith.prepatcher") != null
+            || AppDomain.CurrentDomain.GetAssemblies().Any(a => a.GetName().Name == "RimWorldWaylith.PrepatcherCompat");
+
         private static List<Support> present;
         private static List<string> alongside;
 

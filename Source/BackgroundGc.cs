@@ -13,6 +13,7 @@ namespace RimWorldLoadingOptimizer
     public static class BackgroundGc
     {
         private static readonly MethodInfo Blocking = AccessTools.Method(typeof(GC), nameof(GC.Collect), new[] { typeof(int), typeof(GCCollectionMode) });
+        private static readonly MethodInfo Compacting = AccessTools.Method(typeof(GC), nameof(GC.Collect), new[] { typeof(int), typeof(GCCollectionMode), typeof(bool), typeof(bool) });
 
         private static int redirected;
         private static long heapAtSkipMb;
@@ -21,7 +22,7 @@ namespace RimWorldLoadingOptimizer
         {
             var targets = new[] { typeof(PlayDataLoader) }.Concat(typeof(PlayDataLoader).GetNestedTypes(AccessTools.all))
                 .SelectMany(type => type.GetMethods(AccessTools.all | BindingFlags.DeclaredOnly))
-                .Where(method => !method.IsAbstract && !method.ContainsGenericParameters && method.GetMethodBody() != null && IlScan.CallsAny(method, Blocking))
+                .Where(method => !method.IsAbstract && !method.ContainsGenericParameters && method.GetMethodBody() != null && IlScan.CallsAny(method, Blocking, Compacting))
                 .ToList();
             if (targets.Count != 1)
             {
@@ -42,7 +43,7 @@ namespace RimWorldLoadingOptimizer
         {
             var type = AccessTools.TypeByName("ilyvion.LoadingProgress.StaticConstructorOnStartupUtilityReplacement");
             var method = type == null ? null : AccessTools.Method(type, "CollectGarbage");
-            if (method == null || !IlScan.CallsAny(method, Blocking))
+            if (method == null || !IlScan.CallsAny(method, Blocking, Compacting))
             {
                 return;
             }
@@ -50,7 +51,10 @@ namespace RimWorldLoadingOptimizer
         }
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) =>
-            IlScan.Replace(instructions, Blocking, AccessTools.Method(typeof(BackgroundGc), nameof(Collect)));
+            IlScan.Replace(IlScan.Replace(instructions, Blocking, AccessTools.Method(typeof(BackgroundGc), nameof(Collect), new[] { typeof(int), typeof(GCCollectionMode) })),
+                Compacting, AccessTools.Method(typeof(BackgroundGc), nameof(Collect), new[] { typeof(int), typeof(GCCollectionMode), typeof(bool), typeof(bool) }));
+
+        public static void Collect(int generation, GCCollectionMode mode, bool blocking, bool compacting) => Collect(generation, mode);
 
         public static void Collect(int generation, GCCollectionMode mode)
         {
