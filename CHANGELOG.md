@@ -11,6 +11,7 @@
 
 ### Changed
 - Works with RimWorld 1.7.5000.
+- README: an optional Steam launch option for a larger GC budget while loading (1.7).
 - Research tab layout: the node positions are relaxed per research tab instead of over all tabs at once (1.2 → 0.9 s on the Progression packs list).
 - 1.7: graphics with appearance variants look up each texture folder once per graphic instead of once per variant (0.96 → 0.37 s).
 - 1.7: folder lookups in asset bundles use an index of the folders in each bundle (Graphic_Collection setup 1.52 → 0.68 s).

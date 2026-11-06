@@ -48,6 +48,16 @@ Options → Mod Settings → RimWorld Loading Optimizer → **Start** next to "M
 
 Put RimWorld Loading Optimizer directly after Harmony (its About.xml asks to load before Core, Faster Game Loading and Loading Progress). It still works further down, but the Harmony, type-name and patching speedups then miss every mod loaded before it.
 
+## Optional: larger GC budget (1.7, large mod lists)
+
+RimWorld 1.7 collects garbage every 8 MB of new objects while loading. A larger budget means far fewer collections. A mod cannot change this once the game runs; it is set at launch. In Steam: right-click RimWorld → Properties → Launch Options:
+
+```
+DOTNET_GCgen0size=0x4000000 %command%
+```
+
+On the Progression packs list (1,495 mods, Mac) this took the main menu from 55.2 to 53.5 s, with about 300 instead of 2,400 small collections. Remove it if you see memory problems.
+
 ## Features
 
 | Feature | What it patches | Effect |
