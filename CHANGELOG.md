@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- 1.7, test, off by default: cache the patched def XML. On a start with the same mods, files, mod settings and game version, mod XML files are not read and patches are not applied; the saved XML is read on a background thread while the mods start, and Missile Girl's own XML cache stays off on those starts. The def counts per mod are checked on every start that uses it. On the Progression packs list the start is not faster (61.0 vs 61.1 s warm), because the main thread's content loading, not the XML, decides when loading ends there.
+
 ### Changed
 - Works with RimWorld 1.7.5000.
 - 1.7: decoding mod sounds ahead is off by default. 1.7.5000 streams .ogg sounds instead of decoding them, and on the Progression packs list starts were about 1 s faster without it. It can still be switched on in Mod Settings.
