@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Works with RimWorld 1.7.5000.
+- 1.7: decoding mod sounds ahead is off by default. 1.7.5000 streams .ogg sounds instead of decoding them, and on the Progression packs list starts were about 1 s faster without it. It can still be switched on in Mod Settings.
+
+### Fixed
+- 1.7.5000: Giddy-Up draw offsets work again (a game type moved).
+- 1.7.5000: skipping the forced memory clean-up at the end of loading finds the game's new clean-up call.
+- 1.7: the game's built-in Prepatcher support counts as Prepatcher for the Yet another Optimizer check and the log hint about rewritten methods.
+
 ## 5.2
 
 ### Changed

@@ -34,7 +34,7 @@ namespace RimWorldLoadingOptimizer
         public bool earlyContent = true;
 #if RW17
         public bool backgroundGc = true;
-        public bool soundReadAhead = true;
+        public bool soundReadAhead = false;
         public bool precompilePatched = true;
         public bool backgroundJitProfile = true;
         public bool harmonyRebuildCaches = true;
@@ -100,7 +100,7 @@ namespace RimWorldLoadingOptimizer
             Scribe_Values.Look(ref earlyContent, "earlyContent", true);
 #if RW17
             Scribe_Values.Look(ref backgroundGc, "backgroundGc", true);
-            Scribe_Values.Look(ref soundReadAhead, "soundReadAhead", true);
+            Scribe_Values.Look(ref soundReadAhead, "soundReadAhead", false);
             Scribe_Values.Look(ref precompilePatched, "precompilePatched", true);
             Scribe_Values.Look(ref backgroundJitProfile, "backgroundJitProfile", true);
             Scribe_Values.Look(ref harmonyRebuildCaches, "harmonyRebuildCaches", true);
@@ -200,7 +200,7 @@ namespace RimWorldLoadingOptimizer
                 MainMenu.Then(AudioReadAhead.LogClipHash);
             }
 #endif
-            Compatibility.LazyTextures = Running("sz.yaopt") != null && Running("zetrith.prepatcher") != null;
+            Compatibility.LazyTextures = Running("sz.yaopt") != null && Compatibility.Prepatcher;
             var xmlCache = Running("wowgag.guiperformancepatch") != null;
             if (xmlCache)
             {
