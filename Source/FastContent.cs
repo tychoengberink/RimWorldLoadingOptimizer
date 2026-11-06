@@ -18,6 +18,111 @@ namespace RimWorldLoadingOptimizer
 
         // Which mods have content under a folder, so a folder lookup visits only those holders instead of all of them.
         // A holder is re-indexed when it or its entry count changes, the same signal the per-holder key lists used.
+        private static class BundleFolders<T> where T : class
+        {
+            public struct Entry
+            {
+                public int Mod, Bundle;
+                public string Base;
+            }
+
+            private static readonly List<Entry> None = new List<Entry>();
+            private static Dictionary<string, List<Entry>> bySuffix;
+            private static long stamp = -1;
+            public static int Fallbacks, Builds;
+
+            public static string Suffix(string folderPath)
+            {
+                var lower = folderPath.ToLower();
+                return lower.Length == 0 || lower[lower.Length - 1] == '/' ? lower : lower + "/";
+            }
+
+            private static long Stamp(List<ModContentPack> mods)
+            {
+                long sum = mods.Count;
+                for (var i = 0; i < mods.Count; i++)
+                {
+                    sum = sum * 31 + mods[i].assetBundles.loadedAssetBundles.Count;
+                }
+                return sum;
+            }
+
+            public static List<Entry> Lookup(string folderPath)
+            {
+                if (folderPath == null || Path.IsPathRooted(folderPath))
+                {
+                    return null;
+                }
+                var mods = LoadedModManager.RunningModsListForReading;
+                var current = Stamp(mods);
+                if (current != stamp || bySuffix == null)
+                {
+                    bySuffix = Build(mods);
+                    stamp = current;
+                    Builds++;
+                }
+                if (bySuffix == null)
+                {
+                    return null;
+                }
+                return bySuffix.TryGetValue(Suffix(folderPath), out var list) ? list : None;
+            }
+
+            private static Dictionary<string, List<Entry>> Build(List<ModContentPack> mods)
+            {
+                var result = new Dictionary<string, List<Entry>>();
+                var modsDir = Path.Combine("Assets", "Data");
+                for (var i = mods.Count - 1; i >= 0; i--)
+                {
+                    var count = mods[i].assetBundles.loadedAssetBundles.Count;
+                    if (count == 0)
+                    {
+                        continue;
+                    }
+                    var bases = new List<string> { Path.Combine(Path.Combine(Path.Combine(modsDir, mods[i].FolderName), GenFilePaths.ContentPath<T>()).Replace('\\', '/'), "").ToLower() };
+                    if (!mods[i].IsOfficialMod)
+                    {
+                        bases.Add(Path.Combine(Path.Combine(Path.Combine(modsDir, mods[i].PackageIdPlayerFacing), GenFilePaths.ContentPath<T>()).Replace('\\', '/'), "").ToLower());
+                    }
+                    if (bases.Any(b => b.Length == 0 || b[b.Length - 1] != '/'))
+                    {
+                        return null;
+                    }
+                    for (var j = 0; j < count; j++)
+                    {
+                        foreach (var basePath in bases)
+                        {
+                            var suffixes = new HashSet<string>();
+                            foreach (var name in mods[i].AllAssetNamesInBundle(j))
+                            {
+                                if (!name.StartsWith(basePath, StringComparison.Ordinal))
+                                {
+                                    continue;
+                                }
+                                for (var k = basePath.Length - 1; k < name.Length; k++)
+                                {
+                                    if (name[k] == '/')
+                                    {
+                                        suffixes.Add(name.Substring(basePath.Length, k + 1 - basePath.Length));
+                                    }
+                                }
+                            }
+                            foreach (var suffix in suffixes)
+                            {
+                                if (!result.TryGetValue(suffix, out var list))
+                                {
+                                    list = new List<Entry>();
+                                    result[suffix] = list;
+                                }
+                                list.Add(new Entry { Mod = i, Bundle = j, Base = basePath });
+                            }
+                        }
+                    }
+                }
+                return result;
+            }
+        }
+
         private static class FolderIndex<T> where T : class
         {
             private static readonly List<int> None = new List<int>();
@@ -694,6 +799,25 @@ namespace RimWorldLoadingOptimizer
             {
                 yield return item;
             }
+            var bundles = BundleFolders<T>.Lookup(folderPath);
+            if (bundles != null)
+            {
+                var running2 = LoadedModManager.RunningModsListForReading;
+                var suffix = BundleFolders<T>.Suffix(folderPath);
+                foreach (var entry in bundles)
+                {
+                    var assetBundle = running2[entry.Mod].assetBundles.loadedAssetBundles[entry.Bundle];
+                    foreach (var item in running2[entry.Mod].AllAssetNamesInBundleTrie(entry.Bundle).GetByPrefix(entry.Base + suffix))
+                    {
+                        if (validExtensions.Contains(Path.GetExtension(item)))
+                        {
+                            yield return (T)assetBundle.LoadAsset(item, typeof(T));
+                        }
+                    }
+                }
+                yield break;
+            }
+            BundleFolders<T>.Fallbacks++;
             var mods = LoadedModManager.RunningModsListForReading;
             var modsDir = Path.Combine("Assets", "Data");
             for (var i = mods.Count - 1; i >= 0; i--)
