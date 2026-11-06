@@ -18,6 +18,7 @@ namespace RimWorldLoadingOptimizer
             tryInstall("assembly type cache", settings.startupPhases, () => TypesCache.Install(harmony));
             tryInstall("loading frame budget", settings.startupPhases, () => FrameBudget.Install(harmony));
             tryInstall("fast content lookups", settings.startupPhases, () => FastContent.Install(harmony, settings.textureLookup));
+            tryInstall(AppearanceFolders.Feature, settings.startupPhases, () => AppearanceFolders.Install(harmony));
             tryInstall("designator index", settings.startupPhases, () => DesignatorIndex.Install(harmony));
             tryInstall("CombatAI label scan", settings.Supports("combatai"), () => CaiLabels.Install(harmony));
             tryInstall("category sets", settings.categoryCache, () => CategorySet.Install(harmony));
