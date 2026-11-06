@@ -48,6 +48,7 @@ namespace RimWorldLoadingOptimizer
         public bool seedIconReadAhead = false;
         public bool defXmlCache = false;
         public bool atlasBundleKeys = true;
+        public bool atlasPagePrefetch = true;
 #endif
 #if !RW17
         public bool atlasFlush = true;
@@ -116,6 +117,7 @@ namespace RimWorldLoadingOptimizer
             Scribe_Values.Look(ref seedIconReadAhead, "seedIconReadAhead", false);
             Scribe_Values.Look(ref defXmlCache, "defXmlCache", false);
             Scribe_Values.Look(ref atlasBundleKeys, "atlasBundleKeys", true);
+            Scribe_Values.Look(ref atlasPagePrefetch, "atlasPagePrefetch", true);
 #endif
 #if !RW17
             Scribe_Values.Look(ref atlasFlush, "atlasFlush", true);
@@ -178,6 +180,7 @@ namespace RimWorldLoadingOptimizer
                 settings.seedIconReadAhead = false;
                 settings.defXmlCache = false;
                 settings.atlasBundleKeys = false;
+                settings.atlasPagePrefetch = false;
 #endif
 #if !RW17
                 settings.atlasFlush = false;
@@ -286,6 +289,7 @@ namespace RimWorldLoadingOptimizer
             Try("atlas source stamps", settings.atlasStamps, () => AtlasStamps.Install(harmony));
 #if RW17
             Try(AtlasBundleKeys.Feature, settings.atlasBundleKeys, () => AtlasBundleKeys.Install(harmony));
+            Try(AtlasPagePrefetch.Feature, settings.atlasPagePrefetch, () => AtlasPagePrefetch.Install(harmony));
 #endif
             Try("mesh upload timing", settings.startupReport, () => MeshUploadTiming.Install(harmony));
             Try("mesh buffer pool", settings.meshPool && Environment.GetEnvironmentVariable("LEANMEMORY_NOMESHPOOL") != "1", () => MeshPool.Install(harmony));
@@ -460,6 +464,7 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Read atlas source file details in parallel", ref settings.atlasStamps, "Before the texture atlases are baked, read the size and date of every source texture file on worker threads instead of one by one on the main thread. The game's atlas cache keys come out the same.");
 #if RW17
             list.CheckboxLabeled("Cache atlas pages with textures from asset bundles", ref settings.atlasBundleKeys, "The game only saves a baked texture atlas page when every texture on it comes from a file, so pages with DLC or mod textures from asset bundles are baked again on every start. Give those textures a cache key from their bundle file (path, size, date and the texture's place in the bundle), the same kind of key the game uses for texture files, so these pages are saved and loaded too.");
+            list.CheckboxLabeled("Read cached atlas pages ahead", ref settings.atlasPagePrefetch, "Atlas pages loaded from the game's cache are read and unpacked on the main thread, one after another. Read and unpack the pages the last start used on worker threads while the main thread prepares the atlases, a few pages ahead at a time. A page that is not ready or not listed is loaded the normal way. Same atlases.");
 #endif
             list.CheckboxLabeled("Cache the patched def XML (test)", ref settings.defXmlCache, "Saves the def XML after all patches are applied. On the next start with the same mods, files, mod settings and game version, mod XML files are not read and patches are not applied; the saved XML is read on a background thread while the mods start. Missile Girl's own XML cache stays off on those starts. Any change to a Defs, Patches or Assemblies file, the mod list or the game rebuilds it once. Off by default until verified on more mod lists.");
             list.CheckboxLabeled("Keep Missile Girl's rebuilt cache usable (test)", ref settings.gagarinCacheKeep, "When Missile Girl rebuilds its XML cache (for example after a mod or game update), it deletes its own mod list file and keeps hashes of files that are no longer loaded, so the next start is slow again. After a rebuild, write the mod list again and drop those hashes with Missile Girl's own functions. Missile Girl still checks every file on the next start. Off by default until it is verified after real mod updates; this works around a Missile Girl issue.");
