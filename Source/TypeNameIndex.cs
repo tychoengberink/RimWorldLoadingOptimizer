@@ -81,6 +81,39 @@ namespace RimWorldLoadingOptimizer
             return list.ToArray();
         }
 
+        private static List<ModContentPack> stampMods;
+        private static int[] stampCounts;
+
+        private static bool SameMods()
+        {
+            var mods = LoadedModManager.RunningModsListForReading;
+            var counts = stampCounts;
+            if (!ReferenceEquals(mods, stampMods) || counts == null || counts.Length != mods.Count)
+            {
+                return false;
+            }
+            for (var i = 0; i < counts.Length; i++)
+            {
+                if (mods[i].assemblies.loadedAssemblies.Count != counts[i])
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static void Stamp()
+        {
+            var mods = LoadedModManager.RunningModsListForReading;
+            var counts = new int[mods.Count];
+            for (var i = 0; i < counts.Length; i++)
+            {
+                counts[i] = mods[i].assemblies.loadedAssemblies.Count;
+            }
+            stampMods = mods;
+            stampCounts = counts;
+        }
+
         private static bool IsCurrentOrder(Assembly[] a)
         {
             if (a == null || a.Length < 2 || a[0] != typeof(GenTypes).Assembly)
@@ -251,9 +284,13 @@ namespace RimWorldLoadingOptimizer
             int[] skipped;
             lock (gate)
             {
-                if (!IsCurrentOrder(order))
+                if (!SameMods() && !IsCurrentOrder(order))
                 {
                     Build(CurrentOrder());
+                }
+                if (!SameMods())
+                {
+                    Stamp();
                 }
                 assemblies = order;
                 map = index;
