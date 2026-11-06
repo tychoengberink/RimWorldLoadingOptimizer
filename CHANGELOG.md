@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Added
-- 1.7, test, off by default: cache the patched def XML. On a start with the same mods, files, mod settings and game version, mod XML files are not read and patches are not applied; the saved XML is read on a background thread while the mods start, and Missile Girl's own XML cache stays off on those starts. The def counts per mod are checked on every start that uses it. On the Progression packs list the start is not faster (61.0 vs 61.1 s warm), because the main thread's content loading, not the XML, decides when loading ends there.
+- 1.7, test, off by default: cache the patched def XML. On a start with the same mods, files, mod settings and game version, mod XML files are not read and patches are not applied; the saved XML is read on a background thread while the mods start, and Missile Girl's own XML cache stays off on those starts. Patch files are read on background threads while the mods start. The def counts per mod are checked on every start that uses it. On the Progression packs list the loading thread finishes 3.1 s earlier (30.5 vs 33.6 s) and the main menu is reached at 61.4 instead of 64.0 s (one warm start each).
 
 - 1.7: texture atlas pages with DLC or mod textures from asset bundles are now saved in the game's atlas cache and loaded on the next start, instead of being baked again every start. The bundle textures get a cache key from their bundle file (path, size, date and their place in the bundle). On the Progression packs list all 22 pages load from the cache (was 15) and atlas baking takes 2.1 s instead of 6.3 s; peak memory 14.4 instead of 15.9 GB.
 

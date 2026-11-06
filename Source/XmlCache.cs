@@ -56,6 +56,10 @@ namespace RimWorldLoadingOptimizer
         private static int files;
         private static double fingerprintSeconds, readSeconds, waitSeconds, writeSeconds;
         private static long readBytes;
+        private static Task<System.Collections.Concurrent.ConcurrentDictionary<ModContentPack, LoadableXmlAsset[]>> patchFiles;
+        private static int patchFilesServed;
+        [ThreadStatic] private static bool readingAhead;
+        private static double patchSeconds;
 
         public static bool CacheFileExists => File.Exists(MetaPath) && File.Exists(XmlPath);
 
@@ -72,6 +76,7 @@ namespace RimWorldLoadingOptimizer
             var version = RimWorld.VersionControl.CurrentVersionStringWithRev;
             fingerprint = Task.Run(() => Fingerprint(version, inputs, settingFiles));
             cached = fingerprint.ContinueWith(t => t.Status == TaskStatus.RanToCompletion ? Read(t.Result, mods) : null, TaskContinuationOptions.ExecuteSynchronously);
+            patchFiles = fingerprint.ContinueWith(t => t.Status == TaskStatus.RanToCompletion && t.Result == StoredFingerprint() ? ReadPatchFiles(mods) : null);
 
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML)),
                 prefix: new HarmonyMethod(typeof(XmlCache), nameof(LoadModXmlPrefix)) { priority = Priority.Last });
@@ -80,6 +85,8 @@ namespace RimWorldLoadingOptimizer
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ApplyPatches)),
                 prefix: new HarmonyMethod(typeof(XmlCache), nameof(ApplyPatchesPrefix)) { priority = Priority.Last },
                 postfix: new HarmonyMethod(typeof(XmlCache), nameof(ApplyPatchesPostfix)) { priority = Priority.Last });
+            harmony.Patch(AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)),
+                prefix: new HarmonyMethod(typeof(XmlCache), nameof(PatchFilesPrefix)) { priority = Priority.Last });
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ClearCachedPatches)),
                 prefix: new HarmonyMethod(typeof(XmlCache), nameof(ClearCachedPatchesPrefix)) { priority = Priority.Last });
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
@@ -250,6 +257,50 @@ namespace RimWorldLoadingOptimizer
                 state = $"miss, the cache could not be read ({e.GetType().Name}: {e.Message})";
                 return null;
             }
+        }
+
+        private static System.Collections.Concurrent.ConcurrentDictionary<ModContentPack, LoadableXmlAsset[]> ReadPatchFiles(List<ModContentPack> mods)
+        {
+            var watch = Stopwatch.StartNew();
+            var result = new System.Collections.Concurrent.ConcurrentDictionary<ModContentPack, LoadableXmlAsset[]>();
+            Parallel.ForEach(mods, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount / 2) }, mod =>
+            {
+                readingAhead = true;
+                try
+                {
+                    result[mod] = DirectXmlLoader.XmlAssetsInModFolder(mod, "Patches/");
+                }
+                finally
+                {
+                    readingAhead = false;
+                }
+            });
+            patchSeconds = watch.Elapsed.TotalSeconds;
+            return result;
+        }
+
+        public static bool PatchFilesPrefix(ModContentPack mod, string folderPath, List<string> foldersToLoadDebug, ref LoadableXmlAsset[] __result)
+        {
+            if (readingAhead || !skipPatchCleanup || folderPath != "Patches/" || foldersToLoadDebug != null || patchFiles == null)
+            {
+                return true;
+            }
+            System.Collections.Concurrent.ConcurrentDictionary<ModContentPack, LoadableXmlAsset[]> ready;
+            try
+            {
+                ready = patchFiles.Result;
+            }
+            catch (Exception)
+            {
+                return true;
+            }
+            if (ready == null || !ready.TryRemove(mod, out var assets))
+            {
+                return true;
+            }
+            patchFilesServed++;
+            __result = assets;
+            return false;
         }
 
         private static LoadableXmlAsset Asset(ModContentPack mod, string folder, string name)
@@ -452,7 +503,7 @@ namespace RimWorldLoadingOptimizer
         }
 
         public static string Stats() =>
-            $"XML cache: {state}; key over {files:N0} files in {fingerprintSeconds:F2} s on a worker; cache read {readBytes >> 20} MB in {readSeconds:F2} s on a worker, LoadModXML waited {waitSeconds:F2} s for it";
+            $"XML cache: {state}; key over {files:N0} files in {fingerprintSeconds:F2} s on a worker; cache read {readBytes >> 20} MB in {readSeconds:F2} s on a worker, LoadModXML waited {waitSeconds:F2} s for it; patch files of {patchFilesServed} mods read ahead on workers in {patchSeconds:F2} s";
     }
 }
 #endif
