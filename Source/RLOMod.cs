@@ -185,6 +185,10 @@ namespace RimWorldLoadingOptimizer
 #endif
             }
             Settings = settings;
+            if (ThreadTimeline.Wanted)
+            {
+                ThreadTimeline.Install();
+            }
 #if RW17
             Try("GC latency until the main menu", settings.backgroundGc, GcLatency.Install);
 #endif
@@ -308,6 +312,7 @@ namespace RimWorldLoadingOptimizer
             Try("XML previous-sibling cursor", settings.defLoadingFixes, () => SiblingCursor.Install(harmony));
 #endif
             Try("surgery index", settings.defLoadingFixes, () => SurgeryIndex.Install(harmony));
+            Try(ResearchCoordinates.Feature, settings.defLoadingFixes, () => ResearchCoordinates.Install(harmony));
             Try("type name lookups", settings.defLoadingFixes, () => TypeNameIndex.Install(harmony));
             Try("vanilla facility link lookup", settings.defLoadingFixes, () => FacilityFast.Install(harmony));
             Try("Missile Girl background cache write", settings.defLoadingFixes && settings.gagarinFast && settings.Supports("missilegirl") && !xmlCache, () => GagarinAsync.Install(harmony));
