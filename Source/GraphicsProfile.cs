@@ -54,6 +54,16 @@ namespace RimWorldLoadingOptimizer
             targets.AddRange(AccessTools.GetDeclaredMethods(typeof(StaticTextureAtlas)).Where(m => !m.IsGenericMethodDefinition && !m.Name.StartsWith("<", StringComparison.Ordinal)));
             targets.AddRange(AccessTools.GetDeclaredMethods(typeof(GlobalTextureAtlasManager)).Where(m => !m.IsGenericMethodDefinition && m.Name != nameof(GlobalTextureAtlasManager.BakeStaticAtlases) && !m.Name.StartsWith("<", StringComparison.Ordinal)));
             targets.Add(AccessTools.Method(typeof(Waylith.Rendering.Texture2D), "EndDeferredLoading"));
+            targets.Add(AccessTools.Method(typeof(TextureLookup), nameof(TextureLookup.Get)));
+            targets.Add(AccessTools.Method(typeof(FastContent), nameof(FastContent.Get)));
+            targets.Add(AccessTools.Method(typeof(FastContent), nameof(FastContent.GetOutsideHolders)));
+            foreach (var name in new[] { "Outside", "NativeBundles", "IndexBundles", "SearchBundles", "NamesOf", "BundlesUnpatched" })
+            {
+                targets.Add(AccessTools.Method(typeof(FastContent), name));
+            }
+            targets.Add(AccessTools.Method(typeof(ContentFinder<Texture2D>), nameof(ContentFinder<Texture2D>.TryFindAssetInModBundles)));
+            targets.Add(AccessTools.Method(typeof(Resources), nameof(Resources.Load), new[] { typeof(string), typeof(Type) }));
+            targets.Add(AccessTools.Method(typeof(ShaderUtility), nameof(ShaderUtility.SupportsMaskTex)));
             targets.Add(AccessTools.Method(typeof(ContentFinder<AudioClip>), nameof(ContentFinder<AudioClip>.Get)));
             targets.Add(AccessTools.Method(typeof(ContentFinder<AudioClip>), nameof(ContentFinder<AudioClip>.GetAllInFolder)));
             targets.Add(AccessTools.Method(typeof(UnityStubs.ImportDefaults), nameof(UnityStubs.ImportDefaults.KeepStereo)));

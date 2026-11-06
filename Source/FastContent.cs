@@ -270,7 +270,7 @@ namespace RimWorldLoadingOptimizer
 
         public static int Misses, Folders, SkippedHolders, Mismatches, Methods;
 #if NATIVE_ASSETS
-        public static int BundleLookups, SkippedLoads;
+        public static int BundleLookups, SkippedLoads, SkippedSearches;
 #endif
 
         public static bool Installed { get; private set; }
@@ -394,7 +394,7 @@ namespace RimWorldLoadingOptimizer
             IlScan.Replace(instructions, OriginalGet, redirectGet);
 
 #if NATIVE_ASSETS
-        public static string Stats() => $"fast content: {Methods} methods, {Misses} misses resolved, {BundleLookups} bundle lookups ({SkippedLoads} bundle loads skipped), {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches} verify mismatches";
+        public static string Stats() => $"fast content: {Methods} methods, {Misses} misses resolved, {BundleLookups} bundle lookups ({SkippedSearches} answered from the bundle index, {SkippedLoads} bundle loads skipped), {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches} verify mismatches";
 #else
         public static string Stats() => $"fast content: {Methods} methods, {Misses} misses resolved, {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches} verify mismatches";
 #endif
@@ -492,6 +492,7 @@ namespace RimWorldLoadingOptimizer
         private static Func<string, Texture2D> uncached;
         private static List<BundleMod> bundleMods;
         private static int[] bundleCounts;
+        private static HashSet<string> bundleItems;
         private static string bundleContentPath;
         private static int bundlesCheckedFrame = -1;
         private static bool bundlesUnpatched;
@@ -572,7 +573,7 @@ namespace RimWorldLoadingOptimizer
                 return cached;
             }
             BundleLookups++;
-            var found = SearchBundles(itemPath);
+            var found = InSomeBundle(itemPath) ? SearchBundles(itemPath) : null;
             if (RLOMod.Verify || bundleCheck.IsChecking)
             {
                 var original = uncached(itemPath);
@@ -629,7 +630,65 @@ namespace RimWorldLoadingOptimizer
             bundleMods = list;
             bundleCounts = counts;
             bundleContentPath = contentPath;
+            bundleItems = IndexBundleItems(list);
             return true;
+        }
+
+        private static HashSet<string> IndexBundleItems(List<BundleMod> mods)
+        {
+            var items = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var extensions = ModAssetBundlesHandler.TextureExtensions;
+            foreach (var entry in mods)
+            {
+                var prefixes = entry.ViaPackage ? new[] { Prefix(entry.ByFolder), Prefix(entry.ByPackage) } : new[] { Prefix(entry.ByFolder) };
+                foreach (var bundle in entry.Mod.assetBundles.loadedAssetBundles)
+                {
+                    var names = NamesOf(bundle);
+                    if (names == null)
+                    {
+                        return null;
+                    }
+                    foreach (var name in names)
+                    {
+                        var normalized = name.Replace('\\', '/');
+                        foreach (var prefix in prefixes)
+                        {
+                            if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+                            foreach (var extension in extensions)
+                            {
+                                if (normalized.Length >= prefix.Length + extension.Length && normalized.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    items.Add(normalized.Substring(prefix.Length, normalized.Length - prefix.Length - extension.Length));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return items;
+        }
+
+        private static string Prefix(string folder)
+        {
+            var combined = Path.Combine(folder, "x");
+            return combined.Substring(0, combined.Length - 1).Replace('\\', '/');
+        }
+
+        private static bool InSomeBundle(string itemPath)
+        {
+            if (bundleItems == null || itemPath.Length == 0 || Path.IsPathRooted(itemPath))
+            {
+                return true;
+            }
+            if (bundleItems.Contains(itemPath.Replace('\\', '/')))
+            {
+                return true;
+            }
+            SkippedSearches++;
+            return false;
         }
 
         private static Texture2D SearchBundles(string itemPath)
