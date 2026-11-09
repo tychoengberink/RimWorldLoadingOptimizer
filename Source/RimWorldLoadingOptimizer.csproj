@@ -44,7 +44,7 @@
     <Reference Include="Brutal.Vulkan" HintPath="$(RimWorldManaged)/Brutal.Vulkan.dll" Private="false" />
     <Reference Include="Brutal.Vulkan.Abstractions" HintPath="$(RimWorldManaged)/Brutal.Vulkan.Abstractions.dll" Private="false" />
     <Reference Include="Brutal.Vulkan.Vma" HintPath="$(RimWorldManaged)/Brutal.Vulkan.Vma.dll" Private="false" />
-    <Compile Remove="LoadFromFix.cs" />
+    <Compile Remove="Startup/LoadFromFix.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp" HintPath="$(RimWorldManaged)/Assembly-CSharp.dll" Private="false" />
