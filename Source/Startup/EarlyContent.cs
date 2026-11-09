@@ -52,21 +52,21 @@ namespace RimWorldLoadingOptimizer
             }
             if (reloads.Count == 0)
             {
-                RLOLog.Message("early content loading: no queued content reloads found; skipped");
+                RLOLog.Detail("early content loading: no queued content reloads found; skipped");
                 return;
             }
             var first = reloads[0];
             var last = reloads[reloads.Count - 1];
             if (last - first + 1 != reloads.Count || first < 1 || !IsLoadModContentStep(list[first - 1]) || last + 1 >= list.Count || !IsLoadModContentStep(list[last + 1]))
             {
-                RLOLog.Message("early content loading: the queued content reloads are not in the expected order; skipped");
+                RLOLog.Detail("early content loading: the queued content reloads are not in the expected order; skipped");
                 return;
             }
             for (var i = 0; i < first - 1; i++)
             {
                 if (!IsLoadModContentStep(list[i]))
                 {
-                    RLOLog.Message($"early content loading: {first - 1} other queued action(s) must run before the content reloads; skipped");
+                    RLOLog.Detail($"early content loading: {first - 1} other queued action(s) must run before the content reloads; skipped");
                     return;
                 }
             }

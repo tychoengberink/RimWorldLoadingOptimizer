@@ -31,7 +31,7 @@ namespace RimWorldLoadingOptimizer
         private static SelfCheck warmCheck;
         [ThreadStatic] private static bool bypass;
 
-        public static int Mismatches;
+        public static readonly MismatchLog Mismatches = new MismatchLog("recipe index");
         public static int Served;
         public static int Rebuilds;
         public static int WarmServed;
@@ -160,12 +160,9 @@ namespace RimWorldLoadingOptimizer
                         check.Report(same, $"recipes of {__instance.defName}");
                         if (!same)
                         {
+                            Mismatches.Report($"recipes of {__instance.defName}: cached {cached.Count}, original {original.Count}");
                             warm = false;
                             cached = original;
-                            if (Mismatches++ < 10)
-                            {
-                                RLOLog.Warning($"recipe index mismatch for {__instance.defName}");
-                            }
                         }
                     }
                     Cached(__instance) = cached;

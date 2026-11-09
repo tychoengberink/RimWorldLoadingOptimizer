@@ -98,7 +98,8 @@ namespace RimWorldLoadingOptimizer
         private static MethodInfo placeholder;
         private static bool installed, broken;
 
-        private static long windows, steps, merged, builds, skipped, replays, failures, superseded, crossThread, verifyChecked, verifyMismatches, flushTicks;
+        private static long windows, steps, merged, builds, skipped, replays, failures, superseded, crossThread, verifyChecked, flushTicks;
+        private static readonly MismatchLog mismatches = new MismatchLog("Harmony rebuild coalescing");
         private static readonly Dictionary<string, long> flushReasons = new Dictionary<string, long>();
 
         public static void Install(Harmony harmony)
@@ -184,7 +185,7 @@ namespace RimWorldLoadingOptimizer
             compile = triple?.GetMethod("Compile", new[] { typeof(MethodBase) });
             if (locker == null || state == null || detours == null || infoArrays.Any(f => f == null) || new object[] { wrapException, configOriginal, configSource, configPersistence, creatorConfig, auxiliary, patchMethods, containerAttributes, attributeType, infoDebugging, detourTarget, detourApplied, jobOriginalField, jobRequestedField }.Any(x => x == null))
             {
-                RLOLog.Message("Harmony rebuild coalescing: Harmony no longer has the internals it needs. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail("Harmony rebuild coalescing: Harmony no longer has the internals it needs. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             var self = typeof(Coalesce);
@@ -561,7 +562,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (DevSwitches.Verify)
             {
-                text += $"; verify: {verifyChecked} intermediate rebuilds checked, {verifyMismatches} mismatches";
+                text += $"; verify: {verifyChecked} intermediate rebuilds checked, {mismatches.Count} mismatches";
             }
             return text;
         }

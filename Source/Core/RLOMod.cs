@@ -18,7 +18,7 @@ namespace RimWorldLoadingOptimizer
         public bool textureLookup = true;
         public bool ddsFallback = true;
         public bool audioStreaming = true;
-        public bool startupReport = true;
+        public bool startupReport = false;
         public bool xmlRelease = true;
         public bool shadowedCodeMods = false;
         public bool ddsPrefetch = true;
@@ -125,6 +125,8 @@ namespace RimWorldLoadingOptimizer
 
         public static RLOSettings Settings { get; private set; }
 
+        public const string PackageId = "aruclya.rimworldloadingoptimizer";
+
         public static string HarmonyId { get; private set; }
 
         public RLOMod(ModContentPack content) : base(content)
@@ -167,11 +169,11 @@ namespace RimWorldLoadingOptimizer
             var xmlCache = Running("wowgag.guiperformancepatch") != null;
             if (xmlCache)
             {
-                RLOLog.Message("WOWGAG's Performance Patch caches the whole XML stage itself; RimWorld Loading Optimizer's fast XML patching and its Missile Girl cache helpers stay off so the two caches do not compete.");
+                RLOLog.Detail("WOWGAG's Performance Patch caches the whole XML stage itself; RimWorld Loading Optimizer's fast XML patching and its Missile Girl cache helpers stay off so the two caches do not compete.");
             }
             if (Compatibility.LazyTextures)
             {
-                RLOLog.Message("Yet another Optimizer can load textures lazily with Prepatcher; texture lookups go through the game's own loader, and the atlas cache, DDS read-ahead and DDS fallback stay off.");
+                RLOLog.Detail("Yet another Optimizer can load textures lazily with Prepatcher; texture lookups go through the game's own loader, and the atlas cache, DDS read-ahead and DDS fallback stay off.");
             }
 #if RW17
             Try(XmlCache.Feature, settings.defXmlCache && !xmlCache, () => XmlCache.Install(harmony));
@@ -203,7 +205,7 @@ namespace RimWorldLoadingOptimizer
                 (m.Name ?? "").IndexOf("Yet Another Optimizer", StringComparison.OrdinalIgnoreCase) >= 0);
             if (xpathCompetitor != null && settings.fastXPath)
             {
-                RLOLog.Message($"{xpathCompetitor.Name} also accelerates XML patching; RimWorld Loading Optimizer's fast XML patching stays off to avoid conflicts.");
+                RLOLog.Detail($"{xpathCompetitor.Name} also accelerates XML patching; RimWorld Loading Optimizer's fast XML patching stays off to avoid conflicts.");
             }
             Try("Harmony identity map", settings.harmonyIdentityMap, () => HarmonyIdentityMap.Install(harmony));
 #if RW17
@@ -218,7 +220,7 @@ namespace RimWorldLoadingOptimizer
             Try("think tree keys", settings.thinkKeys, () => ThinkKeys.Install(harmony));
             if (parallelXmlLoader != null && settings.gagarinFast && !xmlCache)
             {
-                RLOLog.Message($"{parallelXmlLoader.Name} loads mod XML in parallel; RimWorld Loading Optimizer leaves LoadModXML to it and skips its own patch-file reuse.");
+                RLOLog.Detail($"{parallelXmlLoader.Name} loads mod XML in parallel; RimWorld Loading Optimizer leaves LoadModXML to it and skips its own patch-file reuse.");
             }
             Try("Missile Girl cache load", settings.gagarinFast && !xmlCache, () => GagarinFast.Install(harmony, parallelXmlLoader != null));
             Try("fast XML patching", settings.fastXPath && xpathCompetitor == null && !xmlCache, () => FastXPath.Install(harmony));
@@ -247,7 +249,7 @@ namespace RimWorldLoadingOptimizer
             var imageOpt = Application.platform != RuntimePlatform.OSXPlayer && (Running("dev.soeur.imageopt") != null || AccessTools.TypeByName("ImageOpt.TextureLoadPatch") != null);
             if (imageOpt)
             {
-                RLOLog.Message("Image Opt loads textures itself on this system; DDS read-ahead and the DDS fallback stay off, shadowed textures are released after Image Opt's texture swap.");
+                RLOLog.Detail("Image Opt loads textures itself on this system; DDS read-ahead and the DDS fallback stay off, shadowed textures are released after Image Opt's texture swap.");
             }
             Try("DDS fallback", settings.ddsFallback && !imageOpt && !Compatibility.LazyTextures, () => DdsFallback.Install(harmony));
             Try("early load boost", settings.earlyLoadBoost && !DevSwitches.NoBoost, () => EarlyLoadBoost.Install(harmony));
@@ -289,7 +291,7 @@ namespace RimWorldLoadingOptimizer
 #endif
             LongEventHandler.ExecuteWhenFinished(() =>
             {
-                Try("compatibility list", true, () => Compatibility.Detect(settings, content));
+                Try("compatibility list", true, () => Compatibility.Detect(settings));
                 if (settings.shadowedTextures)
                 {
                     ShadowedTextures.IncludeCodeMods = settings.shadowedCodeMods;
@@ -426,7 +428,7 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Stream medium .ogg sounds", ref settings.audioStreaming, "Stream sound files of 100 KB and up instead of decoding them into memory.");
 #endif
             list.CheckboxLabeled("Release def XML after loading", ref settings.xmlRelease, "Stop vanilla's unused translation-key bookkeeping from keeping the whole merged def XML in memory.");
-            list.CheckboxLabeled("Startup report in log", ref settings.startupReport, "Log cache statistics and the slowest mod static constructors.");
+            list.CheckboxLabeled("Detailed startup report in log", ref settings.startupReport, "Log what every speedup did during startup, cache statistics and the slowest mod static constructors. For troubleshooting; when off, only the load time and problems are logged.");
             list.GapLine();
             list.Label("Extra support for other mods. Each one speeds up startup code of one specific mod and is off by default. It relies on that mod's internals: it switches itself off when the mod changes and may need a RimWorld Loading Optimizer update after the mod updates. Switch one on here if you want it.");
             foreach (var support in Compatibility.Supports)

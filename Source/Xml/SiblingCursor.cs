@@ -18,7 +18,8 @@ namespace RimWorldLoadingOptimizer
         private const string Feature = "XML previous-sibling cursor";
         private const int MaxSteps = 512;
         private static XmlNode cursor;
-        private static long hits, walks, verifyMismatches;
+        private static long hits, walks;
+        private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static SelfCheck check;
         [ThreadStatic] private static bool bypass;
 
@@ -56,9 +57,9 @@ namespace RimWorldLoadingOptimizer
                 if (next == __instance)
                 {
                     Interlocked.Increment(ref hits);
-                    if (DevSwitches.Verify && Walk(__instance, parent) != node && Interlocked.Increment(ref verifyMismatches) <= 10)
+                    if (DevSwitches.Verify && Walk(__instance, parent) != node)
                     {
-                        RLOLog.Warning($"{Feature} verify mismatch under <{parent.Name}>");
+                        mismatches.Report($"under <{parent.Name}>");
                         return true;
                     }
                     if (check.IsChecking && !Same(__instance, node, parent))
@@ -122,7 +123,7 @@ namespace RimWorldLoadingOptimizer
         }
 
         public static string Stats() => $"{Feature}: {Interlocked.Read(ref hits)} previous siblings found from the last one, {Interlocked.Read(ref walks)} full walks"
-            + (DevSwitches.Verify ? $", {Interlocked.Read(ref verifyMismatches)} verify mismatches" : "");
+            + (DevSwitches.Verify ? $", {mismatches.Count} verify mismatches" : "");
     }
 }
 #endif

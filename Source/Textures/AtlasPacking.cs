@@ -11,7 +11,7 @@ namespace RimWorldLoadingOptimizer
     {
         public static int Lookups;
         public static int Fallbacks;
-        public static int VerifyMismatches;
+        public static readonly MismatchLog VerifyMismatches = new MismatchLog("atlas packing");
         private static readonly Stopwatch time = new Stopwatch();
         private static List<Texture2D> indexed;
         private static Dictionary<Texture2D, int> positions;
@@ -59,7 +59,7 @@ namespace RimWorldLoadingOptimizer
                 var position = positions.TryGetValue(texture, out var found) ? found : -1;
                 if (DevSwitches.Verify && position != list.IndexOf(texture))
                 {
-                    VerifyMismatches++;
+                    VerifyMismatches.Report($"index of {texture.name}: {position} by reference, {list.IndexOf(texture)} from the list");
                     return list.IndexOf(texture);
                 }
                 return position;
@@ -70,7 +70,7 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static string Stats() => $"atlas packing lookups: {Lookups} by reference in {time.Elapsed.TotalSeconds:F2} s, {Fallbacks} left to the original" + (DevSwitches.Verify ? $", {VerifyMismatches} verify mismatches" : "");
+        public static string Stats() => $"atlas packing lookups: {Lookups} by reference in {time.Elapsed.TotalSeconds:F2} s, {Fallbacks} left to the original" + (DevSwitches.Verify ? $", {VerifyMismatches.Count} verify mismatches" : "");
     }
 }
 #endif

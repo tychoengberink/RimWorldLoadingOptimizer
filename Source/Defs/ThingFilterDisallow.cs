@@ -23,7 +23,7 @@ namespace RimWorldLoadingOptimizer
         {
             if (DevSwitches.FilterDigest)
             {
-                MainMenu.Then(() => RLOLog.Message("thing filter digest: " + Digest()));
+                MainMenu.Then(() => RLOLog.Detail("thing filter digest: " + Digest()));
             }
             if (DevSwitches.NoFilterLoops)
             {
@@ -78,7 +78,7 @@ namespace RimWorldLoadingOptimizer
                 if (current == 2)
                 {
                     var owners = guarded.SelectMany(m => Harmony.GetPatchInfo(m)?.Owners ?? Enumerable.Empty<string>()).Where(o => o != RLOMod.HarmonyId).Distinct();
-                    RLOLog.Message(Feature + ": another mod patches ThingFilter (" + string.Join(", ", owners) + "), the original loops run");
+                    RLOLog.Detail(Feature + ": another mod patches ThingFilter (" + string.Join(", ", owners) + "), the original loops run");
                 }
             }
             return current == 1;

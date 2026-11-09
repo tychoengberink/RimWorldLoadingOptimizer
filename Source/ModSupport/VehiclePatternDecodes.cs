@@ -38,7 +38,8 @@ namespace RimWorldLoadingOptimizer
         private static readonly List<Entry> entries = new List<Entry>(MaxEntries);
         private static int activeThread = -1;
         private static int depth;
-        private static int hits, misses, uncached, verified, mismatches, runs;
+        private static int hits, misses, uncached, verified, runs;
+        private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static long missTicks, hitTicks;
         private static bool verify = DevSwitches.Verify;
         private static SelfCheck check;
@@ -131,7 +132,7 @@ namespace RimWorldLoadingOptimizer
                 check.Report(same, $"{format} {w}x{h}");
                 if (!same)
                 {
-                    mismatches++;
+                    mismatches.Report($"{format} {w}x{h} decode differs from the remembered one");
                     entries.Remove(__state.Hit);
                 }
                 return;
@@ -182,7 +183,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (verify)
             {
-                text += $"; verify: {verified} remembered decodes compared with a fresh decode, {mismatches} mismatches";
+                text += $"; verify: {verified} remembered decodes compared with a fresh decode, {mismatches.Count} mismatches";
             }
             return text;
         }

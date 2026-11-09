@@ -41,7 +41,8 @@ namespace RimWorldLoadingOptimizer
         private static Dictionary<ModContentPack, Dictionary<string, FileInfo>> files;
         private static long start;
 
-        private static int replaced, refreshes, reused, encoded, uncacheable, verified, mismatches;
+        private static int replaced, refreshes, reused, encoded, uncacheable, verified;
+        private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static long ticks;
 
         public static void Install(Harmony harmony)
@@ -63,7 +64,7 @@ namespace RimWorldLoadingOptimizer
             manager = AccessTools.Field(type, "WorldPresetManager");
             if (root == null || manager == null || Get == null || Encode == null)
             {
-                RLOLog.Message($"{Feature}: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             duplicateTexture = AccessTools.MethodDelegate<Func<Texture2D, Texture2D>>(duplicate);
@@ -76,7 +77,7 @@ namespace RimWorldLoadingOptimizer
             active = replaced == 2;
             if (!active)
             {
-                RLOLog.Message($"{Feature}: expected 2 image exports, found {replaced}. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: expected 2 image exports, found {replaced}. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             StartupPhaseFixes.Reports.Add(Stats);
@@ -153,7 +154,7 @@ namespace RimWorldLoadingOptimizer
             catch (Exception e)
             {
                 previous.Clear();
-                RLOLog.Message($"{Feature}: could not read last start's images ({e.GetType().Name}: {e.Message}); all images are encoded as usual.");
+                RLOLog.Detail($"{Feature}: could not read last start's images ({e.GetType().Name}: {e.Message}); all images are encoded as usual.");
             }
         }
 
@@ -187,8 +188,7 @@ namespace RimWorldLoadingOptimizer
                 check.Report(same, $"image for '{itemPath}'");
                 if (!same && DevSwitches.Verify)
                 {
-                    mismatches++;
-                    RLOLog.Warning($"{Feature} verify: image for '{itemPath}' differs from last start's ({original.Length} vs {cached.Length} bytes)");
+                    mismatches.Report($"image for '{itemPath}' differs from last start's ({original.Length} vs {cached.Length} bytes)");
                 }
                 current[key] = (Sha(original), original.Length);
                 return original;
@@ -221,7 +221,7 @@ namespace RimWorldLoadingOptimizer
             }
             catch (Exception e)
             {
-                RLOLog.Message($"{Feature}: could not save the image list ({e.GetType().Name}: {e.Message}); the next start encodes all images again.");
+                RLOLog.Detail($"{Feature}: could not save the image list ({e.GetType().Name}: {e.Message}); the next start encodes all images again.");
             }
             finally
             {
@@ -342,7 +342,7 @@ namespace RimWorldLoadingOptimizer
         public static string Stats()
         {
             var text = $"{Feature}: {reused} reused, {encoded} encoded ({uncacheable} not cacheable) in {refreshes} refreshes, {StartupPhaseFixes.Seconds(ticks) * 1000:F0} ms";
-            return DevSwitches.Verify ? text + $"; verify {verified} checked, {mismatches} mismatches" : text;
+            return DevSwitches.Verify ? text + $"; verify {verified} checked, {mismatches.Count} mismatches" : text;
         }
     }
 }

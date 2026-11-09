@@ -101,7 +101,7 @@ namespace RimWorldLoadingOptimizer
                 }
                 catch (Exception e)
                 {
-                    RLOLog.Message($"graphics profile: {target.DeclaringType?.Name}.{target.Name} not measured ({e.GetType().Name})");
+                    RLOLog.Detail($"graphics profile: {target.DeclaringType?.Name}.{target.Name} not measured ({e.GetType().Name})");
                 }
             }
             StartupPhaseFixes.Reports.Add(Stats);

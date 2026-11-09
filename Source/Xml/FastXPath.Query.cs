@@ -407,15 +407,7 @@ namespace RimWorldLoadingOptimizer
         {
             if (!fast.Cast<XmlNode>().SequenceEqual(slow.Cast<XmlNode>()))
             {
-                Mismatch(xpath);
-            }
-        }
-
-        private static void Mismatch(string xpath)
-        {
-            if (Mismatches++ < 20)
-            {
-                RLOLog.Warning($"fast XPath mismatch: {xpath}");
+                Mismatches.Report(xpath);
             }
         }
     }

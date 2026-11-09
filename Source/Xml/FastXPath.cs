@@ -47,7 +47,7 @@ namespace RimWorldLoadingOptimizer
 
         public static int Hits;
         public static int Fallbacks;
-        public static int Mismatches;
+        public static readonly MismatchLog Mismatches = new MismatchLog("fast XPath");
         public static int PatchedMethods;
         public static readonly Stopwatch PatchTime = new Stopwatch();
 
@@ -151,8 +151,8 @@ namespace RimWorldLoadingOptimizer
         public static Exception StopTimer(Exception __exception)
         {
             StopWindow(null);
-            RLOLog.Message($"XML patching took {PatchTime.Elapsed.TotalSeconds:F1} s; fast XPath hits {Hits}, fallbacks {Fallbacks}, accelerated methods {PatchedMethods}, index rebuilds {DefIndex.Rebuilds}, defs re-indexed {DefIndex.Reindexed}" +
-                        (DevSwitches.Verify ? $", verify mismatches {Mismatches}" : "") +
+            RLOLog.Detail($"XML patching took {PatchTime.Elapsed.TotalSeconds:F1} s; fast XPath hits {Hits}, fallbacks {Fallbacks}, accelerated methods {PatchedMethods}, index rebuilds {DefIndex.Rebuilds}, defs re-indexed {DefIndex.Reindexed}" +
+                        (DevSwitches.Verify ? $", verify mismatches {Mismatches.Count}" : "") +
                         "\n  top fallback shapes:" + string.Concat(FallbackShapes.OrderByDescending(p => p.Value).Take(12).Select(p => $"\n    {p.Value,5}  {p.Key}")));
             return __exception;
         }
@@ -177,7 +177,7 @@ namespace RimWorldLoadingOptimizer
                 var node = fast.Count > 0 ? fast[0] : null;
                 if (DevSwitches.Verify && node != context.SelectSingleNode(xpath))
                 {
-                    Mismatch(xpath);
+                    Mismatches.Report(xpath);
                 }
                 return node;
             }

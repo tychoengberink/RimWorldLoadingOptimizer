@@ -319,7 +319,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             new Harmony(MissileGirlHarmonyId).UnpatchAll(MissileGirlHarmonyId);
-            RLOLog.Message("XML cache: Missile Girl's XML caching stays off for this start, RimWorld Loading Optimizer's XML cache is used instead");
+            RLOLog.Detail("XML cache: Missile Girl's XML caching stays off for this start, RimWorld Loading Optimizer's XML cache is used instead");
         }
 
         public static bool LoadModXmlPrefix(ref List<LoadableXmlAsset> __result)

@@ -22,7 +22,8 @@ namespace RimWorldLoadingOptimizer
         private static Assembly[] order;
         private static Dictionary<string, Entry> index;
         private static int[] unindexed;
-        private static long fast, slow, builds, mismatches, ticks;
+        private static long fast, slow, builds, ticks;
+        private static readonly MismatchLog mismatches = new MismatchLog("type name index");
         private static SelfCheck check;
         private static Func<string, Type> original;
         [ThreadStatic] private static bool bypass;
@@ -303,8 +304,7 @@ namespace RimWorldLoadingOptimizer
                 check.Report(expected == result, $"type {typeName}");
                 if (expected != result)
                 {
-                    Interlocked.Increment(ref mismatches);
-                    RLOLog.Warning($"type name index mismatch for {typeName}: {result} vs {expected}");
+                    mismatches.Report($"{typeName}: {result} vs {expected}");
                     result = expected;
                 }
             }
@@ -314,6 +314,6 @@ namespace RimWorldLoadingOptimizer
             return false;
         }
 
-        public static string Stats() => $"type name index: {fast} fast lookups in {ticks / (double)Stopwatch.Frequency:F2} s, {slow} left to vanilla, {builds} builds, {unindexed?.Length ?? 0} unindexed assemblies" + (DevSwitches.Verify ? $", verify mismatches {mismatches}" : "");
+        public static string Stats() => $"type name index: {fast} fast lookups in {ticks / (double)Stopwatch.Frequency:F2} s, {slow} left to vanilla, {builds} builds, {unindexed?.Length ?? 0} unindexed assemblies" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
     }
 }

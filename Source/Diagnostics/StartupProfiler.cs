@@ -243,8 +243,8 @@ namespace RimWorldLoadingOptimizer
             {
                 rows = spans.OrderBy(r => r.Key).Select(r => r.Value).ToList();
             }
-            RLOLog.Message($"Harmony patch calls before menu: {patchCalls}, main thread {patchTicksMain / (double)Stopwatch.Frequency:F2} s, other threads {patchTicksOther / (double)Stopwatch.Frequency:F2} s");
-            RLOLog.Message($"wall spans (start, +seconds, thread, depth):\n  " + string.Join("\n  ", rows));
+            RLOLog.Detail($"Harmony patch calls before menu: {patchCalls}, main thread {patchTicksMain / (double)Stopwatch.Frequency:F2} s, other threads {patchTicksOther / (double)Stopwatch.Frequency:F2} s");
+            RLOLog.Detail($"wall spans (start, +seconds, thread, depth):\n  " + string.Join("\n  ", rows));
         }
 
         private static void Diagnostic(string name, Action report)
@@ -280,8 +280,8 @@ namespace RimWorldLoadingOptimizer
             var parts = new List<Func<string>>
             {
                 () => $"category cache: {CategoryCache.Hits} hits, {CategoryCache.Builds} builds",
-                () => $"recipe index: {RecipeIndex.Served} defs served ({RecipeIndex.WarmServed} in Alpha Implants' warm-up without a new check), {RecipeIndex.Rebuilds} rebuilds, {RecipeIndex.Mismatches} verify mismatches",
-                () => $"texture lookups: {TextureLookup.Hits} hits, {TextureLookup.CachedMisses} cached misses, {TextureLookup.SkippedScans} holder scans skipped, {TextureLookup.Builds} builds, {TextureLookup.PatchedMethods} methods, {TextureLookup.Mismatches} verify mismatches",
+                () => $"recipe index: {RecipeIndex.Served} defs served ({RecipeIndex.WarmServed} in Alpha Implants' warm-up without a new check), {RecipeIndex.Rebuilds} rebuilds, {RecipeIndex.Mismatches.Count} verify mismatches",
+                () => $"texture lookups: {TextureLookup.Hits} hits, {TextureLookup.CachedMisses} cached misses, {TextureLookup.SkippedScans} holder scans skipped, {TextureLookup.Builds} builds, {TextureLookup.PatchedMethods} methods, {TextureLookup.Mismatches.Count} verify mismatches",
                 () => $"DDS files recovered from PNG: {DdsFallback.Recovered}",
 #if !NATIVE_ASSETS
                 DdsPrefetch.Stats,

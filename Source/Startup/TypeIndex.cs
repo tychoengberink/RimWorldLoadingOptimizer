@@ -15,7 +15,7 @@ namespace RimWorldLoadingOptimizer
 
         public static int Lookups;
         public static int CachedHits;
-        public static int Mismatches;
+        public static readonly MismatchLog Mismatches = new MismatchLog("type index");
         private static SelfCheck check;
         [ThreadStatic] private static bool bypass;
 
@@ -143,12 +143,11 @@ namespace RimWorldLoadingOptimizer
             check.Report(original == type, $"type {name}");
             if (original != type)
             {
-                Mismatches++;
-                RLOLog.Warning($"type index mismatch for {name}: {type} vs {original}");
+                Mismatches.Report($"{name}: {type} vs {original}");
             }
             return original;
         }
 
-        public static string Stats() => $"type index: {Lookups} slow-path lookups, {CachedHits} cached hits, {byFullName.Count} types, {Mismatches} verify mismatches";
+        public static string Stats() => $"type index: {Lookups} slow-path lookups, {CachedHits} cached hits, {byFullName.Count} types, {Mismatches.Count} verify mismatches";
     }
 }

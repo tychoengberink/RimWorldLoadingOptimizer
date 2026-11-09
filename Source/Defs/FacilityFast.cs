@@ -15,7 +15,8 @@ namespace RimWorldLoadingOptimizer
         private static int state;
         private static SelfCheck check;
         [ThreadStatic] private static bool bypass;
-        private static long calls, ticks, mismatches;
+        private static long calls, ticks;
+        private static readonly MismatchLog mismatches = new MismatchLog("facility link lookup");
 
         public static void Install(Harmony harmony)
         {
@@ -98,7 +99,7 @@ namespace RimWorldLoadingOptimizer
                 check.Report(same, $"facility {parentDef?.defName}");
                 if (!same)
                 {
-                    mismatches++;
+                    mismatches.Report($"facility {parentDef?.defName}: fast {result.Count} buildings, original {slow.Count}");
                     result = slow;
                 }
             }
@@ -107,6 +108,6 @@ namespace RimWorldLoadingOptimizer
             return false;
         }
 
-        public static string Stats() => $"facility link lookup: {calls} calls in {StartupPhaseFixes.Seconds(ticks):F2} s" + (state == 2 ? " (left to vanilla: other patches present)" : "") + (DevSwitches.Verify ? $", verify mismatches {mismatches}" : "");
+        public static string Stats() => $"facility link lookup: {calls} calls in {StartupPhaseFixes.Seconds(ticks):F2} s" + (state == 2 ? " (left to vanilla: other patches present)" : "") + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
     }
 }

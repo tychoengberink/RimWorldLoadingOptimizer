@@ -68,7 +68,7 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
                 harmony.Patch(report, prefix: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(ComparePrefix)), finalizer: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(CompareFinalizer)));
             }
             harmony.Patch(AccessTools.Method(type, nameof(RetextureUtility.PreCacheAllTextureReports)), postfix: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(PreCachePostfix)));
-            RLOLog.Message("Melee Animation: retexture scan index installed" + (verify ? " (verify mode)" : ""));
+            RLOLog.Detail("Melee Animation: retexture scan index installed" + (verify ? " (verify mode)" : ""));
         }
 
         private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
@@ -288,7 +288,7 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
         private static void Report(string when)
         {
             var verifyText = verify || reportChecks > 0 ? $"; verify: {callChecks} scans and {reportChecks} reports compared, {mismatches} mismatches" : "";
-            RLOLog.Message($"Melee Animation: {when}: {lookups} indexed scans, {builds} index builds ({entries} textures, {index?.Count ?? 0} paths, {buildMs:F0} ms){verifyText}");
+            RLOLog.Detail($"Melee Animation: {when}: {lookups} indexed scans, {builds} index builds ({entries} textures, {index?.Count ?? 0} paths, {buildMs:F0} ms){verifyText}");
         }
     }
 }

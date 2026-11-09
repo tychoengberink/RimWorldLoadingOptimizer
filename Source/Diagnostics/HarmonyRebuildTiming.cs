@@ -50,7 +50,7 @@ namespace RimWorldLoadingOptimizer
             if (assemblyReferences == null || dependencies == null || state == null || methods.Any(m => m == null)
                 || !Has(update, "original", typeof(MethodBase)) || !Has(generate, "structuredHelper", typeof(bool)) || !scan.GetParameters().Any(p => p.Name == "module"))
             {
-                RLOLog.Message($"{Feature}: Harmony's internals do not have the expected shape. The Harmony rebuild timing report is skipped; nothing is broken.");
+                RLOLog.Detail($"{Feature}: Harmony's internals do not have the expected shape. The Harmony rebuild timing report is skipped; nothing is broken.");
                 return;
             }
             HarmonyMethod H(string name) => new HarmonyMethod(typeof(HarmonyRebuildTiming), name);
@@ -184,7 +184,7 @@ namespace RimWorldLoadingOptimizer
                     : $"Harmony patched methods at the main menu: {unique}; {perMethod.Count} rebuilt during startup, rebuilds per method mean {perMethod.Average(r => r.Value):F2}, max {perMethod[0].Value}; most rebuilt: {string.Join(", ", perMethod.Take(8).Select(r => $"{Name(r.Key)} {r.Value}"))}",
                 $"Harmony assembly path references: {(refs.Count == 0 ? "none" : string.Join(", ", refs.Select(r => $"{r.Key} {r.Value}")))}",
             };
-            RLOLog.Message(string.Join("\n[RLO] ", lines));
+            RLOLog.Detail(string.Join("\n[RLO] ", lines));
         }
     }
 }

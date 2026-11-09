@@ -56,7 +56,7 @@ namespace RimWorldLoadingOptimizer
             var free = AccessTools.Method(typeof(VmaAllocator), nameof(VmaAllocator.FreeAllocation), new[] { typeof(BufferAllocationInfo).MakeByRefType() });
             if (allocate == null || shutdown == null || free == null)
             {
-                RLOLog.Message($"{Feature}: the engine's mesh uploader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: the engine's mesh uploader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             var release = AccessTools.Method(typeof(GpuMeshBuffer), nameof(GpuMeshBuffer.Release), new[] { typeof(IBufferAllocator) });
@@ -79,7 +79,7 @@ namespace RimWorldLoadingOptimizer
             harmony.Patch(shutdown, postfix: new HarmonyMethod(typeof(MeshPool), nameof(ShutdownPostfix)));
             StartupPhaseFixes.Reports.Add(Stats);
             MainMenu.Then(() => menuAt = Stopwatch.GetTimestamp());
-            MainMenu.Then(() => RLOLog.Message(Stats()));
+            MainMenu.Then(() => RLOLog.Detail(Stats()));
         }
 
         private static bool FreesThrough(MethodInfo declared, MethodInfo free)
@@ -129,7 +129,7 @@ namespace RimWorldLoadingOptimizer
             if (vertex == uint.MaxValue || vertex != index)
             {
                 failed = true;
-                RLOLog.Message($"{Feature}: vertex and index buffers use different memory types ({vertex}, {index}); mesh buffers keep the engine's allocation.");
+                RLOLog.Detail($"{Feature}: vertex and index buffers use different memory types ({vertex}, {index}); mesh buffers keep the engine's allocation.");
                 return false;
             }
             var create = new VmaPoolCreateInfo { MemoryTypeIndex = vertex, BlockSize = ByteSize.Of(BlockBytes), Priority = 1f };

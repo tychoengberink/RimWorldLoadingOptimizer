@@ -39,7 +39,8 @@ namespace RimWorldLoadingOptimizer
         private static volatile bool done;
         private static int started, finished, redirected;
         private static long startedAt, listTicks, lastUse, menuAt;
-        private static int clips, folders, listed, ownOpens, otherPaths, compared, mismatches;
+        private static int clips, folders, listed, ownOpens, otherPaths, compared;
+        private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static long ownTicks;
         private static Timer idle;
         private static SelfCheck check;
@@ -63,7 +64,7 @@ namespace RimWorldLoadingOptimizer
             extensions = (AccessTools.Field(resources, "AudioClipExtensions")?.GetValue(null) as string[])?.ToArray();
             if (clipCtor == null || extensions == null || clipOpen?.ReturnType != openedType || !typeof(IPrefetchedAsset).IsAssignableFrom(openedType))
             {
-                RLOLog.Message($"{Feature}: the game's sound loading no longer has the members it needs. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: the game's sound loading no longer has the members it needs. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             var openForPrefetch = AccessTools.Method(typeof(AudioClip), "OpenForPrefetch", new[] { typeof(string) });
@@ -90,7 +91,7 @@ namespace RimWorldLoadingOptimizer
             if (redirected != 1)
             {
                 harmony.Unpatch(stub, HarmonyPatchType.Transpiler, harmony.Id);
-                RLOLog.Message($"{Feature}: the sound load call was not found as expected ({redirected} of 1). This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: the sound load call was not found as expected ({redirected} of 1). This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             harmony.Patch(preResolve, prefix: new HarmonyMethod(typeof(ResourceSoundReadAhead), nameof(Begin)));
@@ -127,7 +128,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (AudioBackend.Current?.IsInitialized != true)
             {
-                RLOLog.Message($"{Feature}: the audio system is not running; skipped");
+                RLOLog.Detail($"{Feature}: the audio system is not running; skipped");
                 return;
             }
             var requests = new List<(string path, bool folder)>();
@@ -196,7 +197,7 @@ namespace RimWorldLoadingOptimizer
             }
             catch (Exception e)
             {
-                RLOLog.Message($"{Feature}: could not list the game's sound files ({e.Message}); skipped");
+                RLOLog.Detail($"{Feature}: could not list the game's sound files ({e.Message}); skipped");
                 return;
             }
             listTicks = Stopwatch.GetTimestamp() - startedAt;
@@ -281,9 +282,9 @@ namespace RimWorldLoadingOptimizer
                 }
             }
             Interlocked.Increment(ref compared);
-            if (difference != null && Interlocked.Increment(ref mismatches) <= 5)
+            if (difference != null)
             {
-                RLOLog.Warning($"{Feature} verify mismatch: {path}: {difference}");
+                mismatches.Report($"{path}: {difference}");
             }
             return difference;
         }
@@ -331,7 +332,7 @@ namespace RimWorldLoadingOptimizer
             queue?.Stop();
             if (DevSwitches.Verify)
             {
-                RLOLog.Message($"{Feature} verify: {compared} compared, {mismatches} mismatches");
+                RLOLog.Detail($"{Feature} verify: {compared} compared, {mismatches.Count} mismatches");
             }
         }
 
@@ -347,7 +348,7 @@ namespace RimWorldLoadingOptimizer
                 + $"opened {ownOpens} listed sounds itself in {S(Volatile.Read(ref ownTicks)):F1} s, {otherPaths} sounds outside the list; workers done at {(q.DoneAt == 0 ? "not yet" : $"{S(q.DoneAt - startedAt):F1} s")}";
             if (DevSwitches.Verify)
             {
-                text += $"; verify: {compared} compared, {mismatches} mismatches";
+                text += $"; verify: {compared} compared, {mismatches.Count} mismatches";
             }
             return text;
         }

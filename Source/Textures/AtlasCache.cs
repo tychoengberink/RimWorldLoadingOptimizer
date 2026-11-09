@@ -37,7 +37,8 @@ namespace RimWorldLoadingOptimizer
         private static readonly HashSet<string> usedKeys = new HashSet<string>();
         private static readonly Stopwatch total = new Stopwatch();
         private static readonly byte[] buffer = new byte[Chunk];
-        private static int hits, misses, saved, failures, unknownTextures, verified, verifyMismatches, bakeCalls;
+        private static int hits, misses, saved, failures, unknownTextures, verified, bakeCalls;
+        private static readonly MismatchLog verifyMismatches = new MismatchLog("atlas cache");
         private static long savedBytes, loadedBytes;
 
         public static int Hits => hits;
@@ -109,7 +110,7 @@ namespace RimWorldLoadingOptimizer
 #if RW17
             if (AccessTools.Method(typeof(StaticTextureAtlas), "ApplyTextureCompression") == null)
             {
-                RLOLog.Message("atlas cache: not available on this RimWorld version (it caches baked atlases itself); skipped");
+                RLOLog.Detail("atlas cache: not available on this RimWorld version (it caches baked atlases itself); skipped");
                 return;
             }
 #endif
@@ -207,11 +208,11 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            RLOLog.Message($"atlas cache: {bakeCalls} atlases: hits {hits}, misses {misses}, saved {saved} ({savedBytes / 1048576} MB), failures {failures}, {unknownTextures} textures from no mod file (their atlases are not cached); "
+            RLOLog.Detail($"atlas cache: {bakeCalls} atlases: hits {hits}, misses {misses}, saved {saved} ({savedBytes / 1048576} MB), failures {failures}, {unknownTextures} textures from no mod file (their atlases are not cached); "
                 + $"loaded {loadedBytes / 1048576} MB in {loadSeconds:F2} s, saved in {saveSeconds:F2} s, keys {keySeconds:F2} s; BakeStaticAtlases total {total.Elapsed.TotalSeconds:F2} s"
                 + (notReadable > 0 ? $"; {notReadable} atlases not readable after compression on this system, caching switched off until settings or mods change" : "")
                 + (skippedUncacheable > 0 ? $"; {skippedUncacheable} atlases skipped (not cacheable on this system)" : "")
-                + (DevSwitches.Verify ? $"; verify: {verified} atlases compared, {verifyMismatches} mismatches" : ""));
+                + (DevSwitches.Verify ? $"; verify: {verified} atlases compared, {verifyMismatches.Count} mismatches" : ""));
             try
             {
                 if (notReadable > 0 && hits == 0 && saved == 0)
@@ -365,8 +366,7 @@ namespace RimWorldLoadingOptimizer
                     if (p.verify)
                     {
                         verified++;
-                        verifyMismatches++;
-                        RLOLog.Warning($"atlas cache: verify {p.key}: vanilla bake produced an unusable atlas or data could not be read");
+                        verifyMismatches.Report($"verify {p.key}: vanilla bake produced an unusable atlas or data could not be read");
                     }
                     Delete(p.key);
                     return;

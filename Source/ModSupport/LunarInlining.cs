@@ -11,7 +11,8 @@ namespace RimWorldLoadingOptimizer
 {
     public static class LunarInlining
     {
-        private static int replaced = -1, scanned, fallbacks, mismatches, withTargets;
+        private static int replaced = -1, scanned, fallbacks, withTargets;
+        private static readonly MismatchLog mismatches = new MismatchLog("Lunar scan");
         private static long ticks;
         private static readonly MethodInfo original = AccessTools.Method(typeof(PatchProcessor), nameof(PatchProcessor.ReadMethodBody), new[] { typeof(MethodBase) });
         private static SelfCheck check;
@@ -124,10 +125,7 @@ namespace RimWorldLoadingOptimizer
                 check.Report(same, $"method operands of {method.Name}");
                 if (!same)
                 {
-                    if (++mismatches <= 10)
-                    {
-                        RLOLog.Warning($"Lunar scan verify mismatch for {method.FullDescription()}: fast {fast.Count}, original {slow.Count} method operands");
-                    }
+                    mismatches.Report($"{method.FullDescription()}: fast {fast.Count}, original {slow.Count} method operands");
                     return body;
                 }
             }
@@ -242,7 +240,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return "Lunar inlining fixer: not patched";
             }
-            return $"Lunar inlining fixer: {replaced} call sites redirected, {scanned} method bodies scanned in {ticks * 1000.0 / Stopwatch.Frequency:F0} ms ({withTargets} with method operands), {fallbacks} fallbacks to Harmony's reader, {mismatches} verify mismatches";
+            return $"Lunar inlining fixer: {replaced} call sites redirected, {scanned} method bodies scanned in {ticks * 1000.0 / Stopwatch.Frequency:F0} ms ({withTargets} with method operands), {fallbacks} fallbacks to Harmony's reader, {mismatches.Count} verify mismatches";
         }
     }
 }

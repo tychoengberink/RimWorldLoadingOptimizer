@@ -13,7 +13,8 @@ namespace RimWorldLoadingOptimizer
         private static readonly Dictionary<long, (int key, uint step)> resume = new Dictionary<long, (int, uint)>();
         private static bool installed;
         private static SelfCheck check;
-        private static long calls, resumed, steps, savedSteps, mismatches;
+        private static long calls, resumed, steps, savedSteps;
+        private static readonly MismatchLog mismatches = new MismatchLog("think key");
 
         public static void Install(Harmony harmony)
         {
@@ -92,17 +93,13 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             resume.Remove(__state.id);
-            mismatches++;
-            if (mismatches <= 5)
-            {
-                RLOLog.Warning($"think key mismatch for {node.GetType().FullName}: fast {__state.key}, original {node.UniqueSaveKey}");
-            }
+            mismatches.Report($"{node.GetType().FullName}: fast {__state.key}, original {node.UniqueSaveKey}");
         }
 
         public static string Stats()
         {
             return installed
-                ? $"think keys: {calls} single assigns, {resumed} resumed, {steps} probes, {savedSteps} probes skipped, {mismatches} verify mismatches"
+                ? $"think keys: {calls} single assigns, {resumed} resumed, {steps} probes, {savedSteps} probes skipped, {mismatches.Count} verify mismatches"
                 : "think keys: off";
         }
     }

@@ -17,7 +17,8 @@ namespace RimWorldLoadingOptimizer
         private static readonly HashSet<Assembly> uncacheable = new HashSet<Assembly>();
         private static readonly object gate = new object();
         [ThreadStatic] private static bool inside;
-        private static int hits, misses, mismatches, early;
+        private static int hits, misses, early;
+        private static readonly MismatchLog mismatches = new MismatchLog("assembly type cache");
         private static bool installed;
 
         public static void Install(Harmony harmony)
@@ -30,7 +31,7 @@ namespace RimWorldLoadingOptimizer
             var getTypes = AccessTools.Method(typeof(Assembly), nameof(Assembly.GetTypes), Type.EmptyTypes);
             harmony.Patch(getTypes, prefix: new HarmonyMethod(typeof(TypesCache), nameof(Prefix)));
             MainMenu.UnpatchAfterStartup(getTypes);
-            StartupPhaseFixes.Reports.Add(() => $"assembly type cache: {early} calls before the mod constructors, {hits} hits, {misses} assemblies read, {uncacheable.Count} uncacheable, {mismatches} verify mismatches");
+            StartupPhaseFixes.Reports.Add(() => $"assembly type cache: {early} calls before the mod constructors, {hits} hits, {misses} assemblies read, {uncacheable.Count} uncacheable, {mismatches.Count} verify mismatches");
         }
 
         public static Type[] Get(Assembly assembly)
@@ -148,9 +149,9 @@ namespace RimWorldLoadingOptimizer
                     {
                         same = ReferenceEquals(fresh[i], cached[i]);
                     }
-                    if (!same && mismatches++ < 10)
+                    if (!same)
                     {
-                        RLOLog.Warning($"assembly type cache verify mismatch for {__instance.GetName().Name}");
+                        mismatches.Report(__instance.GetName().Name);
                     }
                 }
                 finally

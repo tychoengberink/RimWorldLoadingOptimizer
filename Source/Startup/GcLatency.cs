@@ -17,7 +17,7 @@ namespace RimWorldLoadingOptimizer
             if (mode != GCLatencyMode.Interactive)
             {
                 outcome = $"left at {mode} (only Interactive, the concurrent GC, is changed)";
-                RLOLog.Message($"GC latency: the runtime runs in {mode} mode, not Interactive; left alone");
+                RLOLog.Detail($"GC latency: the runtime runs in {mode} mode, not Interactive; left alone");
                 StartupPhaseFixes.Reports.Add(Stats);
                 return;
             }
@@ -25,7 +25,7 @@ namespace RimWorldLoadingOptimizer
             if (GCSettings.LatencyMode != GCLatencyMode.SustainedLowLatency)
             {
                 outcome = $"the runtime kept {GCSettings.LatencyMode}";
-                RLOLog.Message($"GC latency: the runtime did not accept SustainedLowLatency and stays at {GCSettings.LatencyMode}");
+                RLOLog.Detail($"GC latency: the runtime did not accept SustainedLowLatency and stays at {GCSettings.LatencyMode}");
                 StartupPhaseFixes.Reports.Add(Stats);
                 return;
             }
@@ -33,7 +33,7 @@ namespace RimWorldLoadingOptimizer
             gen2AtStart = GC.CollectionCount(2);
             setAt = Now();
             outcome = $"SustainedLowLatency from {setAt:F1} s until the main menu (was {mode})";
-            RLOLog.Message($"GC latency: {mode} -> SustainedLowLatency until the main menu, so the runtime avoids blocking full collections while loading");
+            RLOLog.Detail($"GC latency: {mode} -> SustainedLowLatency until the main menu, so the runtime avoids blocking full collections while loading");
             MainMenu.Then(Restore);
             StartupPhaseFixes.Reports.Add(Stats);
         }
@@ -51,12 +51,12 @@ namespace RimWorldLoadingOptimizer
             if (current != GCLatencyMode.SustainedLowLatency)
             {
                 outcome += $"; someone else changed it to {current} before the main menu, left at that";
-                RLOLog.Message($"GC latency: changed to {current} by someone else before the main menu; left at that. {counts}");
+                RLOLog.Detail($"GC latency: changed to {current} by someone else before the main menu; left at that. {counts}");
                 return;
             }
             GCSettings.LatencyMode = mode;
             outcome += $", restored at {Now():F1} s";
-            RLOLog.Message($"GC latency: back to {GCSettings.LatencyMode} at the main menu. {counts}");
+            RLOLog.Detail($"GC latency: back to {GCSettings.LatencyMode} at the main menu. {counts}");
         }
 
         private static string Counts()

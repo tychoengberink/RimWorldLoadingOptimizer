@@ -22,7 +22,9 @@ namespace RimWorldLoadingOptimizer
         [ThreadStatic] private static ModContentPack loadingPatchesOf;
         private static bool collecting;
         private static readonly Dictionary<ModContentPack, LoadableXmlAsset[]> parsedPatches = new Dictionary<ModContentPack, LoadableXmlAsset[]>();
-        private static int loads, loadMismatches, reused, reuseMismatches, collected, dropped;
+        private static int loads, reused, collected, dropped;
+        private static readonly MismatchLog loadMismatches = new MismatchLog("Missile Girl cache load");
+        private static readonly MismatchLog reuseMismatches = new MismatchLog("reused patch files");
         private static double loadSeconds;
 #if RW17
         private static bool parallelRead;
@@ -373,7 +375,7 @@ namespace RimWorldLoadingOptimizer
                 return root;
             }
             parallelFallbacks++;
-            RLOLog.Message("Missile Girl cache read on several threads: left to the original reader (" + GagarinParallelRead.LastFallback + ")");
+            RLOLog.Detail("Missile Girl cache read on several threads: left to the original reader (" + GagarinParallelRead.LastFallback + ")");
             using (var input = new StringReader(File.ReadAllText(path)))
             using (var original = XmlReader.Create(input, settings))
             {
@@ -493,8 +495,7 @@ namespace RimWorldLoadingOptimizer
             var slow = original.DocumentElement.ChildNodes;
             if (document.ChildNodes.Count != original.ChildNodes.Count || fast.Count != slow.Count || assets.Count != originalAssets.Count)
             {
-                loadMismatches++;
-                RLOLog.Warning($"gagarin load shape mismatch: {document.ChildNodes.Count}/{original.ChildNodes.Count} roots, {fast.Count}/{slow.Count} defs, {assets.Count}/{originalAssets.Count} assets");
+                loadMismatches.Report($"shape {document.ChildNodes.Count}/{original.ChildNodes.Count} roots, {fast.Count}/{slow.Count} defs, {assets.Count}/{originalAssets.Count} assets");
                 return;
             }
             var fastDef = document.DocumentElement.FirstChild;
@@ -505,11 +506,7 @@ namespace RimWorldLoadingOptimizer
                 originalAssets.TryGetValue(slowDef, out var slowAsset);
                 if (fastDef.OuterXml != slowDef.OuterXml || fastAsset != slowAsset || !SameShape(fastDef, slowDef))
                 {
-                    loadMismatches++;
-                    if (loadMismatches <= 5)
-                    {
-                        RLOLog.Warning($"gagarin load mismatch at def {i}: {fastDef.Name}");
-                    }
+                    loadMismatches.Report($"def {i}: {fastDef.Name}");
                 }
             }
         }
@@ -618,8 +615,7 @@ namespace RimWorldLoadingOptimizer
             patchCheck.Report(same, $"patch files of {mod.PackageId}");
             if (!same)
             {
-                reuseMismatches++;
-                RLOLog.Warning($"reused patch files differ for {mod.PackageId}");
+                reuseMismatches.Report(mod.PackageId);
                 return fresh;
             }
             return stored;
@@ -638,7 +634,7 @@ namespace RimWorldLoadingOptimizer
 #else
             var parallel = "";
 #endif
-            return $"Missile Girl cache loads: {loads} in {loadSeconds:F2} s{parallel}, {loadMismatches} verify mismatches{(skippedNote.Length > 0 ? " (" + skippedNote + ")" : "")}\npatch files parsed once and reused within this start (not Missile Girl's cache) for {reused} of {collected} mods ({dropped} unused), {reuseMismatches} verify mismatches";
+            return $"Missile Girl cache loads: {loads} in {loadSeconds:F2} s{parallel}, {loadMismatches.Count} verify mismatches{(skippedNote.Length > 0 ? " (" + skippedNote + ")" : "")}\npatch files parsed once and reused within this start (not Missile Girl's cache) for {reused} of {collected} mods ({dropped} unused), {reuseMismatches.Count} verify mismatches";
         }
     }
 }

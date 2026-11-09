@@ -19,7 +19,8 @@ namespace RimWorldLoadingOptimizer
         private static readonly MethodInfo getFullName = AccessTools.PropertyGetter(typeof(AssemblyName), nameof(AssemblyName.FullName));
         private static int redirected;
         private static SelfCheck check;
-        private static long hits, misses, mismatches;
+        private static long hits, misses;
+        private static readonly MismatchLog mismatches = new MismatchLog(Feature);
 
         public static void Install(Harmony harmony)
         {
@@ -34,7 +35,7 @@ namespace RimWorldLoadingOptimizer
                 .ToList();
             if (closures.Count != 1)
             {
-                RLOLog.Message($"{Feature}: Harmony's generated assembly loader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: Harmony's generated assembly loader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             if (!VersionCheck.Pattern(Feature, closures[0], code => Enumerable.Range(0, Math.Max(0, code.Count - 1)).Count(i => Calls(code[i], getName) && Calls(code[i + 1], getFullName)) == 1,
@@ -50,7 +51,7 @@ namespace RimWorldLoadingOptimizer
             harmony.Patch(closures[0], transpiler: new HarmonyMethod(typeof(HarmonyAssemblyNames), nameof(Transpiler)));
             if (redirected == 0)
             {
-                RLOLog.Message($"{Feature}: the assembly name lookup was not found exactly once. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: the assembly name lookup was not found exactly once. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             StartupPhaseFixes.Reports.Add(Stats);
@@ -95,10 +96,7 @@ namespace RimWorldLoadingOptimizer
                     check?.Report(fresh == name, $"name of {fresh}");
                     if (fresh != name)
                     {
-                        if (Interlocked.Increment(ref mismatches) <= 10)
-                        {
-                            RLOLog.Warning($"{Feature} verify mismatch: cached {name}, now {fresh}");
-                        }
+                        mismatches.Report($"cached {name}, now {fresh}");
                         return fresh;
                     }
                 }
@@ -110,7 +108,7 @@ namespace RimWorldLoadingOptimizer
             return name;
         }
 
-        public static string Stats() => $"Harmony assembly name cache: {Interlocked.Read(ref hits)} hits, {Interlocked.Read(ref misses)} names computed" + (DevSwitches.Verify ? $", {Interlocked.Read(ref mismatches)} verify mismatches" : "");
+        public static string Stats() => $"Harmony assembly name cache: {Interlocked.Read(ref hits)} hits, {Interlocked.Read(ref misses)} names computed" + (DevSwitches.Verify ? $", {mismatches.Count} verify mismatches" : "");
     }
 }
 #endif

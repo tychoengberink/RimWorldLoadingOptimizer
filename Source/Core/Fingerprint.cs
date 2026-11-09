@@ -264,7 +264,7 @@ namespace RimWorldLoadingOptimizer
                 var where = $"{method.DeclaringType?.FullName}.{method.Name}";
                 if (ignore)
                 {
-                    RLOLog.Warning($"{feature}: {where} changed (il {hash}, normalized {normalized}), used anyway because LEANMEMORY_IGNORE_FINGERPRINTS=1");
+                    RLOLog.Warning($"{feature}: {where} changed (il {hash}, normalized {normalized}), used anyway because RLO_IGNORE_FINGERPRINTS=1");
                     continue;
                 }
                 Skip(feature, $"{where} is not the version RimWorld Loading Optimizer was checked against ({LikelyCause(method)}; il {hash}, normalized {normalized})");
@@ -279,7 +279,7 @@ namespace RimWorldLoadingOptimizer
             {
                 Changed.Add(feature);
             }
-            RLOLog.Message($"{feature}: {reason}. This speedup is skipped and the original code runs; nothing is broken.");
+            RLOLog.Detail($"{feature}: {reason}. This speedup is skipped and the original code runs; nothing is broken.");
         }
 
         private static string LikelyCause(MethodBase method)

@@ -33,7 +33,8 @@ namespace RimWorldLoadingOptimizer
         private static ConstructorInfo loaderCtor;
         private static FieldInfo[] loaderFields;
         [ThreadStatic] private static bool bypass;
-        private static long served, fallbacks, ticks, verifyMismatches;
+        private static long served, fallbacks, ticks;
+        private static readonly MismatchLog mismatches = new MismatchLog(Feature);
 
         public static void Install(Harmony harmony)
         {
@@ -47,7 +48,7 @@ namespace RimWorldLoadingOptimizer
             var referencesGetter = moduleType == null ? null : AccessTools.PropertyGetter(moduleType, "AssemblyReferences");
             if (ctor == null || fullName == null || referencesGetter == null || ctor.GetParameters().Length != 2 || ctor.GetParameters()[0].ParameterType != moduleType)
             {
-                RLOLog.Message($"{Feature}: Harmony's generated assembly loader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: Harmony's generated assembly loader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             var closures = PatchProcessor.ReadMethodBody(ctor)
@@ -78,7 +79,7 @@ namespace RimWorldLoadingOptimizer
             if (redirected != 1)
             {
                 harmony.Unpatch(ctor, HarmonyPatchType.Transpiler, harmony.Id);
-                RLOLog.Message($"{Feature}: the assembly list in Harmony's generated assembly loader was not found exactly once. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: the assembly list in Harmony's generated assembly loader was not found exactly once. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             if (check.IsChecking)
@@ -266,9 +267,9 @@ namespace RimWorldLoadingOptimizer
                 if (names != null)
                 {
                     var expected = domain.GetAssemblies().Where(a => names.Contains(HarmonyAssemblyNames.FullNameOf(a))).ToHashSet();
-                    if (!expected.SetEquals(result) && Interlocked.Increment(ref verifyMismatches) <= 10)
+                    if (!expected.SetEquals(result))
                     {
-                        RLOLog.Warning($"{Feature} verify mismatch: index {string.Join(", ", result.Select(a => a.FullName))}, full list {string.Join(", ", expected.Select(a => a.FullName))}");
+                        mismatches.Report($"index {string.Join(", ", result.Select(a => a.FullName))}, full list {string.Join(", ", expected.Select(a => a.FullName))}");
                         return domain.GetAssemblies();
                     }
                 }
@@ -294,7 +295,7 @@ namespace RimWorldLoadingOptimizer
                 names = strong.Count + weak.Count;
             }
             return $"Harmony dependency name index: {Interlocked.Read(ref served)} generated assemblies bound from the index in {Interlocked.Read(ref ticks) / (double)Stopwatch.Frequency:F2} s, {Interlocked.Read(ref fallbacks)} got the full assembly list, {names} names indexed"
-                + (DevSwitches.Verify ? $", {Interlocked.Read(ref verifyMismatches)} verify mismatches" : "");
+                + (DevSwitches.Verify ? $", {mismatches.Count} verify mismatches" : "");
         }
     }
 }

@@ -11,6 +11,9 @@
 
 ### Changed
 - Works with RimWorld 1.7.5000.
+- Loading screen: with Loading Progress, one line "RimWorld Loading Optimizer enabled" at the bottom of its window instead of the green bar; without it, a small panel in the game's window style.
+- The log only shows the load time and problems. The per-feature startup report is now the setting "Detailed startup report in log" (off by default).
+- Diagnostic environment variables start with `RLO_` (for example `RLO_ALL_OFF`, `RLO_VERIFY`, `RLO_PROFILE`); see the README.
 - README: an optional Steam launch option for a larger GC budget while loading (1.7).
 - Research tab layout: the node positions are relaxed per research tab instead of over all tabs at once (1.2 → 0.9 s on the Progression packs list).
 - 1.7: graphics with appearance variants look up each texture folder once per graphic instead of once per variant (0.96 → 0.37 s).

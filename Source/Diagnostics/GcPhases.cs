@@ -171,7 +171,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             menuReported = true;
-            RLOLog.Message("GC per phase, " + Row("report until main menu", atReport, Take()));
+            RLOLog.Detail("GC per phase, " + Row("report until main menu", atReport, Take()));
         }
     }
 }

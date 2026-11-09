@@ -16,7 +16,8 @@ namespace RimWorldLoadingOptimizer
         private static readonly List<ThingDef> NoUsers = new List<ThingDef>();
 
         private static Dictionary<RecipeDef, List<ThingDef>> users;
-        private static int installed, patchedMethods, served, surgeries, mismatches;
+        private static int installed, patchedMethods, served, surgeries;
+        private static readonly MismatchLog mismatches = new MismatchLog("Research Reinvented: Stepping Stones");
         private static SelfCheck check;
 
         public static void Install(Harmony harmony)
@@ -121,10 +122,7 @@ namespace RimWorldLoadingOptimizer
                 check.Report(same, $"recipe users of {recipe.defName}");
                 if (!same)
                 {
-                    if (mismatches++ < 10)
-                    {
-                        RLOLog.Warning($"Research Reinvented: Stepping Stones verify mismatch: recipe users of {recipe.defName}");
-                    }
+                    mismatches.Report($"recipe users of {recipe.defName}");
                     return original;
                 }
             }
@@ -172,9 +170,9 @@ namespace RimWorldLoadingOptimizer
                     cached = null;
                     var original = recipe.IsSurgery;
                     check.Report(fast == original, $"IsSurgery of {recipe.defName}");
-                    if (fast != original && mismatches++ < 10)
+                    if (fast != original)
                     {
-                        RLOLog.Warning($"Research Reinvented: Stepping Stones verify mismatch: IsSurgery of {recipe.defName}");
+                        mismatches.Report($"IsSurgery of {recipe.defName}");
                     }
                     return original;
                 }
@@ -184,7 +182,7 @@ namespace RimWorldLoadingOptimizer
 
         public static string Stats()
         {
-            return installed == 0 ? "Research Reinvented: Stepping Stones recipe users: off" : $"Research Reinvented: Stepping Stones recipe users: {patchedMethods} methods redirected, {served} recipe-user lookups served from the index, {surgeries} IsSurgery values computed; {mismatches} verify mismatches";
+            return installed == 0 ? "Research Reinvented: Stepping Stones recipe users: off" : $"Research Reinvented: Stepping Stones recipe users: {patchedMethods} methods redirected, {served} recipe-user lookups served from the index, {surgeries} IsSurgery values computed; {mismatches.Count} verify mismatches";
         }
     }
 }

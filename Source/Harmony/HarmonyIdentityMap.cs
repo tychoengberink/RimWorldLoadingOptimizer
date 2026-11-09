@@ -23,7 +23,7 @@ namespace RimWorldLoadingOptimizer
         private static long misses;
         private static long sameObject;
         private static long equalMember;
-        private static long mismatches;
+        private static readonly MismatchLog mismatches = new MismatchLog("Harmony identity map");
         private static long originalThrew;
         private static readonly Dictionary<string, int> missKinds = new Dictionary<string, int>();
 
@@ -192,9 +192,9 @@ namespace RimWorldLoadingOptimizer
                     RLOLog.Warning($"Harmony identity map equal member: {mref} -> map {found} (reflected {found?.ReflectedType}) vs original {expected} (reflected {expected?.ReflectedType})");
                 }
             }
-            else if (Interlocked.Increment(ref mismatches) <= 20)
+            else
             {
-                RLOLog.Warning($"Harmony identity map mismatch: {mref} -> map {found} ({found?.GetType().Name}) vs original {expected} ({expected?.GetType().Name})");
+                mismatches.Report($"{mref} -> map {found} ({found?.GetType().Name}) vs original {expected} ({expected?.GetType().Name})");
             }
             __result = expected;
             return false;
@@ -232,7 +232,7 @@ namespace RimWorldLoadingOptimizer
             {
                 kinds = string.Join(", ", missKinds.OrderByDescending(k => k.Value).Select(k => $"{k.Key} {k.Value}"));
             }
-            return $"Harmony identity map (verify): {mapped} imports mapped, {hits} hits, {misses} misses ({kinds}), {sameObject} same object, {equalMember} equal member (other ReflectedType), {mismatches} mismatches, {originalThrew} where the original resolver threw";
+            return $"Harmony identity map (verify): {mapped} imports mapped, {hits} hits, {misses} misses ({kinds}), {sameObject} same object, {equalMember} equal member (other ReflectedType), {mismatches.Count} mismatches, {originalThrew} where the original resolver threw";
         }
     }
 }

@@ -40,7 +40,7 @@ namespace RimWorldLoadingOptimizer
             var beginFrame = AccessTools.Method(type, nameof(MeshUploader.BeginFrame));
             if (drain == null || uploadBatch == null || record == null || create == null || allocate == null || submit == null || beginFrame == null)
             {
-                RLOLog.Message("mesh uploads: the engine's mesh uploader was not found; skipped");
+                RLOLog.Detail("mesh uploads: the engine's mesh uploader was not found; skipped");
                 return;
             }
             Patch(drain, nameof(DrainPrefix), nameof(DrainPostfix));
@@ -150,7 +150,7 @@ namespace RimWorldLoadingOptimizer
             if (startupAt != 0 && Stopwatch.GetTimestamp() - startupAt >= GraceSeconds * Stopwatch.Frequency)
             {
                 done = true;
-                RLOLog.Message($"mesh uploads until {GraceSeconds:F0} s after startup: {Summary()}");
+                RLOLog.Detail($"mesh uploads until {GraceSeconds:F0} s after startup: {Summary()}");
             }
         }
 

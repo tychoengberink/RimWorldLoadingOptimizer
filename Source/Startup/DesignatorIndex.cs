@@ -15,7 +15,8 @@ namespace RimWorldLoadingOptimizer
         private static BuildableDef[] defs;
         private static DesignationCategoryDef[] categories;
         private static Dictionary<DesignationCategoryDef, List<BuildableDef>> groups;
-        private static int calls, builds, mismatches;
+        private static int calls, builds;
+        private static readonly MismatchLog mismatches = new MismatchLog("designator index");
         private static SelfCheck check;
 
         public static void Install(Harmony harmony)
@@ -29,7 +30,7 @@ namespace RimWorldLoadingOptimizer
             }
             check = new SelfCheck("Designator index", code, 10);
             harmony.Patch(target, transpiler: new HarmonyMethod(typeof(DesignatorIndex), nameof(Transpiler)));
-            StartupPhaseFixes.Reports.Add(() => $"designator index: {calls} categories, {builds} index builds, {mismatches} verify mismatches");
+            StartupPhaseFixes.Reports.Add(() => $"designator index: {calls} categories, {builds} index builds, {mismatches.Count} verify mismatches");
         }
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
@@ -69,10 +70,7 @@ namespace RimWorldLoadingOptimizer
                 check.Report(same, $"designators of {category.defName}");
                 if (!same)
                 {
-                    if (mismatches++ < 10)
-                    {
-                        RLOLog.Warning($"designator index verify mismatch for {category.defName}");
-                    }
+                    mismatches.Report(category.defName);
                     return source.Where(predicate);
                 }
             }

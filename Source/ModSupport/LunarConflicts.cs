@@ -11,7 +11,8 @@ namespace RimWorldLoadingOptimizer
         private static readonly MethodInfo GetPatchInfo = AccessTools.Method(typeof(Harmony), nameof(Harmony.GetPatchInfo));
         private static readonly Dictionary<MethodBase, (byte[] bytes, Patches patches)> cache = new Dictionary<MethodBase, (byte[], Patches)>();
         private static Dictionary<MethodBase, byte[]> state;
-        private static int methods, calls, hits, misses, checks, mismatches;
+        private static int methods, calls, hits, misses, checks;
+        private static readonly MismatchLog mismatches = new MismatchLog("Lunar patch conflicts");
         private static SelfCheck check;
 
         public static void Install(Harmony harmony)
@@ -97,10 +98,7 @@ namespace RimWorldLoadingOptimizer
             if (fresh == null || !Same(cached.Prefixes, fresh.Prefixes) || !Same(cached.Postfixes, fresh.Postfixes) || !Same(cached.Transpilers, fresh.Transpilers)
                 || !Same(cached.Finalizers, fresh.Finalizers) || !Same(cached.InnerPrefixes, fresh.InnerPrefixes) || !Same(cached.InnerPostfixes, fresh.InnerPostfixes))
             {
-                if (++mismatches <= 10)
-                {
-                    RLOLog.Warning($"lunar verify mismatch for {method.FullDescription()}");
-                }
+                mismatches.Report($"patches of {method.FullDescription()}");
                 return false;
             }
             return true;
@@ -108,6 +106,6 @@ namespace RimWorldLoadingOptimizer
 
         private static string Key(Patch p) => $"{p.index}|{p.owner}|{p.priority}|{string.Join(",", p.before ?? new string[0])}|{string.Join(",", p.after ?? new string[0])}|{p.debug}|{p.PatchMethod?.MetadataToken}|{p.PatchMethod?.Module.ModuleVersionId}";
 
-        public static string Stats() => $"lunar conflict check: {methods} methods, {calls} patch-info calls, {hits} served from cache, {misses} deserialized" + (LateModSupport.Verify ? $", verify checks {checks}, mismatches {mismatches}" : "");
+        public static string Stats() => $"lunar conflict check: {methods} methods, {calls} patch-info calls, {hits} served from cache, {misses} deserialized" + (LateModSupport.Verify ? $", verify checks {checks}, mismatches {mismatches.Count}" : "");
     }
 }

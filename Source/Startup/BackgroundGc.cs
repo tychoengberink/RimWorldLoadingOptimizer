@@ -24,7 +24,7 @@ namespace RimWorldLoadingOptimizer
                 .ToList();
             if (targets.Count != 1)
             {
-                RLOLog.Message($"load-end memory clean-up: expected one forced collection in the loading code, found {targets.Count}; skipped");
+                RLOLog.Detail($"load-end memory clean-up: expected one forced collection in the loading code, found {targets.Count}; skipped");
                 return;
             }
             harmony.Patch(targets[0], transpiler: new HarmonyMethod(typeof(BackgroundGc), nameof(Transpiler)));
@@ -32,7 +32,7 @@ namespace RimWorldLoadingOptimizer
             {
                 LongEventHandler.ExecuteWhenFinished(() => RLOMod.Try("skip the load-end memory clean-up (Loading Progress)", true, () => PatchLoadingProgress(harmony)));
             }
-            MainMenu.Then(() => RLOLog.Message(redirected == 0
+            MainMenu.Then(() => RLOLog.Detail(redirected == 0
                 ? "load-end memory clean-up: not reached before the main menu"
                 : $"load-end memory clean-up: the forced full collection was skipped (managed heap {heapAtSkipMb} MB at that point, {GC.GetTotalMemory(false) >> 20} MB at the main menu); the runtime collects as usual"));
         }

@@ -46,7 +46,7 @@ namespace RimWorldLoadingOptimizer
             {
                 try
                 {
-                    RLOLog.Message(report());
+                    RLOLog.Detail(report());
                 }
                 catch (Exception e)
                 {

@@ -15,7 +15,8 @@ namespace RimWorldLoadingOptimizer
         private static int version;
         private static bool inWindow;
         private static Thread windowThread;
-        private static long hits, misses, verifyMismatches, mutations;
+        private static long hits, misses, mutations;
+        private static readonly MismatchLog verifyMismatches = new MismatchLog("child-list cursor");
 
         [ThreadStatic] private static Slot[] slots;
         [ThreadStatic] private static int nextSlot;
@@ -79,7 +80,7 @@ namespace RimWorldLoadingOptimizer
                 {
                     activeDoc.NodeInserted -= OnMutation;
                     activeDoc.NodeRemoved -= OnMutation;
-                    RLOLog.Message($"child-list cursor: {hits} sequential hits, {misses} walks, {mutations} document mutations seen" + (DevSwitches.Verify ? $", verify mismatches {verifyMismatches}" : ""));
+                    RLOLog.Detail($"child-list cursor: {hits} sequential hits, {misses} walks, {mutations} document mutations seen" + (DevSwitches.Verify ? $", verify mismatches {verifyMismatches.Count}" : ""));
                 }
                 slots = null;
                 inWindow = false;
@@ -135,7 +136,7 @@ namespace RimWorldLoadingOptimizer
                     hits++;
                     if (DevSwitches.Verify && Walk(container, i) != found)
                     {
-                        verifyMismatches++;
+                        verifyMismatches.Report($"item {i} under <{container.Name}>");
                     }
                     slot.Index = i;
                     slot.Node = found;

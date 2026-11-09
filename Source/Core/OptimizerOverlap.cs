@@ -132,7 +132,7 @@ namespace RimWorldLoadingOptimizer
             {
                 steppedAside.Add($"{name} (on {where})");
             }
-            RLOLog.Message($"{name}: another optimizer also replaces or rewrites {where}. This speedup steps aside and leaves that code to it; nothing is broken.");
+            RLOLog.Detail($"{name}: another optimizer also replaces or rewrites {where}. This speedup steps aside and leaves that code to it; nothing is broken.");
         }
 
         private static bool IsOptimizer(MethodInfo patch)

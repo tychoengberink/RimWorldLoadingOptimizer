@@ -330,12 +330,12 @@ namespace RimWorldLoadingOptimizer
                     if (DevSwitches.Verify)
                     {
                         var patched = methods.Count(preparedMethods.ContainsKey);
-                        RLOLog.Message($"pre-compile patched methods verify: {patched} of {preparedMethods.Count} prepared methods were patched this start, {lines.Count} methods listed for the next start, no errors reached game code");
+                        RLOLog.Detail($"pre-compile patched methods verify: {patched} of {preparedMethods.Count} prepared methods were patched this start, {lines.Count} methods listed for the next start, no errors reached game code");
                     }
                 }
                 catch (Exception e)
                 {
-                    RLOLog.Message($"pre-compile patched methods: could not save the list for the next start: {e.Message}");
+                    RLOLog.Detail($"pre-compile patched methods: could not save the list for the next start: {e.Message}");
                 }
             });
         }

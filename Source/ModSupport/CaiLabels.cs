@@ -24,7 +24,7 @@ namespace RimWorldLoadingOptimizer
         private static int deferred;
         private static int types;
         private static int skipped;
-        private static int mismatches;
+        private static readonly MismatchLog mismatches = new MismatchLog("CombatAI label scan");
         private static long ticks;
         private static int checkedTypes;
 
@@ -149,9 +149,9 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var hit = all.FirstOrDefault(m => names.Contains(m.Name) && Candidate(m));
-            if (hit != null && Interlocked.Increment(ref mismatches) <= 10)
+            if (hit != null)
             {
-                RLOLog.Warning($"CombatAI label scan verify mismatch: {type.FullName}.{hit.Name} was skipped");
+                mismatches.Report($"{type.FullName}.{hit.Name} was skipped");
             }
         }
 
@@ -206,6 +206,6 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static string Stats() => !installed ? "CombatAI label scan: not active" : types == 0 ? "CombatAI label scan: CombatAI's scan did not run after RimWorld Loading Optimizer was set up (it may be switched off in CombatAI, or CombatAI loads before RimWorld Loading Optimizer)" : $"CombatAI label scan: {StartupPhaseFixes.Seconds(ticks):F2} s, types {types}, skipped {skipped}, distinct types checked {checkedTypes + DeclaresCount()}, patches moved to the main thread {deferred}" + (DevSwitches.Verify ? $", verify mismatches {mismatches}" : "");
+        public static string Stats() => !installed ? "CombatAI label scan: not active" : types == 0 ? "CombatAI label scan: CombatAI's scan did not run after RimWorld Loading Optimizer was set up (it may be switched off in CombatAI, or CombatAI loads before RimWorld Loading Optimizer)" : $"CombatAI label scan: {StartupPhaseFixes.Seconds(ticks):F2} s, types {types}, skipped {skipped}, distinct types checked {checkedTypes + DeclaresCount()}, patches moved to the main thread {deferred}" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
     }
 }

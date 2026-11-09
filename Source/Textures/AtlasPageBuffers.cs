@@ -29,7 +29,7 @@ namespace RimWorldLoadingOptimizer
             var bake = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases));
             if (bake == null || source == null || buffers == null || !buffers.IsStatic || buffers.IsInitOnly || buffers.FieldType != typeof(ArrayPool<byte>))
             {
-                RLOLog.Message("atlas page buffers: the game's texture cache buffer pool was not found; skipped");
+                RLOLog.Detail("atlas page buffers: the game's texture cache buffer pool was not found; skipped");
                 return;
             }
             var create = AccessTools.Method(typeof(ArrayPool<byte>), nameof(ArrayPool<byte>.Create), new[] { typeof(int), typeof(int) });

@@ -45,7 +45,8 @@ namespace RimWorldLoadingOptimizer
         private static byte[] handedBytes;
         private static LoadedTextureData handedTexture;
         private static int started, finished, readRedirected, decodeRedirected;
-        private static int handed, ownReads, otherPaths, compared, mismatches;
+        private static int handed, ownReads, otherPaths, compared;
+        private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static long ownTicks;
         private static SelfCheck check;
 
@@ -69,7 +70,7 @@ namespace RimWorldLoadingOptimizer
             var preResolve = AccessTools.Method(typeof(DefGenerator), nameof(DefGenerator.GenerateImpliedDefs_PreResolve));
             if (bundlesField == null || cropField?.FieldType != typeof(ThingDef) || cacheDir?.ReturnType != typeof(string) || !typeof(IEnumerable).IsAssignableFrom(bundlesField.FieldType))
             {
-                RLOLog.Message($"{Feature}: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             if (tryLoad == null || applyAll == null || engineLoad == null || decodeMethod == null || preResolve == null)
@@ -88,7 +89,7 @@ namespace RimWorldLoadingOptimizer
             {
                 harmony.Unpatch(tryLoad, HarmonyPatchType.Transpiler, harmony.Id);
                 harmony.Unpatch(engineLoad, HarmonyPatchType.Transpiler, harmony.Id);
-                RLOLog.Message($"{Feature}: the file read and decode calls were not found as expected ({readRedirected} and {decodeRedirected} of 1). This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: the file read and decode calls were not found as expected ({readRedirected} and {decodeRedirected} of 1). This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             harmony.Patch(preResolve, postfix: new HarmonyMethod(typeof(SeedIconReadAhead), nameof(Begin)) { priority = Priority.Last });
@@ -157,7 +158,7 @@ namespace RimWorldLoadingOptimizer
             }
             catch (Exception e)
             {
-                RLOLog.Message($"{Feature}: could not list the seed bundles ({e.Message}); skipped");
+                RLOLog.Detail($"{Feature}: could not list the seed bundles ({e.Message}); skipped");
                 return;
             }
             var made = new OrderedReadAhead<Entry>(files, Make, entry => entry.Size, _ => { }, CapBytes);
@@ -224,7 +225,7 @@ namespace RimWorldLoadingOptimizer
                 check.Report(same, $"file bytes of {Path.GetFileName(path)}");
                 if (!same)
                 {
-                    Mismatch(path, "file bytes differ");
+                    mismatches.Report($"{path}: file bytes differ");
                     return fresh;
                 }
             }
@@ -257,7 +258,7 @@ namespace RimWorldLoadingOptimizer
                 check.Report(difference == null, "decoded icon");
                 if (difference != null)
                 {
-                    Mismatch("decoded icon", difference);
+                    mismatches.Report($"decoded icon: {difference}");
                     loadedTexture = fresh;
                     return ok;
                 }
@@ -285,14 +286,6 @@ namespace RimWorldLoadingOptimizer
             return null;
         }
 
-        private static void Mismatch(string what, string difference)
-        {
-            if (++mismatches <= 5)
-            {
-                RLOLog.Warning($"{Feature} verify mismatch: {what}: {difference}");
-            }
-        }
-
         public static void Finish()
         {
             if (Interlocked.Exchange(ref finished, 1) != 0)
@@ -305,7 +298,7 @@ namespace RimWorldLoadingOptimizer
             queue?.Stop();
             if (DevSwitches.Verify)
             {
-                RLOLog.Message($"{Feature} verify: {compared} compared, {mismatches} mismatches");
+                RLOLog.Detail($"{Feature} verify: {compared} compared, {mismatches.Count} mismatches");
             }
         }
 
@@ -319,7 +312,7 @@ namespace RimWorldLoadingOptimizer
             var text = $"{Feature}: {q.Summary("cached seed icons")}; {handed} decodes handed over, {ownReads} listed files read by the main thread itself in {StartupPhaseFixes.Seconds(ownTicks):F2} s, {otherPaths} files outside the list";
             if (DevSwitches.Verify)
             {
-                text += $"; verify: {compared} compared, {mismatches} mismatches";
+                text += $"; verify: {compared} compared, {mismatches.Count} mismatches";
             }
             return text;
         }

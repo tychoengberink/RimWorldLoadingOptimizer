@@ -15,7 +15,8 @@ namespace RimWorldLoadingOptimizer
         private static readonly object gate = new object();
         private static Dictionary<string, Assembly> byName;
         private static bool broken;
-        private static int calls, hits, fallbacks, mismatches;
+        private static int calls, hits, fallbacks;
+        private static readonly MismatchLog mismatches = new MismatchLog("mod assembly loading");
         private static long ticks;
 
         [FreePatch]
@@ -89,7 +90,7 @@ namespace RimWorldLoadingOptimizer
                     var expected = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == name);
                     if (!ReferenceEquals(expected, found))
                     {
-                        mismatches++;
+                        mismatches.Report($"{name}: {found} vs {expected}");
                         return Original(filePath, name);
                     }
                 }
@@ -184,6 +185,6 @@ namespace RimWorldLoadingOptimizer
             return AppDomain.CurrentDomain.Load(raw);
         }
 
-        public static string Stats() => calls == 0 ? "mod assembly loading: not redirected (needs Prepatcher)" : $"mod assembly loading: {calls} calls in {ticks * 1000.0 / Stopwatch.Frequency:F0} ms, {hits} index hits, {fallbacks} fallbacks" + (DevSwitches.Verify ? $", verify mismatches {mismatches}" : "");
+        public static string Stats() => calls == 0 ? "mod assembly loading: not redirected (needs Prepatcher)" : $"mod assembly loading: {calls} calls in {ticks * 1000.0 / Stopwatch.Frequency:F0} ms, {hits} index hits, {fallbacks} fallbacks" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
     }
 }

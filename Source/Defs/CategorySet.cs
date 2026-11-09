@@ -28,9 +28,10 @@ namespace RimWorldLoadingOptimizer
             if (DevSwitches.Verify)
             {
                 Interlocked.Increment(ref CategorySet.Checks);
-                if (result != base.Contains(item) && Interlocked.Increment(ref CategorySet.Mismatches) <= 10)
+                var original = base.Contains(item);
+                if (result != original)
                 {
-                    RLOLog.Warning($"Category sets verify mismatch for {item}");
+                    CategorySet.Mismatches.Report($"{item}: fast {result}, original {original}");
                 }
             }
             return result;
@@ -43,7 +44,7 @@ namespace RimWorldLoadingOptimizer
         private static bool installed;
         public static int Sets;
         public static int Checks;
-        public static int Mismatches;
+        public static readonly MismatchLog Mismatches = new MismatchLog("Category sets");
 
         public static void Install(Harmony harmony)
         {
@@ -64,6 +65,6 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static string Stats() => !installed ? "Category sets: not active (needs Category cache)" : $"Category sets: hashed sets built {Sets}" + (DevSwitches.Verify ? $", verify checks {Checks}, mismatches {Mismatches}" : "");
+        public static string Stats() => !installed ? "Category sets: not active (needs Category cache)" : $"Category sets: hashed sets built {Sets}" + (DevSwitches.Verify ? $", verify checks {Checks}, mismatches {Mismatches.Count}" : "");
     }
 }

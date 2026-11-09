@@ -17,7 +17,8 @@ namespace RimWorldLoadingOptimizer
         internal static readonly bool[] TwoKnown = new bool[256];
         private static readonly Dictionary<(Module, int), object> resolved = new Dictionary<(Module, int), object>();
         private static readonly object gate = new object();
-        private static int scans, positives, fallbacks, mismatches;
+        private static int scans, positives, fallbacks;
+        private static readonly MismatchLog mismatches = new MismatchLog("IL scan");
         private static long ticks;
 
         static IlScan()
@@ -96,10 +97,7 @@ namespace RimWorldLoadingOptimizer
                     if (DevSwitches.Verify && Original(method, match))
                     {
                         result = true;
-                        if (mismatches++ < 10)
-                        {
-                            RLOLog.Warning($"IL scan verify mismatch: {method.FullDescription()}");
-                        }
+                        mismatches.Report(method.FullDescription());
                     }
                 }
                 ticks += Stopwatch.GetTimestamp() - start;
@@ -215,7 +213,7 @@ namespace RimWorldLoadingOptimizer
         {
             lock (gate)
             {
-                return $"IL scan: {scans} bodies in {ticks * 1000.0 / Stopwatch.Frequency:F0} ms, {positives} positives confirmed by Harmony's reader, {fallbacks} fallbacks, {resolved.Count} cached tokens" + (DevSwitches.Verify ? $", verify mismatches {mismatches}" : "");
+                return $"IL scan: {scans} bodies in {ticks * 1000.0 / Stopwatch.Frequency:F0} ms, {positives} positives confirmed by Harmony's reader, {fallbacks} fallbacks, {resolved.Count} cached tokens" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
             }
         }
     }

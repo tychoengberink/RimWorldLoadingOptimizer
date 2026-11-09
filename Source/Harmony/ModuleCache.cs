@@ -29,7 +29,8 @@ namespace RimWorldLoadingOptimizer
         private static bool installed;
         private static SelfCheck check;
         [ThreadStatic] private static bool bypass;
-        private static long hits, misses, mismatches;
+        private static long hits, misses;
+        private static readonly MismatchLog mismatches = new MismatchLog("harmony module cache");
 
         public static void Install(Harmony harmony)
         {
@@ -107,11 +108,7 @@ namespace RimWorldLoadingOptimizer
                     check.Report(original == __result, $"module {moduleGUID} token {token}");
                     if (original != __result)
                     {
-                        lock (modules)
-                        {
-                            mismatches++;
-                        }
-                        RLOLog.Warning($"module cache mismatch for {moduleGUID}:{token}: {__result} vs {original}");
+                        mismatches.Report($"{moduleGUID}:{token}: {__result} vs {original}");
                         __result = original;
                     }
                 }
@@ -211,9 +208,9 @@ namespace RimWorldLoadingOptimizer
             lock (modules)
             {
 #if RW17
-                return installed ? $"harmony module cache: {hits} hits, {misses} misses, {modules.Count} modules, {mismatches} verify mismatches, {ambiguous.Count} loaded twice (left to Harmony), {index.Count} modules indexed in {rescans} scans{(broken ? ", index off" : "")}" : "harmony module cache: off";
+                return installed ? $"harmony module cache: {hits} hits, {misses} misses, {modules.Count} modules, {mismatches.Count} verify mismatches, {ambiguous.Count} loaded twice (left to Harmony), {index.Count} modules indexed in {rescans} scans{(broken ? ", index off" : "")}" : "harmony module cache: off";
 #else
-                return installed ? $"harmony module cache: {hits} hits, {misses} misses, {modules.Count} modules, {mismatches} verify mismatches" : "harmony module cache: off";
+                return installed ? $"harmony module cache: {hits} hits, {misses} misses, {modules.Count} modules, {mismatches.Count} verify mismatches" : "harmony module cache: off";
 #endif
             }
         }

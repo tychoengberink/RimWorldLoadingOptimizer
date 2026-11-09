@@ -28,7 +28,7 @@ namespace RimWorldLoadingOptimizer
         public static int CachedMisses;
         public static int SkippedScans;
         public static int Builds;
-        public static int Mismatches;
+        public static readonly MismatchLog Mismatches = new MismatchLog("texture lookup");
         public static int PatchedMethods;
 
         public static bool Installed { get; private set; }
@@ -232,9 +232,9 @@ namespace RimWorldLoadingOptimizer
             }
             var expected = ContentFinder<Texture2D>.Get(itemPath, false);
             var same = expected == found;
-            if (!same && Mismatches++ < 10)
+            if (!same)
             {
-                RLOLog.Warning($"texture lookup mismatch for {itemPath}");
+                Mismatches.Report(itemPath);
             }
             check.Report(same, $"texture {itemPath}");
             return same ? found : expected;

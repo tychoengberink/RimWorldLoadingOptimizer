@@ -35,7 +35,7 @@ namespace RimWorldLoadingOptimizer
             compressionEnabled = AccessTools.PropertyGetter(typeof(GlobalTextureAtlasManager), "AtlasCompressionEnabled");
             if (bake == null || compressionEnabled == null)
             {
-                RLOLog.Message("atlas cache miss report: the game's atlas baking or compression switch was not found; report skipped");
+                RLOLog.Detail("atlas cache miss report: the game's atlas baking or compression switch was not found; report skipped");
                 return;
             }
             try
@@ -48,7 +48,7 @@ namespace RimWorldLoadingOptimizer
             }
             catch (Exception e)
             {
-                RLOLog.Message($"atlas cache miss report: the game's atlas fields changed ({e.Message}); report skipped");
+                RLOLog.Detail($"atlas cache miss report: the game's atlas fields changed ({e.Message}); report skipped");
                 return;
             }
             harmony.Patch(bake, postfix: new HarmonyMethod(typeof(AtlasMisses), nameof(BakePostfix)));

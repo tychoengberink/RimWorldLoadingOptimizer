@@ -35,7 +35,8 @@ namespace RimWorldLoadingOptimizer
         private static Dictionary<ThingDef, List<RecipeDef>> singleProduct;
         private static Dictionary<ThingDef, RecipeDef[]> anyProduct;
         private static bool singleBroken, anyBroken;
-        private static int calculableServed, craftableServed, tradingBuilds, tradingMismatches, tradingSkipped;
+        private static int calculableServed, craftableServed, tradingBuilds, tradingSkipped;
+        private static readonly MismatchLog tradingMismatches = new MismatchLog(TradingFeature);
         private static long tradingBuildTicks;
         private static SelfCheck tradingCheck;
         private static Func<ThingDef, bool> craftableOriginal;
@@ -50,7 +51,8 @@ namespace RimWorldLoadingOptimizer
         private static long thingsSignature, thingsIdentity;
         private static int thingsCheckedAt;
         private static Dictionary<RecipeDef, List<ThingDef>> usersByRecipe;
-        private static int usersServed, usersFallbacks, findBuilds, findMismatches;
+        private static int usersServed, usersFallbacks, findBuilds;
+        private static readonly MismatchLog findMismatches = new MismatchLog(FindFeature);
         private static long findBuildTicks;
         private static SelfCheck findCheck;
         [ThreadStatic] private static bool findBypass;
@@ -88,7 +90,7 @@ namespace RimWorldLoadingOptimizer
             {
                 harmony.Unpatch(calculable, HarmonyPatchType.All, harmony.Id);
                 harmony.Unpatch(craftable, HarmonyPatchType.All, harmony.Id);
-                RLOLog.Message($"{TradingFeature}: the recipe list reads were not found as expected ({calculableRedirects} and {craftableRedirects} of 1). This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{TradingFeature}: the recipe list reads were not found as expected ({calculableRedirects} and {craftableRedirects} of 1). This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             harmony.Patch(initialize, prefix: new HarmonyMethod(typeof(RecipeScans), nameof(TradingBegin)), finalizer: new HarmonyMethod(typeof(RecipeScans), nameof(TradingEnd)));
@@ -223,10 +225,7 @@ namespace RimWorldLoadingOptimizer
                 }
                 if (!ReferenceEquals(first, result.Count == 1 ? result[0] : null))
                 {
-                    if (tradingMismatches++ < 10)
-                    {
-                        RLOLog.Warning($"{TradingFeature} verify mismatch: market value recipe of {def.defName}");
-                    }
+                    tradingMismatches.Report($"market value recipe of {def.defName}");
                     return all;
                 }
             }
@@ -301,10 +300,7 @@ namespace RimWorldLoadingOptimizer
                 var made = all.Any(r => r.products != null && r.products.Any(p => p.thingDef == thingDef));
                 if (made != (result.Length == 1))
                 {
-                    if (tradingMismatches++ < 10)
-                    {
-                        RLOLog.Warning($"{TradingFeature} verify mismatch: recipe products of {thingDef.defName}");
-                    }
+                    tradingMismatches.Report($"recipe products of {thingDef.defName}");
                     return all;
                 }
             }
@@ -434,7 +430,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (DevSwitches.Verify)
             {
-                text += $"; verify: {tradingMismatches} mismatches";
+                text += $"; verify: {tradingMismatches.Count} mismatches";
             }
             return text;
         }
@@ -500,10 +496,7 @@ namespace RimWorldLoadingOptimizer
                 var original = Scan(recipe, things);
                 if (!original.SequenceEqual(users, ReferenceComparer<ThingDef>.Instance))
                 {
-                    if (findMismatches++ < 10)
-                    {
-                        RLOLog.Warning($"{FindFeature} verify mismatch: recipe users of {recipe.defName}");
-                    }
+                    findMismatches.Report($"recipe users of {recipe.defName}");
                     users = original;
                 }
             }
@@ -657,7 +650,7 @@ namespace RimWorldLoadingOptimizer
             var text = $"{FindFeature}: {usersServed:N0} recipe-user lookups answered from the index ({findBuilds} builds in {StartupPhaseFixes.Seconds(findBuildTicks):F2} s), {usersFallbacks:N0} scanned as before";
             if (DevSwitches.Verify)
             {
-                text += $"; verify: {findMismatches} mismatches";
+                text += $"; verify: {findMismatches.Count} mismatches";
             }
             return text;
         }

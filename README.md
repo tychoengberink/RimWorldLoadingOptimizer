@@ -10,7 +10,7 @@ Every speedup has a verification mode that recomputes the result the original wa
 
 ## Benchmarks
 
-"Off" = 5.2 with every speedup switched off (`LEANMEMORY_ALLOFF=1`); the mod stays loaded for the measurement and the log reports. "On" = 5.2 with its default settings. Warm = Missile Girl's XML cache was used (a normal start); cold = it was not (first start after a mod or mod-list change). Loading Progress, Missile Girl and Performance Optimizer were active in every start. RimWorld 1.6 and 1.7 run different builds with different speedups, so their results are kept separate.
+"Off" = 5.2 with every speedup switched off (`RLO_ALL_OFF=1`); the mod stays loaded for the measurement and the log reports. "On" = 5.2 with its default settings. Warm = Missile Girl's XML cache was used (a normal start); cold = it was not (first start after a mod or mod-list change). Loading Progress, Missile Girl and Performance Optimizer were active in every start. RimWorld 1.6 and 1.7 run different builds with different speedups, so their results are kept separate.
 
 Mac: Apple M5 Pro, 24 GB unified memory, macOS, Steam closed.
 
@@ -149,19 +149,19 @@ Environment variables for testing; none are needed for normal play.
 
 | Variable | Effect |
 |---|---|
-| `LEANMEMORY_VERIFY=1` | Runs the original code next to every speedup and logs mismatches |
-| `LEANMEMORY_ALLOFF=1` | Starts with every feature off, like the "off" step of the measurement |
-| `LEANMEMORY_IGNORE_FINGERPRINTS=1` | Uses the few speedups that still need exact code even when that code changed (logged as a warning) |
-| `LEANMEMORY_SELFCHECK=1` | Ignores `verified-code.txt`, so every speedup that can runs its self-check again (results are not remembered) |
-| `LEANMEMORY_NOATLASFLUSH=1`, `LEANMEMORY_NOATLASPACKING=1` | Switch off the atlas baking memory fix or the atlas packing index (1.6) |
-| `LEANMEMORY_NOATLASCACHE=1`, `LEANMEMORY_NOBOOST=1`, `LEANMEMORY_NOPREFETCH=1` | Switch off the atlas cache, faster early content loading or texture read-ahead |
-| `LEANMEMORY_PROFILE=1` | Adds a startup profile and phase timeline to the startup report |
-| `LEANMEMORY_STRINGSTATS=1`, `LEANMEMORY_OBJECTSTATS=1`, `LEANMEMORY_XMLSTATS=1`, `LEANMEMORY_HEAPSTATS=1` | Memory statistics in the log |
-| `CTORS2_OFF=a,b` | Switches off single startup-code fixes: `lunar`, `av`, `vehicles`, `bracket`, or `all` |
-| `CTORS2_VERIFY=1` | Verify mode for the startup-code fixes only |
-| `CTORS2_TIMING=1` | Times selected mod static constructors |
-| `PREXML2_OFF=a,b` | Switches off single mod-constructor speedups: `reflcache`, `asmcache`, `earlytypes`, `loadfrom`, `ilscan`, `cai`, or `all` |
-| `MAINPHASES_FRAME=0.4` | Seconds of loading work per frame during startup (default 0.25) |
+| `RLO_VERIFY=1` | Runs the original code next to every speedup, logs mismatches and turns on the detailed startup report |
+| `RLO_ALL_OFF=1` | Starts with every feature off, like the "off" step of the measurement |
+| `RLO_IGNORE_FINGERPRINTS=1` | Uses the few speedups that still need exact code even when that code changed (logged as a warning) |
+| `RLO_SELF_CHECK=1` | Ignores `verified-code.txt`, so every speedup that can runs its self-check again (results are not remembered) |
+| `RLO_NO_ATLAS_FLUSH=1`, `RLO_NO_ATLAS_PACKING=1` | Switch off the atlas baking memory fix or the atlas packing index (1.6) |
+| `RLO_NO_ATLAS_CACHE=1`, `RLO_NO_BOOST=1`, `RLO_NO_PREFETCH=1` | Switch off the atlas cache, faster early content loading or texture read-ahead |
+| `RLO_PROFILE=1` | Turns on the detailed startup report and adds a startup profile and phase timeline to it |
+| `RLO_STRING_STATS=1`, `RLO_OBJECT_STATS=1`, `RLO_XML_STATS=1`, `RLO_HEAP_STATS=1` | Memory statistics in the log |
+| `RLO_LATE_SUPPORT_OFF=a,b` | Switches off single startup-code fixes: `lunar`, `av`, `vehicles`, `bracket`, or `all` |
+| `RLO_LATE_SUPPORT_VERIFY=1` | Verify mode for the startup-code fixes only |
+| `RLO_CONSTRUCTOR_TIMING=1` | Times selected mod static constructors |
+| `RLO_CONSTRUCTOR_FIXES_OFF=a,b` | Switches off single mod-constructor speedups: `reflcache`, `asmcache`, `earlytypes`, `loadfrom`, `ilscan`, `cai`, or `all` |
+| `RLO_STARTUP_FRAME=0.4` | Seconds of loading work per frame during startup (default 0.25) |
 
 ## Changelog
 

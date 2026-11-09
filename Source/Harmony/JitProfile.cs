@@ -41,14 +41,14 @@ namespace RimWorldLoadingOptimizer
                     if (DevSwitches.Verify)
                     {
                         var info = new FileInfo(file);
-                        RLOLog.Message(info.Exists && info.LastWriteTimeUtc >= started
+                        RLOLog.Detail(info.Exists && info.LastWriteTimeUtc >= started
                             ? $"background JIT profile verify: profile written at the main menu ({info.Length / 1024} KB)"
                             : "background JIT profile verify: the runtime did not write a profile (another mod may have set the profile folder first, or this system has a single core)");
                     }
                 }
                 catch (Exception e)
                 {
-                    RLOLog.Message($"background JIT profile: could not stop recording: {e.Message}");
+                    RLOLog.Detail($"background JIT profile: could not stop recording: {e.Message}");
                 }
             });
         }

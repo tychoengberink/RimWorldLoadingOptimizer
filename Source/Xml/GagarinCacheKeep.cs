@@ -158,7 +158,7 @@ namespace RimWorldLoadingOptimizer
             }
             catch (Exception e)
             {
-                RLOLog.Message($"{Feature}: could not tidy Missile Girl's hash file ({e.GetType().Name}: {e.Message}); Missile Girl behaves as usual.");
+                RLOLog.Detail($"{Feature}: could not tidy Missile Girl's hash file ({e.GetType().Name}: {e.Message}); Missile Girl behaves as usual.");
             }
         }
 
@@ -184,7 +184,7 @@ namespace RimWorldLoadingOptimizer
             }
             catch (Exception e)
             {
-                RLOLog.Message($"{Feature}: could not write Missile Girl's mod list ({e.GetType().Name}: {e.Message}); the next start may be cold.");
+                RLOLog.Detail($"{Feature}: could not write Missile Girl's mod list ({e.GetType().Name}: {e.Message}); the next start may be cold.");
             }
         }
 

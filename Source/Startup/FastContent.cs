@@ -268,7 +268,8 @@ namespace RimWorldLoadingOptimizer
             return found.ToArray();
         }
 
-        public static int Misses, Folders, SkippedHolders, Mismatches, Methods;
+        public static int Misses, Folders, SkippedHolders, Methods;
+        public static readonly MismatchLog Mismatches = new MismatchLog("fast content");
 #if NATIVE_ASSETS
         public static int BundleLookups, SkippedLoads, SkippedSearches;
 #endif
@@ -394,9 +395,9 @@ namespace RimWorldLoadingOptimizer
             IlScan.Replace(instructions, OriginalGet, redirectGet);
 
 #if NATIVE_ASSETS
-        public static string Stats() => $"fast content: {Methods} methods, {Misses} misses resolved, {BundleLookups} bundle lookups ({SkippedSearches} answered from the bundle index, {SkippedLoads} bundle loads skipped), {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches} verify mismatches";
+        public static string Stats() => $"fast content: {Methods} methods, {Misses} misses resolved, {BundleLookups} bundle lookups ({SkippedSearches} answered from the bundle index, {SkippedLoads} bundle loads skipped), {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches.Count} verify mismatches";
 #else
-        public static string Stats() => $"fast content: {Methods} methods, {Misses} misses resolved, {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches} verify mismatches";
+        public static string Stats() => $"fast content: {Methods} methods, {Misses} misses resolved, {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches.Count} verify mismatches";
 #endif
 
         public static Texture2D Get(string itemPath, bool reportFailure)
@@ -426,7 +427,7 @@ namespace RimWorldLoadingOptimizer
                 var same = ReferenceEquals(result, expected);
                 if (!same)
                 {
-                    Mismatch($"get {itemPath}");
+                    Mismatches.Report($"get {itemPath}");
                     result = expected;
                 }
                 check.Report(same, $"texture {itemPath}");
@@ -519,7 +520,7 @@ namespace RimWorldLoadingOptimizer
             var same = fast.SequenceEqual(original);
             if (!same)
             {
-                Mismatch($"folder {folderPath}");
+                Mismatches.Report($"folder {folderPath}");
             }
             check.Report(same, $"folder {folderPath}");
             return same ? fast : original;
@@ -541,7 +542,7 @@ namespace RimWorldLoadingOptimizer
             var same = fast.SequenceEqual(original);
             if (!same)
             {
-                Mismatch($"audio folder {folderPath}");
+                Mismatches.Report($"audio folder {folderPath}");
             }
             check.Report(same, $"audio folder {folderPath}");
             return same ? fast : original;
@@ -634,14 +635,5 @@ namespace RimWorldLoadingOptimizer
                     }
                 }
             }
-        }
-
-        private static void Mismatch(string what)
-        {
-            if (Mismatches++ < 20)
-            {
-                RLOLog.Warning($"fast content verify mismatch: {what}");
-            }
-        }
-    }
+        }    }
 }

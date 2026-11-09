@@ -81,7 +81,7 @@ namespace RimWorldLoadingOptimizer
             }
             var total = Bytes(all);
             var distinct = Bytes(unique);
-            RLOLog.Message($"def string stats: {all.Count} string objects ({total >> 20} MB), {unique.Count} distinct ({distinct >> 20} MB); dedup would save ~{(total - distinct) >> 20} MB; walked {visited.Count} objects");
+            RLOLog.Detail($"def string stats: {all.Count} string objects ({total >> 20} MB), {unique.Count} distinct ({distinct >> 20} MB); dedup would save ~{(total - distinct) >> 20} MB; walked {visited.Count} objects");
         }
 
         private static FieldInfo[] Fields(Type type)

@@ -28,7 +28,8 @@ namespace RimWorldLoadingOptimizer
         private static FieldInfo queueField, masksField;
         private static Task<Dictionary<string, Stamp>> pending;
         private static Dictionary<string, Stamp> stamps;
-        private static int state, bakes, files, used, packed, fallbacks, verified, mismatches;
+        private static int state, bakes, files, used, packed, fallbacks, verified;
+        private static readonly MismatchLog mismatches = new MismatchLog("atlas source stamps");
         private static long resolveTicks, waitTicks, collectTicks;
 
         public static void Install(Harmony harmony)
@@ -49,7 +50,7 @@ namespace RimWorldLoadingOptimizer
             if (queueField == null || !queueField.IsStatic || queueField.FieldType != typeof(Dictionary<TextureAtlasGroupKey, (List<Texture2D>, HashSet<Texture2D>)>)
                 || masksField == null || !masksField.IsStatic || masksField.FieldType != typeof(Dictionary<Texture2D, Texture2D>))
             {
-                RLOLog.Message("atlas source stamps: the game's atlas build queue was not found. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail("atlas source stamps: the game's atlas build queue was not found. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             harmony.Patch(bake, prefix: new HarmonyMethod(typeof(AtlasStamps), nameof(BakePrefix)), finalizer: new HarmonyMethod(typeof(AtlasStamps), nameof(BakeFinalizer)));
@@ -259,10 +260,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (fresh.exists != stamp.exists || fresh.length != stamp.length || fresh.ticks != stamp.ticks)
             {
-                if (++mismatches <= 10)
-                {
-                    RLOLog.Warning($"atlas source stamps: verify mismatch for {path}: read ahead {stamp.exists}/{stamp.length}/{stamp.ticks}, fresh {fresh.exists}/{fresh.length}/{fresh.ticks}");
-                }
+                mismatches.Report($"verify {path}: read ahead {stamp.exists}/{stamp.length}/{stamp.ticks}, fresh {fresh.exists}/{fresh.length}/{fresh.ticks}");
             }
         }
 
@@ -278,7 +276,7 @@ namespace RimWorldLoadingOptimizer
             }
             return $"atlas source stamps: {files} source files stamped on {Workers} threads in {StartupPhaseFixes.Seconds(resolveTicks):F2} s (collect {StartupPhaseFixes.Seconds(collectTicks) * 1000:F0} ms, main thread waited {StartupPhaseFixes.Seconds(waitTicks) * 1000:F0} ms); "
                 + $"{used} stamps from them, {packed} from content packs, {fallbacks} left to vanilla"
-                + (DevSwitches.Verify ? $", verify {verified} checked, {mismatches} mismatches" : "");
+                + (DevSwitches.Verify ? $", verify {verified} checked, {mismatches.Count} mismatches" : "");
         }
     }
 }

@@ -42,7 +42,8 @@ namespace RimWorldLoadingOptimizer
         private static string global;
         private static Pending current;
         private static double storedMissMs;
-        private static int hits, misses, uncacheable, verified, mismatches, keyErrors, redirected;
+        private static int hits, misses, uncacheable, verified, keyErrors, redirected;
+        private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static long hitTicks, missTicks;
         private static bool dirty;
         private static readonly OpCode[] shortStores = { OpCodes.Stloc_0, OpCodes.Stloc_1, OpCodes.Stloc_2, OpCodes.Stloc_3 };
@@ -81,7 +82,7 @@ namespace RimWorldLoadingOptimizer
             if (redirected != 3)
             {
                 harmony.Unpatch(setDrawOffset, HarmonyPatchType.Transpiler, harmony.Id);
-                RLOLog.Message($"{Feature}: the texture read-back calls were not found as expected ({redirected} of 3). This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: the texture read-back calls were not found as expected ({redirected} of 3). This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             MainMenu.Then(Save);
@@ -231,7 +232,7 @@ namespace RimWorldLoadingOptimizer
                 verified++;
                 if (pending.Expected.Value != measured)
                 {
-                    mismatches++;
+                    mismatches.Report($"offsets of {pending.Key}: cached {pending.Expected.Value}, measured {measured}");
                     dirty = true;
                 }
             }
@@ -308,7 +309,7 @@ namespace RimWorldLoadingOptimizer
             catch (Exception e)
             {
                 stored.Clear();
-                RLOLog.Message($"{Feature}: could not read the offset cache ({e.Message}); all offsets are measured this start.");
+                RLOLog.Detail($"{Feature}: could not read the offset cache ({e.Message}); all offsets are measured this start.");
             }
         }
 
@@ -329,7 +330,7 @@ namespace RimWorldLoadingOptimizer
             }
             catch (Exception e)
             {
-                RLOLog.Message($"{Feature}: could not write the offset cache ({e.Message}); the next start measures again.");
+                RLOLog.Detail($"{Feature}: could not write the offset cache ({e.Message}); the next start measures again.");
             }
         }
 
@@ -347,7 +348,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (DevSwitches.Verify)
             {
-                text += $"; verify: {verified} cached offsets compared with a fresh read-back, {mismatches} mismatches";
+                text += $"; verify: {verified} cached offsets compared with a fresh read-back, {mismatches.Count} mismatches";
             }
             return text;
         }

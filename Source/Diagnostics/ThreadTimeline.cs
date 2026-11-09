@@ -102,7 +102,7 @@ namespace RimWorldLoadingOptimizer
                 {
                     File.WriteAllText(path, $"# loading {loadingThread} main {mainThread}\nt,thread,cpu_ms,name\n" + Rows);
                 }
-                RLOLog.Message($"thread timeline written to {path}");
+                RLOLog.Detail($"thread timeline written to {path}");
             }
             catch (Exception e)
             {

@@ -30,7 +30,7 @@ namespace RimWorldLoadingOptimizer
 #if RW17
             if (target == null)
             {
-                RLOLog.Message("audio streaming: not available on this RimWorld version (it loads sounds without the old wait loop); skipped");
+                RLOLog.Detail("audio streaming: not available on this RimWorld version (it loads sounds without the old wait loop); skipped");
                 return;
             }
 #endif

@@ -228,7 +228,7 @@ namespace RimWorldLoadingOptimizer
                 }
                 if (current != chain.Steps[chain.Steps.Count - 1].Bytes)
                 {
-                    Mismatch($"stored patch state of {chain.Original.FullDescription()} is not the last sequential state");
+                    mismatches.Report($"stored patch state of {chain.Original.FullDescription()} is not the last sequential state");
                 }
                 for (var i = 0; i < chain.Steps.Count - 1; i++)
                 {
@@ -238,7 +238,7 @@ namespace RimWorldLoadingOptimizer
                         var replacement = (MethodInfo)generate(chain.Steps[i].Config, false);
                         if (replacement == null)
                         {
-                            Mismatch($"intermediate rebuild {i + 1}/{chain.Steps.Count} of {chain.Original.FullDescription()} returned no method");
+                            mismatches.Report($"intermediate rebuild {i + 1}/{chain.Steps.Count} of {chain.Original.FullDescription()} returned no method");
                         }
                         else if (platform != null && compile != null)
                         {
@@ -247,17 +247,9 @@ namespace RimWorldLoadingOptimizer
                     }
                     catch (Exception e)
                     {
-                        Mismatch($"intermediate rebuild {i + 1}/{chain.Steps.Count} of {chain.Original.FullDescription()} fails although the merged one works: {(e as TargetInvocationException)?.InnerException?.Message ?? e.Message}");
+                        mismatches.Report($"intermediate rebuild {i + 1}/{chain.Steps.Count} of {chain.Original.FullDescription()} fails although the merged one works: {(e as TargetInvocationException)?.InnerException?.Message ?? e.Message}");
                     }
                 }
-            }
-        }
-
-        private static void Mismatch(string what)
-        {
-            if (Interlocked.Increment(ref verifyMismatches) <= 20)
-            {
-                RLOLog.Warning("Harmony rebuild coalescing verify mismatch: " + what);
             }
         }
     }

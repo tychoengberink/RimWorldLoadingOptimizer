@@ -51,22 +51,18 @@ namespace RimWorldLoadingOptimizer
         private static List<Support> present;
         private static List<string> alongside;
 
-        public static void Detect(RLOSettings settings, ModContentPack self)
+        public static void Detect(RLOSettings settings)
         {
             present = Supports.Where(s => settings.Supports(s.Id) && s.Listed() && (ModTypes.Find(s.Type) != null || AccessTools.TypeByName(s.Type) != null)).ToList();
-            alongside = LoadedModManager.RunningModsListForReading
-                .Where(m => m != self && m.Name != null && Optimizers.Any(w => m.Name.IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0))
-                .Select(m => m.Name)
-                .Distinct()
-                .ToList();
             MainMenu.Then(LogSupport);
         }
 
         private static void LogSupport()
         {
             var supported = ExtraSupport().ToList();
-            RLOLog.Message($"extra support for {supported.Count} mods: {(supported.Count == 0 ? "none" : string.Join(", ", supported))}");
-            RLOLog.Message($"running alongside {alongside.Count} other optimizers: {(alongside.Count == 0 ? "none" : string.Join(", ", alongside))}");
+            RLOLog.Detail($"extra support for {supported.Count} mods: {(supported.Count == 0 ? "none" : string.Join(", ", supported))}");
+            var others = Alongside().ToList();
+            RLOLog.Detail($"running alongside {others.Count} other optimizers: {(others.Count == 0 ? "none" : string.Join(", ", others))}");
         }
 
         public static IEnumerable<string> ExtraSupport()
@@ -83,6 +79,18 @@ namespace RimWorldLoadingOptimizer
             return present.Where(s => s.Feature == null || !changed.Contains(s.Feature)).Select(s => s.Name);
         }
 
-        public static IEnumerable<string> Alongside() => alongside ?? Enumerable.Empty<string>();
+        public static IEnumerable<string> Alongside()
+        {
+            if (alongside == null)
+            {
+                alongside = LoadedModManager.RunningModsListForReading
+                    .Where(m => m.Name != null && !m.PackageIdPlayerFacing.Equals(RLOMod.PackageId, StringComparison.OrdinalIgnoreCase)
+                        && Optimizers.Any(w => m.Name.IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0))
+                    .Select(m => m.Name)
+                    .Distinct()
+                    .ToList();
+            }
+            return alongside;
+        }
     }
 }

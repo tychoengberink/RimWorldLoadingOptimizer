@@ -52,7 +52,7 @@ namespace RimWorldLoadingOptimizer
         public static long PeakInFlight;
         public static int Warmed;
         public static int VerifyChecks;
-        public static int VerifyMismatches;
+        public static readonly MismatchLog VerifyMismatches = new MismatchLog("DDS buffer");
         [ThreadStatic] private static bool bypass;
 
         public static void Install(Harmony harmony)
@@ -66,7 +66,7 @@ namespace RimWorldLoadingOptimizer
             if (buffers && PatchProcessor.GetOriginalInstructions(loadDds).Count(i => i.Calls(SpanGetter)) != 1)
             {
                 buffers = false;
-                RLOLog.Message("Graphics Settings+ texture buffers: its DDS loader no longer reads the file the expected way; using read-ahead instead.");
+                RLOLog.Detail("Graphics Settings+ texture buffers: its DDS loader no longer reads the file the expected way; using read-ahead instead.");
             }
             if (buffers)
             {
@@ -405,10 +405,7 @@ namespace RimWorldLoadingOptimizer
             ddsCheck.Report(same, $"texture {file.FullPath}");
             if (!same)
             {
-                if (VerifyMismatches++ < 10)
-                {
-                    RLOLog.Warning($"DDS buffer verify mismatch for {file.FullPath}");
-                }
+                VerifyMismatches.Report($"verify {file.FullPath}");
                 UnityEngine.Object.DestroyImmediate(texture);
                 return vanilla;
             }
@@ -548,7 +545,7 @@ namespace RimWorldLoadingOptimizer
         }
 
         public static string Stats() => buffers
-            ? $"DDS prefetch ({(vanillaBuffers ? "buffers for the game's own loader" : "Graphics Settings+ buffers")}, {Workers} threads): {Hits} hits, {Misses} misses, {Discarded} discarded, {BytesRead >> 20} MB read ahead, peak {PeakInFlight >> 20} MB buffered{(DevSwitches.Verify && vanillaBuffers ? $", verify checks {VerifyChecks}, mismatches {VerifyMismatches}" : "")}"
+            ? $"DDS prefetch ({(vanillaBuffers ? "buffers for the game's own loader" : "Graphics Settings+ buffers")}, {Workers} threads): {Hits} hits, {Misses} misses, {Discarded} discarded, {BytesRead >> 20} MB read ahead, peak {PeakInFlight >> 20} MB buffered{(DevSwitches.Verify && vanillaBuffers ? $", verify checks {VerifyChecks}, mismatches {VerifyMismatches.Count}" : "")}"
             : $"DDS prefetch (read-ahead for the game's own loader): {Warmed} files, {BytesRead >> 20} MB read ahead, progress at file {consumed + 1} of {files?.Length ?? 0}";
     }
 }

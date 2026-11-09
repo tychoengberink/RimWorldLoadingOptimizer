@@ -16,7 +16,8 @@ namespace RimWorldLoadingOptimizer
         private static readonly Dictionary<CoreTexture, long> destroyed = new Dictionary<CoreTexture, long>(ReferenceComparer<CoreTexture>.Instance);
         private static readonly Dictionary<CoreTexture, long> kept = new Dictionary<CoreTexture, long>(ReferenceComparer<CoreTexture>.Instance);
         private static HashSet<CoreTexture> winners;
-        private static int skippedDestroyed, skippedKept, refused, mismatches, checkedKept;
+        private static int skippedDestroyed, skippedKept, refused, checkedKept;
+        private static readonly MismatchLog mismatches = new MismatchLog("shadowed textures");
         private static long skippedBytes;
         private static readonly List<CoreTexture> skippedKeptCores = new List<CoreTexture>();
 
@@ -70,7 +71,7 @@ namespace RimWorldLoadingOptimizer
                 refused++;
                 if (DevSwitches.Verify)
                 {
-                    mismatches++;
+                    mismatches.Report($"{(isDestroyed ? "released" : "kept")} overridden texture is still the winning texture");
                 }
                 return;
             }
@@ -113,15 +114,15 @@ namespace RimWorldLoadingOptimizer
                 checkedKept++;
                 if (!core.EnsureResident())
                 {
-                    mismatches++;
+                    mismatches.Report("kept texture could not be loaded back on demand");
                 }
             }
-            RLOLog.Message($"shadowed textures not uploaded, verify at the main menu: {checkedKept} kept textures loaded back on demand, {mismatches} verify mismatches");
+            RLOLog.Detail($"shadowed textures not uploaded, verify at the main menu: {checkedKept} kept textures loaded back on demand, {mismatches.Count} verify mismatches");
         }
 
         public static string Stats() =>
             $"shadowed textures not uploaded at load end: {skippedDestroyed} released and {skippedKept} kept overridden textures (~{skippedBytes >> 20} MB), {refused} still in use and uploaded as usual"
-            + (DevSwitches.Verify ? $", {mismatches} verify mismatches so far" : "");
+            + (DevSwitches.Verify ? $", {mismatches.Count} verify mismatches so far" : "");
     }
 }
 #endif

@@ -73,12 +73,11 @@ namespace RimWorldLoadingOptimizer
             probe.Destroy();
             if (problems.Count == 0)
             {
-                RLOLog.Message($"atlas cache: verify {atlas.groupKey} {fresh.rects.Length} tiles {fresh.color.Describe()}: identical (rects, format, {fresh.color.bytes + (fresh.mask?.bytes ?? 0)} pixel bytes)");
+                RLOLog.Detail($"atlas cache: verify {atlas.groupKey} {fresh.rects.Length} tiles {fresh.color.Describe()}: identical (rects, format, {fresh.color.bytes + (fresh.mask?.bytes ?? 0)} pixel bytes)");
             }
             else
             {
-                verifyMismatches++;
-                RLOLog.Warning($"atlas cache: verify {atlas.groupKey} mismatch: " + string.Join("; ", problems));
+                verifyMismatches.Report($"verify {atlas.groupKey}: " + string.Join("; ", problems));
             }
         }
 

@@ -105,9 +105,9 @@ namespace RimWorldLoadingOptimizer
             }
 #endif
 #if !NATIVE_ASSETS
-            RLOLog.Message($"released {destroyed} shadowed textures (~{bytes / (1 << 20)} MB), kept {codeTextures.Count} overridden textures of code mods (~{keptBytes / (1 << 20)} MB) and {keptForMelee} melee weapon textures for Melee Animation; streamed {AudioStreaming.Streamed} extra sound files ({AudioStreaming.StreamedBytes >> 20} MB on disk) instead of decoding them; {MonoHeap.Stats()}");
+            RLOLog.Detail($"released {destroyed} shadowed textures (~{bytes / (1 << 20)} MB), kept {codeTextures.Count} overridden textures of code mods (~{keptBytes / (1 << 20)} MB) and {keptForMelee} melee weapon textures for Melee Animation; streamed {AudioStreaming.Streamed} extra sound files ({AudioStreaming.StreamedBytes >> 20} MB on disk) instead of decoding them; {MonoHeap.Stats()}");
 #else
-            RLOLog.Message($"released {destroyed} shadowed textures (~{bytes / (1 << 20)} MB), kept {codeTextures.Count} overridden textures of code mods (~{keptBytes / (1 << 20)} MB) and {keptForMelee} melee weapon textures for Melee Animation; {MonoHeap.Stats()}");
+            RLOLog.Detail($"released {destroyed} shadowed textures (~{bytes / (1 << 20)} MB), kept {codeTextures.Count} overridden textures of code mods (~{keptBytes / (1 << 20)} MB) and {keptForMelee} melee weapon textures for Melee Animation; {MonoHeap.Stats()}");
 #endif
         }
 

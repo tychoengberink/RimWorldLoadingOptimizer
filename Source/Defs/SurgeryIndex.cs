@@ -9,7 +9,8 @@ namespace RimWorldLoadingOptimizer
     {
         private static AccessTools.FieldRef<ResearchProjectDef, List<Def>> UnlockedCache;
         private static AccessTools.FieldRef<RecipeDef, bool?> SurgeryCache;
-        private static int builds, filled, mismatches;
+        private static int builds, filled;
+        private static readonly MismatchLog mismatches = new MismatchLog("surgery index");
         private static long ticks;
         private static SelfCheck check;
 
@@ -105,7 +106,7 @@ namespace RimWorldLoadingOptimizer
                     check.Report(slow == value, $"IsSurgery of {recipe.defName}");
                     if (slow != value)
                     {
-                        mismatches++;
+                        mismatches.Report($"IsSurgery of {recipe.defName}: index {value}, original {slow}");
                         break;
                     }
                 }
@@ -115,6 +116,6 @@ namespace RimWorldLoadingOptimizer
             ticks += Stopwatch.GetTimestamp() - start;
         }
 
-        public static string Stats() => $"surgery index: {builds} builds, {filled} recipes filled in {StartupPhaseFixes.Seconds(ticks):F2} s" + (DevSwitches.Verify ? $", verify mismatches {mismatches}" : "");
+        public static string Stats() => $"surgery index: {builds} builds, {filled} recipes filled in {StartupPhaseFixes.Seconds(ticks):F2} s" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
     }
 }

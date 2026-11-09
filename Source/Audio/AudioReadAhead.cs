@@ -40,7 +40,8 @@ namespace RimWorldLoadingOptimizer
         private static int workerTakenReady, workerTakenWaited, workerOwnOpens;
         private static long workerSavedTicks;
         private static long workerTicks, savedTicks, waitTicks, ownTicks, decodedBytes;
-        private static int compared, mismatches;
+        private static int compared;
+        private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static PropertyInfo[] openedFlags;
         private static PropertyInfo openedSound;
 
@@ -52,14 +53,14 @@ namespace RimWorldLoadingOptimizer
             }
             if (AudioBackend.Current?.IsInitialized != true)
             {
-                RLOLog.Message($"{Feature}: the audio system is not running yet; skipped");
+                RLOLog.Detail($"{Feature}: the audio system is not running yet; skipped");
                 return;
             }
             var openForPrefetch = AccessTools.Method(typeof(AudioClip), "OpenForPrefetch");
             var current = AssetPrefetcher.AudioLoader;
             if (current == null || openForPrefetch == null || current.Method != openForPrefetch || current.Target != null)
             {
-                RLOLog.Message($"{Feature}: the game's sound loader was replaced by other code; skipped");
+                RLOLog.Detail($"{Feature}: the game's sound loader was replaced by other code; skipped");
                 return;
             }
             var prefetcher = typeof(AssetPrefetcher);
@@ -73,7 +74,7 @@ namespace RimWorldLoadingOptimizer
             if (gateObject == null || ordered == null || pathField?.FieldType != typeof(string) || kindField?.FieldType.IsEnum != true || stateField?.FieldType.IsEnum != true
                 || !Enum.IsDefined(kindField.FieldType, "Audio") || !Enum.IsDefined(stateField.FieldType, "Queued") || openedType == null)
             {
-                RLOLog.Message($"{Feature}: the game's asset prefetcher no longer has the members it needs; skipped");
+                RLOLog.Detail($"{Feature}: the game's asset prefetcher no longer has the members it needs; skipped");
                 return;
             }
             var loaderType = typeof(ModContentLoader<AudioClip>);
@@ -100,7 +101,7 @@ namespace RimWorldLoadingOptimizer
             if (snapshot.Count == 0)
             {
                 AssetPrefetcher.AudioLoader = original;
-                RLOLog.Message($"{Feature}: no mod sounds are waiting to be opened; skipped");
+                RLOLog.Detail($"{Feature}: no mod sounds are waiting to be opened; skipped");
                 return;
             }
             if (DevSwitches.Verify)
@@ -369,11 +370,11 @@ namespace RimWorldLoadingOptimizer
             }
             else
             {
-                RLOLog.Message($"{Feature}: other code replaced the game's sound loader during loading; it was left as it is");
+                RLOLog.Detail($"{Feature}: other code replaced the game's sound loader during loading; it was left as it is");
             }
             if (DevSwitches.Verify)
             {
-                RLOLog.Message($"{Feature} verify: {compared} compared, {mismatches} mismatches");
+                RLOLog.Detail($"{Feature} verify: {compared} compared, {mismatches.Count} mismatches");
             }
         }
 
@@ -404,11 +405,7 @@ namespace RimWorldLoadingOptimizer
                 {
                     return;
                 }
-                mismatches++;
-                if (mismatches <= 5)
-                {
-                    RLOLog.Warning($"{Feature} verify mismatch: {path}: {difference}");
-                }
+                mismatches.Report($"{path}: {difference}");
             }
         }
 
@@ -499,7 +496,7 @@ namespace RimWorldLoadingOptimizer
             {
                 hash = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(text.ToString())), 0, 8).Replace("-", "");
             }
-            RLOLog.Message($"{Feature} verify: mod sound list hash {hash} ({clips} sounds in {mods} mods)");
+            RLOLog.Detail($"{Feature} verify: mod sound list hash {hash} ({clips} sounds in {mods} mods)");
         }
 
         private static string Stats()

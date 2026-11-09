@@ -18,7 +18,8 @@ namespace RimWorldLoadingOptimizer
         private static MethodInfo getPatchInfo;
         private static MethodInfo deserializeMethod;
         private static Func<byte[], PatchInfo> deserialize;
-        private static long recorded, hits, misses, mismatches;
+        private static long recorded, hits, misses;
+        private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static SelfCheck check;
 
         public static void Install(Harmony harmony)
@@ -34,7 +35,7 @@ namespace RimWorldLoadingOptimizer
             state = shared == null ? null : AccessTools.Field(shared, "state")?.GetValue(null) as Dictionary<MethodBase, byte[]>;
             if (state == null || deserializeMethod == null || deserializeMethod.ReturnType != typeof(PatchInfo))
             {
-                RLOLog.Message($"{Feature}: Harmony's patch state does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: Harmony's patch state does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             if (getPatchInfo == null || prepare == null || update == null)
@@ -123,17 +124,14 @@ namespace RimWorldLoadingOptimizer
                 check.Report(fresh == version.Value, $"version of {original.DeclaringType?.FullName}.{original.Name}");
                 if (fresh != version.Value)
                 {
-                    if (Interlocked.Increment(ref mismatches) <= 10)
-                    {
-                        RLOLog.Warning($"{Feature} verify mismatch for {original.DeclaringType?.FullName}.{original.Name}: reused version {version.Value}, deserialized {fresh}");
-                    }
+                    mismatches.Report($"{original.DeclaringType?.FullName}.{original.Name}: reused version {version.Value}, deserialized {fresh}");
                     return new PatchInfo { VersionCount = fresh };
                 }
             }
             return new PatchInfo { VersionCount = version.Value };
         }
 
-        public static string Stats() => $"Harmony patch state reuse: {Interlocked.Read(ref hits)} deserializations skipped, {Interlocked.Read(ref misses)} misses, {Interlocked.Read(ref recorded)} states recorded" + (DevSwitches.Verify ? $", {Interlocked.Read(ref mismatches)} verify mismatches" : "");
+        public static string Stats() => $"Harmony patch state reuse: {Interlocked.Read(ref hits)} deserializations skipped, {Interlocked.Read(ref misses)} misses, {Interlocked.Read(ref recorded)} states recorded" + (DevSwitches.Verify ? $", {mismatches.Count} verify mismatches" : "");
     }
 }
 #endif

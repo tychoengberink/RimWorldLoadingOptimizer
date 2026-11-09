@@ -50,7 +50,7 @@ namespace RimWorldLoadingOptimizer
             var stampField = AccessTools.Field(typeof(ContentFinder<Texture2D>), "bundleAssetCacheStamp");
             if (Reader == null || cacheField == null || stampField == null)
             {
-                RLOLog.Message("Fast content bundle lookups: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail("Fast content bundle lookups: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             var assetNames = AccessTools.PropertyGetter(Reader, "AssetNames");
@@ -82,7 +82,7 @@ namespace RimWorldLoadingOptimizer
             catch (Exception e)
             {
                 bundleCache = null;
-                RLOLog.Message($"Fast content bundle lookups: could not reach the bundle cache ({e.Message}). This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"Fast content bundle lookups: could not reach the bundle cache ({e.Message}). This speedup is skipped and the original code runs; nothing is broken.");
             }
         }
 
@@ -124,7 +124,7 @@ namespace RimWorldLoadingOptimizer
                 var identical = ReferenceEquals(found, original);
                 if (!identical)
                 {
-                    Mismatch($"bundles {itemPath}");
+                    Mismatches.Report($"bundles {itemPath}");
                     found = original;
                 }
                 bundleCheck.Report(identical, $"bundles {itemPath}");

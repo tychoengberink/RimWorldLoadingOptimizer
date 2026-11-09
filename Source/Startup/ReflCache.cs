@@ -9,7 +9,8 @@ namespace RimWorldLoadingOptimizer
     {
         private static readonly ConcurrentDictionary<object, bool> containsGeneric = new ConcurrentDictionary<object, bool>(ReferenceComparer<object>.Instance);
         private static readonly ConcurrentDictionary<object, Type[]> genericArgs = new ConcurrentDictionary<object, Type[]>(ReferenceComparer<object>.Instance);
-        private static long cgHits, gaHits, mismatches;
+        private static long cgHits, gaHits;
+        private static readonly MismatchLog mismatches = new MismatchLog("reflection cache");
 
         public static void Install(Harmony harmony)
         {
@@ -20,7 +21,7 @@ namespace RimWorldLoadingOptimizer
             harmony.Patch(getGenericArguments, prefix: new HarmonyMethod(typeof(ReflCache), nameof(ArgsPrefix)), postfix: new HarmonyMethod(typeof(ReflCache), nameof(ArgsPostfix)));
             MainMenu.UnpatchAfterStartup(containsGenericParameters);
             MainMenu.UnpatchAfterStartup(getGenericArguments);
-            StartupPhaseFixes.Reports.Add(() => $"reflection cache: ContainsGenericParameters {cgHits} hits / {containsGeneric.Count} types, GetGenericArguments {gaHits} hits / {genericArgs.Count} types" + (DevSwitches.Verify ? $", verify mismatches {mismatches}" : ""));
+            StartupPhaseFixes.Reports.Add(() => $"reflection cache: ContainsGenericParameters {cgHits} hits / {containsGeneric.Count} types, GetGenericArguments {gaHits} hits / {genericArgs.Count} types" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : ""));
         }
 
         public static bool ContainsPrefix(object __instance, ref bool __result)
@@ -44,7 +45,7 @@ namespace RimWorldLoadingOptimizer
                 Interlocked.Increment(ref cgHits);
                 if (cached != __result)
                 {
-                    Interlocked.Increment(ref mismatches);
+                    mismatches.Report($"ContainsGenericParameters of {__instance}: cached {cached}, now {__result}");
                 }
                 return;
             }
@@ -73,7 +74,7 @@ namespace RimWorldLoadingOptimizer
                 Interlocked.Increment(ref gaHits);
                 if (!Same(cached, __result))
                 {
-                    Interlocked.Increment(ref mismatches);
+                    mismatches.Report($"GetGenericArguments of {__instance}");
                 }
                 return;
             }

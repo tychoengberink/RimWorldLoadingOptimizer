@@ -131,7 +131,7 @@ namespace RimWorldLoadingOptimizer
                     Fingerprint.Changed.Add(feature);
                 }
             }
-            RLOLog.Message($"{feature}: {reason}. This speedup is skipped and the original code runs; nothing is broken.");
+            RLOLog.Detail($"{feature}: {reason}. This speedup is skipped and the original code runs; nothing is broken.");
         }
 
         internal static string Where(MethodBase method) => $"{method.DeclaringType?.FullName}.{method.Name}";
@@ -177,7 +177,7 @@ namespace RimWorldLoadingOptimizer
             if (state == Checking)
             {
                 VersionCheck.Register(this);
-                RLOLog.Message($"{feature}: first start with this code; the first {needed} results are compared with the original code before the speedup takes over.");
+                RLOLog.Detail($"{feature}: first start with this code; the first {needed} results are compared with the original code before the speedup takes over.");
             }
         }
 

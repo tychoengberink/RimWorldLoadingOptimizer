@@ -43,7 +43,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (!Fingerprint.OnlyOurs(cctor))
             {
-                RLOLog.Message($"{Feature}: another mod patches Cherry Picker's static constructor. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: another mod patches Cherry Picker's static constructor. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             var stub = AccessTools.Method(typeof(CherryPickerSetup), nameof(Tail));
@@ -57,7 +57,7 @@ namespace RimWorldLoadingOptimizer
             };
             if (!CctorDeferral.Register(harmony, entry, out var problem))
             {
-                RLOLog.Message($"{Feature}: {problem}. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail($"{Feature}: {problem}. This speedup is skipped and the original code runs; nothing is broken.");
                 entry = null;
                 return;
             }
