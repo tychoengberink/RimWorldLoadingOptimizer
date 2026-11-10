@@ -306,6 +306,41 @@ namespace RimWorldLoadingOptimizer
             return info == null || info.Owners.All(o => o == RLOMod.HarmonyId);
         }
 
+        public sealed class Guard
+        {
+            private readonly MethodBase[] methods;
+            private int state;
+            private int checkedAt;
+            private bool settled;
+
+            public Guard(params MethodBase[] methods)
+            {
+                this.methods = methods;
+            }
+
+            public bool Blocked => state == 2;
+
+            public bool Ours
+            {
+                get
+                {
+                    if (settled)
+                    {
+                        return state == 1;
+                    }
+                    var now = Environment.TickCount;
+                    if (state == 0 || unchecked(now - checkedAt) > 50)
+                    {
+                        var reached = MainMenu.Reached;
+                        state = methods.All(OnlyOurs) ? 1 : 2;
+                        checkedAt = now;
+                        settled = reached;
+                    }
+                    return state == 1;
+                }
+            }
+        }
+
         public static (MethodBase, string[]) Known(MethodBase method, params string[] known) => (method, known);
 
         public static string Stats()

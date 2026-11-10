@@ -12,7 +12,7 @@ namespace RimWorldLoadingOptimizer
     {
         private static MethodBase target;
         private static MethodInfo getComp;
-        private static int state;
+        private static Fingerprint.Guard guard;
         private static SelfCheck check;
         [ThreadStatic] private static bool bypass;
         private static long calls, ticks;
@@ -42,11 +42,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return true;
             }
-            if (state == 0)
-            {
-                state = Fingerprint.OnlyOurs(target) && Fingerprint.OnlyOurs(getComp) && Fingerprint.OnlyOurs(getComp.MakeGenericMethod(typeof(CompProperties_AffectedByFacilities))) ? 1 : 2;
-            }
-            if (state != 1)
+            if (!(guard ??= new Fingerprint.Guard(target, getComp, getComp.MakeGenericMethod(typeof(CompProperties_AffectedByFacilities)))).Ours)
             {
                 return true;
             }
@@ -108,6 +104,6 @@ namespace RimWorldLoadingOptimizer
             return false;
         }
 
-        public static string Stats() => $"facility link lookup: {calls} calls in {StartupPhaseFixes.Seconds(ticks):F2} s" + (state == 2 ? " (left to vanilla: other patches present)" : "") + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
+        public static string Stats() => $"facility link lookup: {calls} calls in {StartupPhaseFixes.Seconds(ticks):F2} s" + (guard?.Blocked == true ? " (left to vanilla: other patches present)" : "") + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
     }
 }

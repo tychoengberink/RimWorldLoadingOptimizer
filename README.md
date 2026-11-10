@@ -43,6 +43,7 @@ Options → Mod Settings → RimWorld Loading Optimizer → **Start** next to "M
 - Do not change mods or settings between the two starts. If one start was cold (XML patching ran, for example after a mod update) and the other warm, the result window says the comparison is not fair.
 - The first start after installing or updating RimWorld Loading Optimizer (or any mod) also builds the atlas cache, so it is slower than later starts. Run the measurement twice and use the second result.
 - "Off" means RimWorld Loading Optimizer's features are switched off; the mod itself is still loaded.
+- A measurement start has to end at the main menu. If it goes straight into a game (quick test, a mod that loads a save), the measurement is cancelled; start it again in Mod Settings.
 
 ## Load order
 
@@ -83,6 +84,7 @@ On the Progression packs list (1,495 mods, Mac) this took the main menu from 55.
 | Assembly type cache | `Assembly.GetTypes()` | Mono rebuilds the type array through a slow hash table on every call; RimWorld Loading Optimizer returns a copy of the first result. Assemblies that throw are never cached |
 | Designator index | `DesignationCategoryDef.ResolveDesignators` | One pass over all buildable defs instead of one per category |
 | Loading frame budget | `LongEventHandler` | During startup the loading screen runs 0.25 s of work per frame instead of 0.1 s; same work, same order, fewer redraws |
+| Thing filter category allows | `ThingFilter.SetAllow` for a category | Allowing a whole category adds its things in one step from a set kept per category instead of one call per thing (default ingredient filters 2.1 s to 1.2 s); self-checked, follows the Category cache setting, steps aside when another mod patches `SetAllow` |
 | Category sets | `ThingCategoryDef.DescendantThingDefs` results | `Contains` checks on category lists answered from a hash set; follows the Category cache setting |
 | Type name index | `AccessTools.TypeByName` | Lookups that miss the fast paths are answered from an index in Harmony's exact order instead of listing all types of all assemblies per call |
 | Patch file reuse | `ModContentPack.LoadPatches`, `DirectXmlLoader.XmlAssetsInModFolder` | Patch files parsed during def loading are reused instead of parsed a second time |
@@ -103,7 +105,7 @@ Each of these targets one mod, can be switched on separately in Mod Settings, an
 |---|---|
 | Graphics Settings+ | Hands its own DDS loader the file bytes that were read ahead into memory |
 | Missile Girl | Lets its own cache loader read the cache straight into the def document instead of copying every def, and skips an unused second read of the cache file; on 1.7 it reads the cache on several threads |
-| Melee Animation | Indexes its retexture scan (−27 s) |
+| Melee Animation (1.6) | Indexes its retexture scan (−27 s) |
 | Research Reinvented: Stepping Stones | Indexed recipe-user lookups |
 | Lunar | Faster inlining fixer and patch conflict check |
 | What's That Mod | Runs its patch scan at a point where it is cheaper |
@@ -120,7 +122,7 @@ Each of these targets one mod, can be switched on separately in Mod Settings, an
 
 Tests, off by default (Mod Settings): keep Missile Girl's rebuilt cache usable (writes its mod list again and drops stale hashes after a rebuild, with Missile Girl's own functions; works around a Missile Girl issue), PA Dynamic Seed Icons image read-ahead, and the game sound read-ahead above.
 
-Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assembly.FullName`, `Assembly.GetTypes`, `Type.ContainsGenericParameters`, `Type.GetGenericArguments`, `XmlChildNodes.Item`, `XmlLinkedNode.PreviousSibling`, `Thread.Sleep`) only exist during startup and are removed when the main menu opens.
+Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assembly.FullName`, `Assembly.GetTypes`, `Type.ContainsGenericParameters`, `Type.GetGenericArguments`, `XmlChildNodes.Item`, `XmlLinkedNode.PreviousSibling`, `Thread.Sleep`) only exist during startup and are removed when the main menu opens, or when a game finishes loading if startup goes straight into one.
 
 ## Safety rules the code follows
 
@@ -135,10 +137,10 @@ Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assemb
   - a speedup that only measures or reports, or only marks a point in time, needs nothing more;
   - a speedup that changes one call checks that the call it needs is still there (and only that);
   - a speedup that replaces a result lets the original run next to it for its first results (200 by default, fewer for expensive ones), compares them, and only takes over when all of them match. On any difference it switches off for that start and the original code runs (`[RLO] <feature>: a result differed from the original code …`);
-  - a passed check is remembered for that exact code in `RimWorldLoadingOptimizer/verified-code.txt`, so the comparison runs once after every game or mod update;
+  - a passed check is remembered for that exact code and that build of RimWorld Loading Optimizer in `RimWorldLoadingOptimizer/verified-code.txt`, so the comparison runs once after every game, mod or RimWorld Loading Optimizer update;
   - two speedups also depend on internals a comparison cannot fully cover, so they additionally check that the Harmony or System.Xml methods they build on still make exactly the calls they were written around: Harmony rebuild coalescing (test, off by default), and reading Missile Girl's cache on several threads, which also compares its first read of every new code version with Missile Girl's own read and uses Missile Girl's result for that start;
   - faster mod assembly loading on 1.6 still needs a known version.
-  The startup report lists the checks in `code checks:` and `self-checks:` lines. Re-implemented game getters also step aside when another mod patches the same method.
+  The startup report lists the checks in `code checks:` and `self-checks:` lines. Re-implemented game getters also step aside when another mod patches the same method, also when that mod adds its patch later during startup.
 - **Other optimizers:** when another optimizer (for example Performance Fish or Performance Optimizer) replaces or rewrites a method that a speedup also works on, that speedup steps aside and leaves the method to the other optimizer. Patches that only add work before or after a method don't count.
 - **Atlas cache files:** each cached atlas carries a 64-bit checksum that is verified while loading; a damaged or truncated file is rebaked instead of shown.
 - **Transpilers:** they only redirect specific calls and leave the rest of the method intact, so other mods' transpilers still find their anchors. A transpiler that does not find the exact calls it expects leaves the method unchanged.

@@ -24,6 +24,10 @@ namespace RimWorldLoadingOptimizer
         public static string Code(params MethodBase[] methods) =>
             methods.Any(m => m == null) ? null : string.Join(";", methods.Select(m => Fingerprint.Normalized(m) ?? Fingerprint.Of(m)));
 
+        private static readonly string OwnBuild = typeof(VersionCheck).Assembly.ManifestModule.ModuleVersionId.ToString("N");
+
+        private static string TrustLine(string feature, string key) => feature + "\t" + key + "\t" + OwnBuild;
+
         internal static bool Trusted(string feature, string key)
         {
             if (forceSelfCheck || key == null)
@@ -46,7 +50,7 @@ namespace RimWorldLoadingOptimizer
                     {
                     }
                 }
-                return trusted.Contains(feature + "\t" + key);
+                return trusted.Contains(TrustLine(feature, key));
             }
         }
 
@@ -56,7 +60,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            var line = feature + "\t" + key;
+            var line = TrustLine(feature, key);
             lock (trustGate)
             {
                 try

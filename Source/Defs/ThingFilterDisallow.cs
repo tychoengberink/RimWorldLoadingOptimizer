@@ -16,7 +16,8 @@ namespace RimWorldLoadingOptimizer
         private static MethodInfo allDefs;
         private static AccessTools.FieldRef<ThingFilter, HashSet<ThingDef>> allowed;
         private static MethodBase[] guarded;
-        private static int state;
+        private static Fingerprint.Guard guard;
+        private static bool reported;
         private static long narrowed, full, scanned;
 
         public static void Install(Harmony harmony)
@@ -70,18 +71,17 @@ namespace RimWorldLoadingOptimizer
 
         private static bool Usable()
         {
-            var current = Volatile.Read(ref state);
-            if (current == 0)
+            if ((guard ??= new Fingerprint.Guard(guarded)).Ours)
             {
-                current = guarded.All(Fingerprint.OnlyOurs) ? 1 : 2;
-                Volatile.Write(ref state, current);
-                if (current == 2)
-                {
-                    var owners = guarded.SelectMany(m => Harmony.GetPatchInfo(m)?.Owners ?? Enumerable.Empty<string>()).Where(o => o != RLOMod.HarmonyId).Distinct();
-                    RLOLog.Detail(Feature + ": another mod patches ThingFilter (" + string.Join(", ", owners) + "), the original loops run");
-                }
+                return true;
             }
-            return current == 1;
+            if (!reported)
+            {
+                reported = true;
+                var owners = guarded.SelectMany(m => Harmony.GetPatchInfo(m)?.Owners ?? Enumerable.Empty<string>()).Where(o => o != RLOMod.HarmonyId).Distinct();
+                RLOLog.Detail(Feature + ": another mod patches ThingFilter (" + string.Join(", ", owners) + "), the original loops run");
+            }
+            return false;
         }
 
         public static List<ThingDef> Candidates(ThingFilter filter)
@@ -139,6 +139,6 @@ namespace RimWorldLoadingOptimizer
             return $"{count} filters, hash {hash:X16}";
         }
 
-        public static string Stats() => state == 2 ? Feature + ": off, another mod patches ThingFilter" : $"thing filter removal loops: {narrowed:N0} loops walked only the allowed defs ({scanned:N0} ThingDef checks skipped), {full:N0} walked every ThingDef";
+        public static string Stats() => guard?.Blocked == true ? Feature + ": off, another mod patches ThingFilter" : $"thing filter removal loops: {narrowed:N0} loops walked only the allowed defs ({scanned:N0} ThingDef checks skipped), {full:N0} walked every ThingDef";
     }
 }

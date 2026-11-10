@@ -2,14 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml;
 using System.Xml.XPath;
-using Verse;
 
 namespace RimWorldLoadingOptimizer
 {

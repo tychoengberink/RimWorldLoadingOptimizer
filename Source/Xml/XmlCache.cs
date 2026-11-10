@@ -28,6 +28,7 @@ namespace RimWorldLoadingOptimizer
         private sealed class Input
         {
             public string PackageId;
+            public string Name;
             public List<string> Folders;
         }
 
@@ -43,11 +44,16 @@ namespace RimWorldLoadingOptimizer
         private static string Dir => Path.Combine(GenFilePaths.SaveDataFolderPath, "RimWorldLoadingOptimizer", "xmlcache");
         private static string XmlPath => Path.Combine(Dir, "defs.xml");
         private static string MetaPath => Path.Combine(Dir, "defs.meta");
+        private static string SkipPath => Path.Combine(Dir, "defs.skip");
 
         private static Task<string> fingerprint;
         private static Task<Cached> cached;
         private static bool armed = true;
         private static bool active;
+        private static bool hitServed;
+        private static bool loadedOnce;
+        private static volatile bool watchingLateOperations;
+        private static readonly object lateOperationGate = new object();
         private static bool skipPatchCleanup;
         private static Cached hit;
         private static List<string> pendingAssets;
@@ -61,6 +67,8 @@ namespace RimWorldLoadingOptimizer
         [ThreadStatic] private static bool readingAhead;
         private static double patchSeconds;
 
+        public static bool Used { get; private set; }
+
         public static bool CacheFileExists => File.Exists(MetaPath) && File.Exists(XmlPath);
 
         public static void Install(Harmony harmony)
@@ -71,7 +79,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var mods = LoadedModManager.RunningModsListForReading;
-            var inputs = mods.Select(m => new Input { PackageId = m.PackageId, Folders = m.foldersToLoadDescendingOrder.ToList() }).ToList();
+            var inputs = mods.Select(m => new Input { PackageId = m.PackageId, Name = m.Name, Folders = m.foldersToLoadDescendingOrder.ToList() }).ToList();
             var settingFiles = SettingFiles();
             var version = RimWorld.VersionControl.CurrentVersionStringWithRev;
             fingerprint = new Task<string>(() => Fingerprint(version, inputs, settingFiles));
@@ -92,6 +100,14 @@ namespace RimWorldLoadingOptimizer
                 prefix: new HarmonyMethod(typeof(XmlCache), nameof(ClearCachedPatchesPrefix)) { priority = Priority.Last });
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
                 postfix: new HarmonyMethod(typeof(XmlCache), nameof(ParseAndProcessXmlPostfix)) { priority = Priority.Last });
+            var apply = AccessTools.Method(typeof(PatchOperation), nameof(PatchOperation.Apply));
+            harmony.Patch(apply, prefix: new HarmonyMethod(typeof(XmlCache), nameof(OperationApplyPrefix)));
+            MainMenu.Then(() =>
+            {
+                watchingLateOperations = false;
+                patchFiles = null;
+            });
+            MainMenu.UnpatchAfterStartup(apply);
 
             var missileGirl = AccessTools.Constructor(AccessTools.TypeByName("MissileGirl.RocketMod"), new[] { typeof(ModContentPack) });
             if (Harmony.GetPatchInfo(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML)))?.Owners.Contains(MissileGirlHarmonyId) == true)
@@ -132,6 +148,7 @@ namespace RimWorldLoadingOptimizer
             {
                 var sb = new StringBuilder();
                 sb.Append(inputs[i].PackageId).Append('\n');
+                sb.Append("name ").Append(inputs[i].Name).Append('\n');
                 foreach (var folder in inputs[i].Folders)
                 {
                     sb.Append("folder ").Append(folder).Append('\n');
@@ -303,7 +320,8 @@ namespace RimWorldLoadingOptimizer
 
         public static bool PatchFilesPrefix(ModContentPack mod, string folderPath, List<string> foldersToLoadDebug, ref LoadableXmlAsset[] __result)
         {
-            if (readingAhead || !skipPatchCleanup || folderPath != "Patches/" || foldersToLoadDebug != null || patchFiles == null)
+            var reading = patchFiles;
+            if (readingAhead || !skipPatchCleanup || folderPath != "Patches/" || foldersToLoadDebug != null || reading == null)
             {
                 return true;
             }
@@ -311,7 +329,7 @@ namespace RimWorldLoadingOptimizer
             try
             {
                 StartKey();
-                ready = patchFiles.Result;
+                ready = reading.Result;
             }
             catch (Exception)
             {
@@ -368,6 +386,7 @@ namespace RimWorldLoadingOptimizer
                 return true;
             }
             active = true;
+            Used = true;
             skipPatchCleanup = true;
             __result = new List<LoadableXmlAsset>();
             return false;
@@ -379,6 +398,13 @@ namespace RimWorldLoadingOptimizer
             {
                 return true;
             }
+            if (hitServed)
+            {
+                active = false;
+                hit = null;
+                return true;
+            }
+            hitServed = true;
             var i = 0;
             for (var child = hit.Document.DocumentElement.FirstChild; child != null; child = child.NextSibling, i++)
             {
@@ -396,6 +422,13 @@ namespace RimWorldLoadingOptimizer
 
         public static void ApplyPatchesPostfix(XmlDocument xmlDoc, Dictionary<XmlNode, LoadableXmlAsset> assetlookup)
         {
+            if (loadedOnce)
+            {
+                pendingOwners = null;
+                pendingAssets = null;
+                return;
+            }
+            loadedOnce = true;
             if (active || armed || pendingOwners != null)
             {
                 return;
@@ -403,6 +436,11 @@ namespace RimWorldLoadingOptimizer
             var watch = Stopwatch.StartNew();
             try
             {
+                if (File.Exists(SkipPath) && File.ReadAllText(SkipPath) == fingerprint.Result)
+                {
+                    state = "miss; not cached, on this mod list patch operations run after the patching phase and the cache cannot repeat them";
+                    return;
+                }
                 Directory.CreateDirectory(Dir);
                 File.Delete(MetaPath);
                 var mods = LoadedModManager.RunningModsListForReading;
@@ -425,7 +463,7 @@ namespace RimWorldLoadingOptimizer
                     }
                     owners[i] = index;
                 }
-                var settings = new XmlWriterSettings { Indent = false, CheckCharacters = false, NewLineHandling = NewLineHandling.Entitize, Encoding = new UTF8Encoding(false) };
+                var settings = new XmlWriterSettings { Indent = false, OmitXmlDeclaration = true, CheckCharacters = false, NewLineHandling = NewLineHandling.Entitize, Encoding = new UTF8Encoding(false) };
                 var temp = XmlPath + ".tmp";
                 using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20))
                 using (var writer = XmlWriter.Create(stream, settings))
@@ -436,11 +474,45 @@ namespace RimWorldLoadingOptimizer
                 pendingAssets = assets;
                 pendingOwners = owners;
                 writeSeconds = watch.Elapsed.TotalSeconds;
+                watchingLateOperations = true;
             }
             catch (Exception e)
             {
                 state = $"miss, the cache could not be written ({e.GetType().Name}: {e.Message})";
                 pendingOwners = null;
+            }
+        }
+
+        public static void OperationApplyPrefix(PatchOperation __instance)
+        {
+            if (watchingLateOperations)
+            {
+                LateOperation(__instance);
+            }
+        }
+
+        private static void LateOperation(PatchOperation operation)
+        {
+            lock (lateOperationGate)
+            {
+                if (!watchingLateOperations)
+                {
+                    return;
+                }
+                watchingLateOperations = false;
+                pendingOwners = null;
+                pendingAssets = null;
+                TryDelete();
+                state = $"miss; not cached, {operation.GetType().FullName} ran after the patching phase and the cache cannot repeat that";
+                RLOLog.Detail(Feature + ": " + state);
+                try
+                {
+                    File.WriteAllText(SkipPath, fingerprint.Result);
+                }
+                catch (Exception e)
+                {
+                    RLOLog.Warning($"{Feature}: could not record that this mod list is not cached, so the next start writes the cache again: {e.Message}");
+                }
             }
         }
 

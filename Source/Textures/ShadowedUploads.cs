@@ -1,8 +1,8 @@
 #if RW17
 using System;
 using System.Collections.Generic;
-using System.Reflection.Emit;
 using System.Linq;
+using System.Reflection.Emit;
 using HarmonyLib;
 using Verse;
 using CoreTexture = Waylith.Rendering.Texture2D;

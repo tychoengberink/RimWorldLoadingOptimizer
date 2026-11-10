@@ -41,7 +41,7 @@ namespace RimWorldLoadingOptimizer
         private static int hits, misses, uncached, verified, runs;
         private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static long missTicks, hitTicks;
-        private static bool verify = DevSwitches.Verify;
+        private static readonly bool verify = DevSwitches.Verify;
         private static SelfCheck check;
 
         public static void Install(Harmony harmony)

@@ -49,6 +49,10 @@ namespace RimWorldLoadingOptimizer
 #if RW17
                     if (winners.TryAdd(path, holder.contentList[path]))
 #else
+                    if ((object)holder.contentList[path] == null)
+                    {
+                        continue;
+                    }
                     if (winners.Add(path))
 #endif
                     {

@@ -195,6 +195,12 @@ namespace RimWorldLoadingOptimizer
 
         private static bool Cold(double patchSeconds)
         {
+#if RW17
+            if (XmlCache.Used)
+            {
+                return false;
+            }
+#endif
             var context = AccessTools.TypeByName("Gagarin.Context");
             var usingCache = context == null ? null : AccessTools.PropertyGetter(context, "IsUsingCache");
             if (usingCache != null)
@@ -249,6 +255,12 @@ namespace RimWorldLoadingOptimizer
             WriteHtml();
             if (straightIntoGame)
             {
+                if (persisted.measureStep != Idle)
+                {
+                    persisted.measureStep = Idle;
+                    mod.WriteSettings();
+                    RLOLog.Message("measurement cancelled: this start went straight into a game instead of the main menu. Start the measurement again in Mod Settings.");
+                }
                 return;
             }
             if (persisted.measureStep == MeasureOff && featuresOff)

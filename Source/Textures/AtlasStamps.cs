@@ -28,7 +28,8 @@ namespace RimWorldLoadingOptimizer
         private static FieldInfo queueField, masksField;
         private static Task<Dictionary<string, Stamp>> pending;
         private static Dictionary<string, Stamp> stamps;
-        private static int state, bakes, files, used, packed, fallbacks, verified;
+        private static Fingerprint.Guard guard;
+        private static int bakes, files, used, packed, fallbacks, verified;
         private static readonly MismatchLog mismatches = new MismatchLog("atlas source stamps");
         private static long resolveTicks, waitTicks, collectTicks;
 
@@ -202,11 +203,7 @@ namespace RimWorldLoadingOptimizer
 
         public static bool StampPrefix(BinaryWriter writer, Texture2D texture, ref bool __result)
         {
-            if (state == 0)
-            {
-                state = Fingerprint.OnlyOurs(stampMethod) ? 1 : 2;
-            }
-            var map = state == 1 ? Ready() : null;
+            var map = (guard ??= new Fingerprint.Guard(stampMethod)).Ours ? Ready() : null;
             if (map == null)
             {
                 return true;
@@ -270,7 +267,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return "atlas source stamps: atlas baking not reached";
             }
-            if (state == 2)
+            if (guard?.Blocked == true)
             {
                 return "atlas source stamps: left to vanilla (another mod patches the stamp method)";
             }

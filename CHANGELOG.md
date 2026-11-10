@@ -8,9 +8,22 @@
 - Diagnostic environment variables start with `RLO_` (for example `RLO_ALL_OFF`, `RLO_VERIFY`, `RLO_PROFILE`); see the README.
 - Research tab layout: the node positions are relaxed per research tab instead of over all tabs at once (1.2 → 0.9 s on the Progression packs list).
 - Thing filters: the loops that remove disallowed things walk only the things still allowed instead of every thing. It steps aside when another mod patches thing filters.
+- Thing filters: allowing a whole category adds its things in one step from a set kept per category, instead of one call per thing (11 million calls on the Progression packs list, mostly from recipes whose default ingredient filter allows a top category). Resolving the default ingredient filters takes 1.2 s instead of 2.1 s. It follows the Category cache setting, compares its first 50 results with the game's own code, and leaves a call to the game when a thing was already allowed without its variants or when another mod patches `ThingFilter.SetAllow`.
 
 ### Fixed
 - RimWorld Loading Optimizer starts its own background work (pre-compiling patched methods, the def XML cache key, the Missile Girl and DDS read-ahead) only after it has installed all its patches. Before, those threads could run a method at the moment it was being patched, which crashed the game in rare cases while the mods were starting.
+- When startup goes straight into a game instead of the main menu, the main menu steps now run once that game has loaded: startup-only patches are removed and (1.7) the GC latency mode is set back. Before, they stayed until the main menu was opened.
+- Self-checks run again after every RimWorld Loading Optimizer update, not only after a game or mod update. All self-checks run once on the first start with this version.
+- The category cache, recipe index, facility link lookup and thing filter loops also step aside when another mod patches the same method later during startup, not only when it was patched before their first use.
+- Reading textures ahead: when the self-check of the DDS buffers switches them off, the buffers already read are freed and the remaining files are read into the file cache. Before, read-ahead stopped and up to 768 MB stayed in use until the main menu.
+- Measurement: the "off" start no longer turns on the detailed startup report, so both starts log the same amount. A measurement start that goes straight into a game is cancelled instead of leaving every later start switched off.
+- Melee Animation support is no longer listed on 1.7, where it never loaded.
+- 1.6: releasing overridden textures no longer frees a texture when the mod that overrides it has no usable texture at that path.
+- 1.7, def XML cache: the cache is not kept on mod lists where patch operations run after the patching phase (XML Extensions' def database operations, PostInheritanceOperation), because a start from the cache could not repeat them. Such lists load the normal way on every start.
+- 1.7, def XML cache: only the first load of a session writes the cache. A reload after a mod error or a language change could store its result under the key of the original mod list.
+- 1.7, def XML cache: a mod's name is part of the cache key, and the cached document has the same first node as the original. Existing caches are rebuilt once.
+- 1.7: a start that uses the def XML cache is recorded as a warm start in the measurement.
+- 1.7, decoding mod sounds ahead: a sound the game was waiting for is used instead of being opened a second time.
 - The optimizer overlap check no longer removes its own hook while the game is loading; removing it while other threads ran the same method caused a rare crash just before the main menu (seen once on 1.7).
 
 ### RimWorld 1.7

@@ -26,7 +26,7 @@ namespace RimWorldLoadingOptimizer
         private static bool warm;
 
         private static MethodBase getter;
-        private static int state;
+        private static Fingerprint.Guard guard;
         private static SelfCheck check;
         private static SelfCheck warmCheck;
         [ThreadStatic] private static bool bypass;
@@ -93,11 +93,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return true;
             }
-            if (state == 0)
-            {
-                state = Fingerprint.OnlyOurs(getter) ? 1 : 2;
-            }
-            if (state != 1)
+            if (!(guard ??= new Fingerprint.Guard(getter)).Ours)
             {
                 return true;
             }

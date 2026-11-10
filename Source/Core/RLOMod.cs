@@ -136,6 +136,10 @@ namespace RimWorldLoadingOptimizer
             if (allOff)
             {
                 settings = RLOSettings.AllOff();
+                if (!DevSwitches.AllOff)
+                {
+                    settings.startupReport = persisted.startupReport;
+                }
             }
             Settings = settings;
             if (ThreadTimeline.Wanted)
@@ -267,6 +271,7 @@ namespace RimWorldLoadingOptimizer
 #endif
             Try("surgery index", settings.defLoadingFixes, () => SurgeryIndex.Install(harmony));
             Try(ThingFilterDisallow.Feature, settings.defLoadingFixes, () => ThingFilterDisallow.Install(harmony));
+            Try(ThingFilterAllow.Feature, settings.defLoadingFixes && settings.categoryCache, () => ThingFilterAllow.Install(harmony));
             Try(ResearchCoordinates.Feature, settings.defLoadingFixes, () => ResearchCoordinates.Install(harmony));
             Try("type name lookups", settings.defLoadingFixes, () => TypeNameIndex.Install(harmony));
             Try("vanilla facility link lookup", settings.defLoadingFixes, () => FacilityFast.Install(harmony));

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using RimWorld;
+using Verse;
 
 namespace RimWorldLoadingOptimizer
 {
@@ -20,9 +21,26 @@ namespace RimWorldLoadingOptimizer
             harmony = h;
             harmony.Patch(AccessTools.Method(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI)),
                 prefix: new HarmonyMethod(typeof(MainMenu), nameof(Prefix)) { priority = Priority.First });
+            var gameStart = new HarmonyMethod(typeof(MainMenu), nameof(GameStart));
+            harmony.Patch(AccessTools.Method(typeof(SavedGameLoaderNow), nameof(SavedGameLoaderNow.LoadGameFromSaveFileNow)), prefix: gameStart);
+            harmony.Patch(AccessTools.Method(typeof(Game), nameof(Game.InitNewGame)), prefix: gameStart);
         }
 
-        public static void Then(Action action) => actions.Add(action);
+        public static void GameStart()
+        {
+            if (!Reached)
+            {
+                LongEventHandler.ExecuteWhenFinished(Prefix);
+            }
+        }
+
+        public static void Then(Action action)
+        {
+            lock (actions)
+            {
+                actions.Add(action);
+            }
+        }
 
         public static void UnpatchAfterStartup(MethodBase method)
         {
@@ -34,12 +52,17 @@ namespace RimWorldLoadingOptimizer
 
         public static void Prefix()
         {
-            if (Reached)
+            Action[] pending;
+            lock (actions)
             {
-                return;
+                if (Reached)
+                {
+                    return;
+                }
+                Reached = true;
+                pending = actions.ToArray();
             }
-            Reached = true;
-            foreach (var action in actions)
+            foreach (var action in pending)
             {
                 try
                 {

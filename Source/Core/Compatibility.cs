@@ -20,7 +20,9 @@ namespace RimWorldLoadingOptimizer
 
         public static readonly Support[] Supports =
         {
+#if !RW17
             new Support { Id = "meleeanimation", Name = "Melee Animation", Description = "Index for Melee Animation's retexture scan.", Type = "AM.Retexture.RetextureUtility", Feature = "Melee Animation retexture scan index" },
+#endif
             new Support { Id = "vehicles", Name = "Vehicle Framework", Description = "Routes Vehicle Framework's pattern texture lookups through RimWorld Loading Optimizer's texture index.", Type = "Vehicles.PatternDef", Feature = "Vehicle Framework pattern lookups" },
             new Support { Id = "lunar", Name = "Lunar", Description = "Faster Lunar inlining fixer and patch conflict check.", Type = "LunarFramework.Patching.HarmonyInliningFixer", Feature = "Lunar inlining fixer" },
             new Support { Id = "whatsthatmod", Name = "What's That Mod", Description = "Precomputed patch scan for What's That Mod.", Type = "WhatsThatMod.ModCore", Feature = "What's That Mod patch scan" },

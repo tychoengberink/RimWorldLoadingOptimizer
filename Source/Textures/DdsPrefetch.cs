@@ -3,8 +3,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection.Emit;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Threading;
 using HarmonyLib;
@@ -32,7 +32,7 @@ namespace RimWorldLoadingOptimizer
         private static string[] files;
         private static long[] before;
         private static Dictionary<ModContentPack, int> firstOfMod;
-        private static bool buffers;
+        private static volatile bool buffers;
         private static bool vanillaBuffers;
         private static SelfCheck ddsCheck;
         private static readonly object windowGate = new object();
@@ -208,7 +208,20 @@ namespace RimWorldLoadingOptimizer
                         PeakInFlight = inFlight;
                     }
                 }
-                var data = Marshal.AllocHGlobal((IntPtr)length);
+                IntPtr data;
+                try
+                {
+                    data = Marshal.AllocHGlobal((IntPtr)length);
+                }
+                catch
+                {
+                    lock (budgetGate)
+                    {
+                        inFlight -= length;
+                        Monitor.PulseAll(budgetGate);
+                    }
+                    throw;
+                }
                 var offset = 0;
                 try
                 {
@@ -230,7 +243,7 @@ namespace RimWorldLoadingOptimizer
                 }
                 Interlocked.Add(ref BytesRead, length);
                 var entry = new Entry { Index = index, Data = data, Length = (int)length };
-                if (stopped || index <= Volatile.Read(ref consumed) - Lag || !ready.TryAdd(path, entry))
+                if (stopped || !buffers || index <= Volatile.Read(ref consumed) - Lag || !ready.TryAdd(path, entry))
                 {
                     Free(data, length);
                 }
@@ -313,6 +326,11 @@ namespace RimWorldLoadingOptimizer
             {
                 Monitor.PulseAll(windowGate);
             }
+            DropReady();
+        }
+
+        private static void DropReady()
+        {
             foreach (var pair in ready)
             {
                 if (ready.TryRemove(pair.Key, out var entry))
@@ -332,6 +350,11 @@ namespace RimWorldLoadingOptimizer
             }
             if (!vanillaBuffers || ddsCheck.IsOff)
             {
+                if (vanillaBuffers && buffers)
+                {
+                    buffers = false;
+                    DropReady();
+                }
                 if (!buffers && map.TryGetValue(file.FullPath, out var warmIndex))
                 {
                     Advance(warmIndex);

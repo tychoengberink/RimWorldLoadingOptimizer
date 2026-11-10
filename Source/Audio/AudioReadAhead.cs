@@ -237,7 +237,7 @@ namespace RimWorldLoadingOptimizer
                         {
                             firstMainAt = now;
                         }
-                        floor = Math.Max(floor, i + 1);
+                        floor = Math.Max(floor, i);
                         for (; releaseCursor < i; releaseCursor++)
                         {
                             if (state[releaseCursor] == Ready && results[releaseCursor] != null)
@@ -284,6 +284,10 @@ namespace RimWorldLoadingOptimizer
                                 workerSavedTicks += openTicks[i];
                             }
                         }
+                    }
+                    if (main)
+                    {
+                        floor = Math.Max(floor, i + 1);
                     }
                     state[i] = Gone;
                     Monitor.PulseAll(gate);

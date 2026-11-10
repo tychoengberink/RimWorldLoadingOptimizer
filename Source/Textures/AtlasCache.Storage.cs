@@ -1,14 +1,11 @@
 using System;
-using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using HarmonyLib;
 using RimWorld;
 using Unity.Collections;
 using UnityEngine;
-using Verse;
 
 namespace RimWorldLoadingOptimizer
 {
