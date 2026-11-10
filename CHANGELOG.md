@@ -1,30 +1,30 @@
 # Changelog
 
-## Unreleased
-
-### Added
-- 1.7: cache the patched def XML. On a start with the same mods, files, mod settings and game version, mod XML files are not read and patches are not applied; the saved XML is read on a background thread while the mods start, and Missile Girl's own XML cache stays off on those starts. Patch files are read on background threads while the mods start. The def counts per mod are checked on every start that uses it. On the Progression packs list the loading thread finishes 3.1 s earlier (30.5 vs 33.6 s) and the main menu is reached at 61.4 instead of 64.0 s (one warm start each). With the later speedups: 55.2 s with the cache against 57.0 and 57.9 s without; building the cache on the first start cost nothing measurable (56.7 s).
-
-- 1.7: cached texture atlas pages that the last start used are read and unpacked on worker threads while the main thread prepares the atlases, a few pages ahead. On the Progression packs list opening the 26 cached pages takes 0.11 s on the main thread instead of 0.88 s, and adopting them 0.64 instead of 1.28 s.
-
-- 1.7: texture atlas pages with DLC or mod textures from asset bundles are now saved in the game's atlas cache and loaded on the next start, instead of being baked again every start. The bundle textures get a cache key from their bundle file (path, size, date and their place in the bundle). On the Progression packs list all 22 pages load from the cache (was 15) and atlas baking takes 2.1 s instead of 6.3 s; peak memory 14.4 instead of 15.9 GB.
+## 5.3
 
 ### Changed
-- Works with RimWorld 1.7.5000.
 - Loading screen: with Loading Progress, one line "RimWorld Loading Optimizer enabled" at the bottom of its window instead of the green bar; without it, a small panel in the game's window style.
 - The log only shows the load time and problems. The per-feature startup report is now the setting "Detailed startup report in log" (off by default).
 - Diagnostic environment variables start with `RLO_` (for example `RLO_ALL_OFF`, `RLO_VERIFY`, `RLO_PROFILE`); see the README.
-- README: an optional Steam launch option for a larger GC budget while loading (1.7).
 - Research tab layout: the node positions are relaxed per research tab instead of over all tabs at once (1.2 → 0.9 s on the Progression packs list).
-- 1.7: graphics with appearance variants look up each texture folder once per graphic instead of once per variant (0.96 → 0.37 s).
-- 1.7: folder lookups in asset bundles use an index of the folders in each bundle (Graphic_Collection setup 1.52 → 0.68 s).
 - Thing filters: the loops that remove disallowed things walk only the things still allowed instead of every thing. It steps aside when another mod patches thing filters.
-- 1.7: decoding mod sounds ahead is off by default. 1.7.5000 streams .ogg sounds instead of decoding them, and on the Progression packs list starts were about 1 s faster without it. It can still be switched on in Mod Settings.
 
 ### Fixed
+- The optimizer overlap check no longer removes its own hook while the game is loading; removing it while other threads ran the same method caused a rare crash just before the main menu (seen once on 1.7).
+
+### RimWorld 1.7
+- Works with RimWorld 1.7.5000.
+- The patched def XML is cached. On a start with the same mods, files, mod settings and game version, mod XML files are not read and patches are not applied; the saved XML is read on a background thread while the mods start, and Missile Girl's own XML cache stays off on those starts. Patch files are read on background threads while the mods start. The def counts per mod are checked on every start that uses it. On the Progression packs list the loading thread finishes 3.1 s earlier (30.5 vs 33.6 s) and the main menu is reached at 61.4 instead of 64.0 s (one warm start each). With the later speedups: 55.2 s with the cache against 57.0 and 57.9 s without; building the cache on the first start cost nothing measurable (56.7 s).
+- Cached texture atlas pages that the last start used are read and unpacked on worker threads while the main thread prepares the atlases, a few pages ahead. On the Progression packs list opening the 26 cached pages takes 0.11 s on the main thread instead of 0.88 s, and adopting them 0.64 instead of 1.28 s.
+- Texture atlas pages with DLC or mod textures from asset bundles are now saved in the game's atlas cache and loaded on the next start, instead of being baked again every start. The bundle textures get a cache key from their bundle file (path, size, date and their place in the bundle). On the Progression packs list all 22 pages load from the cache (was 15) and atlas baking takes 2.1 s instead of 6.3 s; peak memory 14.4 instead of 15.9 GB.
+- The def XML cache is rebuilt after any change to any mod's settings (all `Mod_*.xml` and HugsLib settings), not only those of mods with their own patch operations, so a changed mod option can never load defs patched with the old value.
+- Graphics with appearance variants look up each texture folder once per graphic instead of once per variant (0.96 → 0.37 s).
+- Folder lookups in asset bundles use an index of the folders in each bundle (Graphic_Collection setup 1.52 → 0.68 s).
+- Decoding mod sounds ahead is off by default. 1.7.5000 streams .ogg sounds instead of decoding them, and on the Progression packs list starts were about 1 s faster without it. It can still be switched on in Mod Settings.
 - 1.7.5000: Giddy-Up draw offsets work again (a game type moved).
 - 1.7.5000: skipping the forced memory clean-up at the end of loading finds the game's new clean-up call.
-- 1.7: the game's built-in Prepatcher support counts as Prepatcher for the Yet another Optimizer check and the log hint about rewritten methods.
+- The game's built-in Prepatcher support counts as Prepatcher for the Yet another Optimizer check and the log hint about rewritten methods.
+- README: an optional Steam launch option for a larger GC budget while loading.
 
 ## 5.2
 

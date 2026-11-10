@@ -72,7 +72,7 @@ namespace RimWorldLoadingOptimizer
             }
             var mods = LoadedModManager.RunningModsListForReading;
             var inputs = mods.Select(m => new Input { PackageId = m.PackageId, Folders = m.foldersToLoadDescendingOrder.ToList() }).ToList();
-            var settingFiles = SettingFiles(mods);
+            var settingFiles = SettingFiles();
             var version = RimWorld.VersionControl.CurrentVersionStringWithRev;
             fingerprint = Task.Run(() => Fingerprint(version, inputs, settingFiles));
             cached = fingerprint.ContinueWith(t => t.Status == TaskStatus.RanToCompletion ? Read(t.Result, mods) : null, TaskContinuationOptions.ExecuteSynchronously);
@@ -104,17 +104,21 @@ namespace RimWorldLoadingOptimizer
             StartupPhaseFixes.Reports.Add(Stats);
         }
 
-        private static List<string> SettingFiles(List<ModContentPack> mods)
+        private static List<string> SettingFiles()
         {
-            var assemblies = new HashSet<Assembly>(typeof(PatchOperation).AllSubclasses().Select(t => t.Assembly));
+            var config = GenFilePaths.ConfigFolderPath;
             var result = new List<string>();
-            foreach (var mod in mods)
+            if (!Directory.Exists(config))
             {
-                if (mod.assemblies.loadedAssemblies.Any(assemblies.Contains) && Directory.Exists(GenFilePaths.ConfigFolderPath))
-                {
-                    result.AddRange(Directory.GetFiles(GenFilePaths.ConfigFolderPath, $"Mod_{mod.FolderName}_*.xml").OrderBy(f => f, StringComparer.Ordinal));
-                }
+                return result;
             }
+            result.AddRange(Directory.GetFiles(config, "Mod_*.xml"));
+            var hugsLib = Path.Combine(config, "HugsLib", "ModSettings.xml");
+            if (File.Exists(hugsLib))
+            {
+                result.Add(hugsLib);
+            }
+            result.Sort(StringComparer.Ordinal);
             return result;
         }
 
