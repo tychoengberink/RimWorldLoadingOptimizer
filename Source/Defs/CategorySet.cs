@@ -11,9 +11,8 @@ namespace RimWorldLoadingOptimizer
     {
         private HashSet<ThingDef> hashed;
 
-        public HashedDefs(IList<ThingDef> list) : base(list)
-        {
-        }
+        public HashedDefs(IList<ThingDef> list)
+            : base(list) { }
 
         public new bool Contains(ThingDef item)
         {
@@ -40,7 +39,8 @@ namespace RimWorldLoadingOptimizer
 
     public static class CategorySet
     {
-        private static readonly ConditionalWeakTable<ReadOnlyCollection<ThingDef>, HashedDefs> wrappers = new ConditionalWeakTable<ReadOnlyCollection<ThingDef>, HashedDefs>();
+        private static readonly ConditionalWeakTable<ReadOnlyCollection<ThingDef>, HashedDefs> wrappers =
+            new ConditionalWeakTable<ReadOnlyCollection<ThingDef>, HashedDefs>();
         private static bool installed;
         public static int Sets;
         public static int Checks;
@@ -52,8 +52,10 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            harmony.Patch(AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.DescendantThingDefs)),
-                postfix: new HarmonyMethod(typeof(CategorySet), nameof(Postfix)) { priority = Priority.Last });
+            harmony.Patch(
+                AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.DescendantThingDefs)),
+                postfix: new HarmonyMethod(typeof(CategorySet), nameof(Postfix)) { priority = Priority.Last }
+            );
             installed = true;
         }
 
@@ -65,6 +67,10 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static string Stats() => !installed ? "Category sets: not active (needs Category cache)" : $"Category sets: hashed sets built {Sets}" + (DevSwitches.Verify ? $", verify checks {Checks}, mismatches {Mismatches.Count}" : "");
+        public static string Stats() =>
+            !installed
+                ? "Category sets: not active (needs Category cache)"
+                : $"Category sets: hashed sets built {Sets}"
+                    + (DevSwitches.Verify ? $", verify checks {Checks}, mismatches {Mismatches.Count}" : "");
     }
 }

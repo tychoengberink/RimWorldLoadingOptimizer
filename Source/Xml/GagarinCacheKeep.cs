@@ -22,11 +22,22 @@ namespace RimWorldLoadingOptimizer
         private const string Feature = "Missile Girl cache kept after a rebuild";
         private static Func<bool> usingCache;
         private static Func<ICollection<string>> assets;
-        private static Func<IDictionary> hashes, hashesInt;
+        private static Func<IDictionary> hashes,
+            hashesInt;
         private static Func<object> runningMods;
-        private static Func<string> modListPath, unifiedPath, hashPath, hashIntPath;
-        private static MethodInfo dumpModList, dumpHashes, dumpHashesInt, changed, loadHashes, loadHashesInt;
-        private static bool rebuilt, pruned, modListWritten;
+        private static Func<string> modListPath,
+            unifiedPath,
+            hashPath,
+            hashIntPath;
+        private static MethodInfo dumpModList,
+            dumpHashes,
+            dumpHashesInt,
+            changed,
+            loadHashes,
+            loadHashesInt;
+        private static bool rebuilt,
+            pruned,
+            modListWritten;
         private static int prunedCount;
 
         private static Harmony harmony;
@@ -37,7 +48,10 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             GagarinCacheKeep.harmony = harmony;
-            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)), prefix: new HarmonyMethod(typeof(GagarinCacheKeep), nameof(ParsePrefix)));
+            harmony.Patch(
+                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
+                prefix: new HarmonyMethod(typeof(GagarinCacheKeep), nameof(ParsePrefix))
+            );
         }
 
         public static void ParsePrefix()
@@ -68,7 +82,14 @@ namespace RimWorldLoadingOptimizer
             changed = AccessTools.Method(modSet, "Changed", new[] { typeof(List<string>), typeof(string) });
             loadHashes = AccessTools.Method(hashing, "Load", new[] { typeof(string) });
             loadHashesInt = AccessTools.Method(hashing, "LoadInt", new[] { typeof(string) });
-            if (finished == null || dumpModList == null || dump == null || changed == null || loadHashes == null || loadHashesInt == null)
+            if (
+                finished == null
+                || dumpModList == null
+                || dump == null
+                || changed == null
+                || loadHashes == null
+                || loadHashesInt == null
+            )
             {
                 VersionCheck.Skip(Feature, "a method it needs no longer exists");
                 return;
@@ -76,8 +97,17 @@ namespace RimWorldLoadingOptimizer
             var modListGetter = AccessTools.PropertyGetter(env, "ModListFilePath");
             var unifiedGetter = AccessTools.PropertyGetter(env, "UnifiedXmlFilePath");
             var delete = AccessTools.Method(typeof(File), nameof(File.Delete), new[] { typeof(string) });
-            if (!VersionCheck.Pattern(Feature, setter, code => VersionCheck.Calls(code, delete) >= 2 && VersionCheck.Calls(code, modListGetter) > 0 && VersionCheck.Calls(code, unifiedGetter) > 0,
-                    "deletes the mod list and the cache file when the cache is turned off"))
+            if (
+                !VersionCheck.Pattern(
+                    Feature,
+                    setter,
+                    code =>
+                        VersionCheck.Calls(code, delete) >= 2
+                        && VersionCheck.Calls(code, modListGetter) > 0
+                        && VersionCheck.Calls(code, unifiedGetter) > 0,
+                    "deletes the mod list and the cache file when the cache is turned off"
+                )
+            )
             {
                 return;
             }
@@ -102,8 +132,11 @@ namespace RimWorldLoadingOptimizer
             unifiedPath = Static<string>(env, "UnifiedXmlFilePath");
             hashPath = Static<string>(env, "HashFilePath");
             hashIntPath = Static<string>(env, "HashFilePathInt");
-            harmony.Patch(finished, prefix: new HarmonyMethod(typeof(GagarinCacheKeep), nameof(Prefix)) { priority = Priority.First },
-                postfix: new HarmonyMethod(typeof(GagarinCacheKeep), nameof(Postfix)) { priority = Priority.Last });
+            harmony.Patch(
+                finished,
+                prefix: new HarmonyMethod(typeof(GagarinCacheKeep), nameof(Prefix)) { priority = Priority.First },
+                postfix: new HarmonyMethod(typeof(GagarinCacheKeep), nameof(Postfix)) { priority = Priority.Last }
+            );
             StartupPhaseFixes.Reports.Add(Stats);
         }
 
@@ -146,7 +179,10 @@ namespace RimWorldLoadingOptimizer
                     var beforeInt = File.ReadAllBytes(pathInt);
                     dumpHashes.Invoke(null, new object[] { table, path });
                     dumpHashesInt.Invoke(null, new object[] { tableInt, pathInt });
-                    if (!Same(table, (IDictionary)loadHashes.Invoke(null, new object[] { path })) || !Same(tableInt, (IDictionary)loadHashesInt.Invoke(null, new object[] { pathInt })))
+                    if (
+                        !Same(table, (IDictionary)loadHashes.Invoke(null, new object[] { path }))
+                        || !Same(tableInt, (IDictionary)loadHashesInt.Invoke(null, new object[] { pathInt }))
+                    )
                     {
                         File.WriteAllBytes(path, before);
                         File.WriteAllBytes(pathInt, beforeInt);
@@ -158,7 +194,9 @@ namespace RimWorldLoadingOptimizer
             }
             catch (Exception e)
             {
-                RLOLog.Detail($"{Feature}: could not tidy Missile Girl's hash file ({e.GetType().Name}: {e.Message}); Missile Girl behaves as usual.");
+                RLOLog.Detail(
+                    $"{Feature}: could not tidy Missile Girl's hash file ({e.GetType().Name}: {e.Message}); Missile Girl behaves as usual."
+                );
             }
         }
 
@@ -166,7 +204,13 @@ namespace RimWorldLoadingOptimizer
         {
             try
             {
-                if (!rebuilt || File.Exists(modListPath()) || !File.Exists(unifiedPath()) || !File.Exists(hashPath()) || !File.Exists(hashIntPath()))
+                if (
+                    !rebuilt
+                    || File.Exists(modListPath())
+                    || !File.Exists(unifiedPath())
+                    || !File.Exists(hashPath())
+                    || !File.Exists(hashIntPath())
+                )
                 {
                     return;
                 }
@@ -184,7 +228,9 @@ namespace RimWorldLoadingOptimizer
             }
             catch (Exception e)
             {
-                RLOLog.Detail($"{Feature}: could not write Missile Girl's mod list ({e.GetType().Name}: {e.Message}); the next start may be cold.");
+                RLOLog.Detail(
+                    $"{Feature}: could not write Missile Girl's mod list ({e.GetType().Name}: {e.Message}); the next start may be cold."
+                );
             }
         }
 
@@ -204,8 +250,9 @@ namespace RimWorldLoadingOptimizer
             return true;
         }
 
-        public static string Stats() => !rebuilt
-            ? $"{Feature}: Missile Girl used its cache, nothing to do"
-            : $"{Feature}: cache rebuilt this start; {(pruned ? $"{prunedCount} hashes of files not loaded any more dropped" : "no stale hashes")}, {(modListWritten ? "mod list written again so the next start can use the new cache" : "mod list left as Missile Girl wrote it")}";
+        public static string Stats() =>
+            !rebuilt
+                ? $"{Feature}: Missile Girl used its cache, nothing to do"
+                : $"{Feature}: cache rebuilt this start; {(pruned ? $"{prunedCount} hashes of files not loaded any more dropped" : "no stale hashes")}, {(modListWritten ? "mod list written again so the next start can use the new cache" : "mod list left as Missile Girl wrote it")}";
     }
 }

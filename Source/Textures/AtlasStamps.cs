@@ -19,42 +19,81 @@ namespace RimWorldLoadingOptimizer
         private struct Stamp
         {
             public bool exists;
-            public long length, ticks;
+            public long length,
+                ticks;
         }
 
         private static readonly int Workers = Math.Max(2, Math.Min(Environment.ProcessorCount, 16));
 
         private static MethodInfo stampMethod;
-        private static FieldInfo queueField, masksField;
+        private static FieldInfo queueField,
+            masksField;
         private static Task<Dictionary<string, Stamp>> pending;
         private static Dictionary<string, Stamp> stamps;
         private static Fingerprint.Guard guard;
-        private static int bakes, files, used, packed, fallbacks, verified;
+        private static int bakes,
+            files,
+            used,
+            packed,
+            fallbacks,
+            verified;
         private static readonly MismatchLog mismatches = new MismatchLog("atlas source stamps");
-        private static long resolveTicks, waitTicks, collectTicks;
+        private static long resolveTicks,
+            waitTicks,
+            collectTicks;
 
         public static void Install(Harmony harmony)
         {
-            var bake = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases));
-            stampMethod = AccessTools.Method(typeof(StaticTextureAtlas), "TryWriteSourceStamp", new[] { typeof(BinaryWriter), typeof(Texture2D) });
+            var bake = AccessTools.Method(
+                typeof(GlobalTextureAtlasManager),
+                nameof(GlobalTextureAtlasManager.BakeStaticAtlases)
+            );
+            stampMethod = AccessTools.Method(
+                typeof(StaticTextureAtlas),
+                "TryWriteSourceStamp",
+                new[] { typeof(BinaryWriter), typeof(Texture2D) }
+            );
             if (bake == null || stampMethod == null)
             {
                 VersionCheck.Skip("Atlas source stamps", "a method it needs no longer exists");
                 return;
             }
-            if (!VersionCheck.Pattern("Atlas source stamps", stampMethod, code => VersionCheck.CallsExactly(code, StampCalls()) && !code.Any(i => i.opcode == OpCodes.Ldfld || i.opcode == OpCodes.Ldsfld), "writes only the path and the content hash or file length and time"))
+            if (
+                !VersionCheck.Pattern(
+                    "Atlas source stamps",
+                    stampMethod,
+                    code =>
+                        VersionCheck.CallsExactly(code, StampCalls())
+                        && !code.Any(i => i.opcode == OpCodes.Ldfld || i.opcode == OpCodes.Ldsfld),
+                    "writes only the path and the content hash or file length and time"
+                )
+            )
             {
                 return;
             }
             queueField = AccessTools.Field(typeof(GlobalTextureAtlasManager), "buildQueue");
             masksField = AccessTools.Field(typeof(GlobalTextureAtlasManager), "buildQueueMasks");
-            if (queueField == null || !queueField.IsStatic || queueField.FieldType != typeof(Dictionary<TextureAtlasGroupKey, (List<Texture2D>, HashSet<Texture2D>)>)
-                || masksField == null || !masksField.IsStatic || masksField.FieldType != typeof(Dictionary<Texture2D, Texture2D>))
+            if (
+                queueField == null
+                || !queueField.IsStatic
+                || queueField.FieldType
+                    != typeof(Dictionary<TextureAtlasGroupKey, (List<Texture2D>, HashSet<Texture2D>)>)
+                || masksField == null
+                || !masksField.IsStatic
+                || masksField.FieldType != typeof(Dictionary<Texture2D, Texture2D>)
+            )
             {
-                RLOLog.Detail("atlas source stamps: the game's atlas build queue was not found. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail(
+                    "atlas source stamps: the game's atlas build queue was not found. This speedup is skipped and "
+                        + "the original code runs; nothing is broken."
+                );
                 return;
             }
-            harmony.Patch(bake, prefix: new HarmonyMethod(typeof(AtlasStamps), nameof(BakePrefix)), finalizer: new HarmonyMethod(typeof(AtlasStamps), nameof(BakeFinalizer)));
+            harmony.Patch(
+                bake,
+                prefix: new HarmonyMethod(typeof(AtlasStamps), nameof(BakePrefix)),
+                finalizer: new HarmonyMethod(typeof(AtlasStamps), nameof(BakeFinalizer))
+            );
             harmony.Patch(stampMethod, prefix: new HarmonyMethod(typeof(AtlasStamps), nameof(StampPrefix)));
             MainMenu.UnpatchAfterStartup(bake);
             MainMenu.UnpatchAfterStartup(stampMethod);
@@ -63,12 +102,23 @@ namespace RimWorldLoadingOptimizer
 
         private static MethodBase[] StampCalls()
         {
-            var writeString = AccessTools.Method(typeof(BinaryWriter), nameof(BinaryWriter.Write), new[] { typeof(string) });
-            var writeLong = AccessTools.Method(typeof(BinaryWriter), nameof(BinaryWriter.Write), new[] { typeof(long) });
+            var writeString = AccessTools.Method(
+                typeof(BinaryWriter),
+                nameof(BinaryWriter.Write),
+                new[] { typeof(string) }
+            );
+            var writeLong = AccessTools.Method(
+                typeof(BinaryWriter),
+                nameof(BinaryWriter.Write),
+                new[] { typeof(long) }
+            );
             return new MethodBase[]
             {
                 AccessTools.DeclaredPropertyGetter(typeof(Texture2D), nameof(Texture2D.CoreTexture)),
-                AccessTools.PropertyGetter(typeof(Waylith.Rendering.Texture2D), nameof(Waylith.Rendering.Texture2D.SourcePath)),
+                AccessTools.PropertyGetter(
+                    typeof(Waylith.Rendering.Texture2D),
+                    nameof(Waylith.Rendering.Texture2D.SourcePath)
+                ),
                 writeString,
                 AccessTools.Method(typeof(ContentPack), nameof(ContentPack.TryGetTextureContentHash)),
                 writeString,
@@ -84,7 +134,8 @@ namespace RimWorldLoadingOptimizer
 
         public static void BakePrefix()
         {
-            var queue = (Dictionary<TextureAtlasGroupKey, (List<Texture2D>, HashSet<Texture2D>)>)queueField.GetValue(null);
+            var queue =
+                (Dictionary<TextureAtlasGroupKey, (List<Texture2D>, HashSet<Texture2D>)>)queueField.GetValue(null);
             var queueMasks = (Dictionary<Texture2D, Texture2D>)masksField.GetValue(null);
             if (pending != null || stamps != null || queue == null || queueMasks == null)
             {
@@ -131,17 +182,20 @@ namespace RimWorldLoadingOptimizer
             var sw = Stopwatch.StartNew();
             var found = new Stamp[paths.Length];
             var ok = new bool[paths.Length];
-            Parallel.For(0, paths.Length, new ParallelOptions { MaxDegreeOfParallelism = Workers }, i =>
-            {
-                try
+            Parallel.For(
+                0,
+                paths.Length,
+                new ParallelOptions { MaxDegreeOfParallelism = Workers },
+                i =>
                 {
-                    found[i] = Read(paths[i]);
-                    ok[i] = true;
+                    try
+                    {
+                        found[i] = Read(paths[i]);
+                        ok[i] = true;
+                    }
+                    catch (Exception) { }
                 }
-                catch (Exception)
-                {
-                }
-            });
+            );
             var map = new Dictionary<string, Stamp>(paths.Length, StringComparer.Ordinal);
             for (var i = 0; i < paths.Length; i++)
             {
@@ -178,7 +232,10 @@ namespace RimWorldLoadingOptimizer
                 catch (Exception e)
                 {
                     stamps = null;
-                    RLOLog.Warning("atlas source stamps: reading the file stamps failed, the game reads them itself: " + e.GetBaseException().Message);
+                    RLOLog.Warning(
+                        "atlas source stamps: reading the file stamps failed, the game reads them itself: "
+                            + e.GetBaseException().Message
+                    );
                 }
                 waitTicks += sw.ElapsedTicks;
                 pending = null;
@@ -257,7 +314,9 @@ namespace RimWorldLoadingOptimizer
             }
             if (fresh.exists != stamp.exists || fresh.length != stamp.length || fresh.ticks != stamp.ticks)
             {
-                mismatches.Report($"verify {path}: read ahead {stamp.exists}/{stamp.length}/{stamp.ticks}, fresh {fresh.exists}/{fresh.length}/{fresh.ticks}");
+                mismatches.Report(
+                    $"verify {path}: read ahead {stamp.exists}/{stamp.length}/{stamp.ticks}, fresh {fresh.exists}/{fresh.length}/{fresh.ticks}"
+                );
             }
         }
 

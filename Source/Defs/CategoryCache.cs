@@ -32,12 +32,15 @@ namespace RimWorldLoadingOptimizer
             public int IdentityCheckedAt;
         }
 
-        private static ConcurrentDictionary<ThingCategoryDef, Entry> cache = new ConcurrentDictionary<ThingCategoryDef, Entry>();
+        private static ConcurrentDictionary<ThingCategoryDef, Entry> cache =
+            new ConcurrentDictionary<ThingCategoryDef, Entry>();
 
         private static MethodBase getter;
         private static Fingerprint.Guard guard;
         private static SelfCheck check;
-        [ThreadStatic] private static bool bypass;
+
+        [ThreadStatic]
+        private static bool bypass;
 
         public static bool Installed { get; private set; }
 
@@ -69,20 +72,32 @@ namespace RimWorldLoadingOptimizer
             }
 #endif
             getter = AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.DescendantThingDefs));
-            var children = AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.ThisAndChildCategoryDefs));
+            var children = AccessTools.PropertyGetter(
+                typeof(ThingCategoryDef),
+                nameof(ThingCategoryDef.ThisAndChildCategoryDefs)
+            );
             if (getter == null || children == null)
             {
-                VersionCheck.Skip("Category cache", "ThingCategoryDef.DescendantThingDefs or ThisAndChildCategoryDefs no longer exists");
+                VersionCheck.Skip(
+                    "Category cache",
+                    "ThingCategoryDef.DescendantThingDefs or ThisAndChildCategoryDefs no longer exists"
+                );
                 return;
             }
-            check = new SelfCheck("Category cache", VersionCheck.Code(
-                getter,
-                AccessTools.EnumeratorMoveNext(getter),
-                AccessTools.EnumeratorMoveNext(children)));
+            check = new SelfCheck(
+                "Category cache",
+                VersionCheck.Code(
+                    getter,
+                    AccessTools.EnumeratorMoveNext(getter),
+                    AccessTools.EnumeratorMoveNext(children)
+                )
+            );
             harmony.Patch(getter, prefix: new HarmonyMethod(typeof(CategoryCache), nameof(Prefix)));
             Installed = true;
-            harmony.Patch(AccessTools.Method(typeof(ThingCategoryNodeDatabase), nameof(ThingCategoryNodeDatabase.Clear)),
-                postfix: new HarmonyMethod(typeof(CategoryCache), nameof(Reset)));
+            harmony.Patch(
+                AccessTools.Method(typeof(ThingCategoryNodeDatabase), nameof(ThingCategoryNodeDatabase.Clear)),
+                postfix: new HarmonyMethod(typeof(CategoryCache), nameof(Reset))
+            );
         }
 
         public static void Reset()
@@ -115,7 +130,13 @@ namespace RimWorldLoadingOptimizer
             var defs = new List<ThingDef>();
             Collect(__instance, defs);
             var readOnly = defs.AsReadOnly();
-            cache[__instance] = new Entry { Defs = readOnly, Shape = shape, Identity = Identity(__instance), IdentityCheckedAt = now };
+            cache[__instance] = new Entry
+            {
+                Defs = readOnly,
+                Shape = shape,
+                Identity = Identity(__instance),
+                IdentityCheckedAt = now,
+            };
             Interlocked.Increment(ref Builds);
             __result = Checked(__instance, readOnly);
             return false;
@@ -200,7 +221,11 @@ namespace RimWorldLoadingOptimizer
                 ref var node = ref nodes[i];
                 var category = node.Category;
                 var children = category.childCategories;
-                if (!ReferenceEquals(category.childThingDefs, node.Things) || !ReferenceEquals(children, node.Children) || node.Things.Count != node.ThingCount)
+                if (
+                    !ReferenceEquals(category.childThingDefs, node.Things)
+                    || !ReferenceEquals(children, node.Children)
+                    || node.Things.Count != node.ThingCount
+                )
                 {
                     return false;
                 }

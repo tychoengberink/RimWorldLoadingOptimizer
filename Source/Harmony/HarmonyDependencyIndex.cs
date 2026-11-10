@@ -23,40 +23,74 @@ namespace RimWorldLoadingOptimizer
     {
         private const string Feature = "Harmony dependency name index";
         private static readonly object gate = new object();
-        private static readonly Dictionary<string, List<Assembly>> strong = new Dictionary<string, List<Assembly>>(StringComparer.Ordinal);
-        private static readonly Dictionary<string, List<System.WeakReference<Assembly>>> weak = new Dictionary<string, List<System.WeakReference<Assembly>>>(StringComparer.Ordinal);
-        private static readonly MethodInfo getAssemblies = AccessTools.Method(typeof(AppDomain), nameof(AppDomain.GetAssemblies));
+        private static readonly Dictionary<string, List<Assembly>> strong = new Dictionary<string, List<Assembly>>(
+            StringComparer.Ordinal
+        );
+        private static readonly Dictionary<string, List<System.WeakReference<Assembly>>> weak = new Dictionary<
+            string,
+            List<System.WeakReference<Assembly>>
+        >(StringComparer.Ordinal);
+        private static readonly MethodInfo getAssemblies = AccessTools.Method(
+            typeof(AppDomain),
+            nameof(AppDomain.GetAssemblies)
+        );
         private static Func<object, IEnumerable> references;
         private static Func<object, string> runtimeFullName;
         private static int redirected;
         private static SelfCheck check;
         private static ConstructorInfo loaderCtor;
         private static FieldInfo[] loaderFields;
-        [ThreadStatic] private static bool bypass;
-        private static long served, fallbacks, ticks;
+
+        [ThreadStatic]
+        private static bool bypass;
+        private static long served,
+            fallbacks,
+            ticks;
         private static readonly MismatchLog mismatches = new MismatchLog(Feature);
 
         public static void Install(Harmony harmony)
         {
             var harmonyAssembly = typeof(Harmony).Assembly;
             var loader = harmonyAssembly.GetType("HarmonyLib.GeneratedAssemblyLoader");
-            var ctors = loader?.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) ?? new ConstructorInfo[0];
+            var ctors =
+                loader?.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                ?? new ConstructorInfo[0];
             var ctor = ctors.Length == 1 ? ctors[0] : null;
             var moduleType = harmonyAssembly.GetType("Mono.Cecil.ModuleDefinition");
             var referenceType = harmonyAssembly.GetType("Mono.Cecil.AssemblyNameReference");
-            var fullName = loader == null || referenceType == null ? null : AccessTools.Method(loader, "RuntimeFullName", new[] { referenceType });
-            var referencesGetter = moduleType == null ? null : AccessTools.PropertyGetter(moduleType, "AssemblyReferences");
-            if (ctor == null || fullName == null || referencesGetter == null || ctor.GetParameters().Length != 2 || ctor.GetParameters()[0].ParameterType != moduleType)
+            var fullName =
+                loader == null || referenceType == null
+                    ? null
+                    : AccessTools.Method(loader, "RuntimeFullName", new[] { referenceType });
+            var referencesGetter =
+                moduleType == null ? null : AccessTools.PropertyGetter(moduleType, "AssemblyReferences");
+            if (
+                ctor == null
+                || fullName == null
+                || referencesGetter == null
+                || ctor.GetParameters().Length != 2
+                || ctor.GetParameters()[0].ParameterType != moduleType
+            )
             {
-                RLOLog.Detail($"{Feature}: Harmony's generated assembly loader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail(
+                    $"{Feature}: Harmony's generated assembly loader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken."
+                );
                 return;
             }
-            var closures = PatchProcessor.ReadMethodBody(ctor)
+            var closures = PatchProcessor
+                .ReadMethodBody(ctor)
                 .Where(p => p.Key == OpCodes.Ldftn)
                 .Select(p => p.Value as MethodBase)
                 .Where(m => m != null && m.DeclaringType?.DeclaringType == loader)
                 .Distinct();
-            check = new SelfCheck(Feature, VersionCheck.Code(new MethodBase[] { ctor, fullName }.Concat(closures).ToArray()));
+            check = new SelfCheck(
+                Feature,
+                VersionCheck.Code(
+                    new MethodBase[] { ctor, fullName }
+                        .Concat(closures)
+                        .ToArray()
+                )
+            );
             if (check.IsOff)
             {
                 return;
@@ -64,9 +98,22 @@ namespace RimWorldLoadingOptimizer
             loaderCtor = ctor;
             loaderFields = AccessTools.GetDeclaredFields(loader).Where(f => !f.IsStatic).ToArray();
             var module = Expression.Parameter(typeof(object));
-            references = Expression.Lambda<Func<object, IEnumerable>>(Expression.Convert(Expression.Call(Expression.Convert(module, moduleType), referencesGetter), typeof(IEnumerable)), module).Compile();
+            references = Expression
+                .Lambda<Func<object, IEnumerable>>(
+                    Expression.Convert(
+                        Expression.Call(Expression.Convert(module, moduleType), referencesGetter),
+                        typeof(IEnumerable)
+                    ),
+                    module
+                )
+                .Compile();
             var reference = Expression.Parameter(typeof(object));
-            runtimeFullName = Expression.Lambda<Func<object, string>>(Expression.Call(fullName, Expression.Convert(reference, referenceType)), reference).Compile();
+            runtimeFullName = Expression
+                .Lambda<Func<object, string>>(
+                    Expression.Call(fullName, Expression.Convert(reference, referenceType)),
+                    reference
+                )
+                .Compile();
             lock (gate)
             {
                 AppDomain.CurrentDomain.AssemblyLoad += (_, args) => Add(args.LoadedAssembly);
@@ -79,7 +126,9 @@ namespace RimWorldLoadingOptimizer
             if (redirected != 1)
             {
                 harmony.Unpatch(ctor, HarmonyPatchType.Transpiler, harmony.Id);
-                RLOLog.Detail($"{Feature}: the assembly list in Harmony's generated assembly loader was not found exactly once. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail(
+                    $"{Feature}: the assembly list in Harmony's generated assembly loader was not found exactly once. This speedup is skipped and the original code runs; nothing is broken."
+                );
                 return;
             }
             if (check.IsChecking)
@@ -92,14 +141,27 @@ namespace RimWorldLoadingOptimizer
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             var list = instructions.ToList();
-            var at = Enumerable.Range(0, list.Count).Where(i => (list[i].opcode == OpCodes.Callvirt || list[i].opcode == OpCodes.Call) && list[i].operand is MethodInfo m && m == getAssemblies).ToList();
+            var at = Enumerable
+                .Range(0, list.Count)
+                .Where(i =>
+                    (list[i].opcode == OpCodes.Callvirt || list[i].opcode == OpCodes.Call)
+                    && list[i].operand is MethodInfo m
+                    && m == getAssemblies
+                )
+                .ToList();
             if (at.Count != 1)
             {
                 return list;
             }
             var call = list[at[0]];
             list[at[0]] = new CodeInstruction(OpCodes.Ldarg_1).WithLabels(call.labels).WithBlocks(call.blocks);
-            list.Insert(at[0] + 1, new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(HarmonyDependencyIndex), nameof(Candidates))));
+            list.Insert(
+                at[0] + 1,
+                new CodeInstruction(
+                    OpCodes.Call,
+                    AccessTools.Method(typeof(HarmonyDependencyIndex), nameof(Candidates))
+                )
+            );
             redirected = 1;
             return list;
         }
@@ -132,7 +194,11 @@ namespace RimWorldLoadingOptimizer
             bool same;
             if (__exception != null || originalException != null)
             {
-                same = __exception != null && originalException != null && __exception.GetType() == originalException.GetType() && __exception.Message == originalException.Message;
+                same =
+                    __exception != null
+                    && originalException != null
+                    && __exception.GetType() == originalException.GetType()
+                    && __exception.Message == originalException.Message;
             }
             else
             {
@@ -266,10 +332,15 @@ namespace RimWorldLoadingOptimizer
                 }
                 if (names != null)
                 {
-                    var expected = domain.GetAssemblies().Where(a => names.Contains(HarmonyAssemblyNames.FullNameOf(a))).ToHashSet();
+                    var expected = domain
+                        .GetAssemblies()
+                        .Where(a => names.Contains(HarmonyAssemblyNames.FullNameOf(a)))
+                        .ToHashSet();
                     if (!expected.SetEquals(result))
                     {
-                        mismatches.Report($"index {string.Join(", ", result.Select(a => a.FullName))}, full list {string.Join(", ", expected.Select(a => a.FullName))}");
+                        mismatches.Report(
+                            $"index {string.Join(", ", result.Select(a => a.FullName))}, full list {string.Join(", ", expected.Select(a => a.FullName))}"
+                        );
                         return domain.GetAssemblies();
                     }
                 }

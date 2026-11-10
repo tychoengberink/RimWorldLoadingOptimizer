@@ -19,8 +19,19 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var pack = AccessTools.Method(typeof(StaticTextureAtlas), "CalcRectsForAtlasNew");
-            var indexOf = AccessTools.Method(typeof(List<Texture2D>), nameof(List<Texture2D>.IndexOf), new[] { typeof(Texture2D) });
-            if (!VersionCheck.Pattern("Atlas packing lookups", pack, code => VersionCheck.Calls(code, indexOf) == 1, "looks up each texture with one List.IndexOf call"))
+            var indexOf = AccessTools.Method(
+                typeof(List<Texture2D>),
+                nameof(List<Texture2D>.IndexOf),
+                new[] { typeof(Texture2D) }
+            );
+            if (
+                !VersionCheck.Pattern(
+                    "Atlas packing lookups",
+                    pack,
+                    code => VersionCheck.Calls(code, indexOf) == 1,
+                    "looks up each texture with one List.IndexOf call"
+                )
+            )
             {
                 return;
             }
@@ -29,7 +40,11 @@ namespace RimWorldLoadingOptimizer
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
-            var indexOf = AccessTools.Method(typeof(List<Texture2D>), nameof(List<Texture2D>.IndexOf), new[] { typeof(Texture2D) });
+            var indexOf = AccessTools.Method(
+                typeof(List<Texture2D>),
+                nameof(List<Texture2D>.IndexOf),
+                new[] { typeof(Texture2D) }
+            );
             return IlScan.Replace(instructions, indexOf, AccessTools.Method(typeof(AtlasPacking), nameof(IndexOf)));
         }
 
@@ -59,7 +74,9 @@ namespace RimWorldLoadingOptimizer
                 var position = positions.TryGetValue(texture, out var found) ? found : -1;
                 if (DevSwitches.Verify && position != list.IndexOf(texture))
                 {
-                    VerifyMismatches.Report($"index of {texture.name}: {position} by reference, {list.IndexOf(texture)} from the list");
+                    VerifyMismatches.Report(
+                        $"index of {texture.name}: {position} by reference, {list.IndexOf(texture)} from the list"
+                    );
                     return list.IndexOf(texture);
                 }
                 return position;
@@ -70,7 +87,9 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static string Stats() => $"atlas packing lookups: {Lookups} by reference in {time.Elapsed.TotalSeconds:F2} s, {Fallbacks} left to the original" + (DevSwitches.Verify ? $", {VerifyMismatches.Count} verify mismatches" : "");
+        public static string Stats() =>
+            $"atlas packing lookups: {Lookups} by reference in {time.Elapsed.TotalSeconds:F2} s, {Fallbacks} left to the original"
+            + (DevSwitches.Verify ? $", {VerifyMismatches.Count} verify mismatches" : "");
     }
 }
 #endif

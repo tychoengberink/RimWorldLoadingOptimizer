@@ -13,18 +13,24 @@ namespace RimWorldLoadingOptimizer
     {
         private static string MetaPath(string key) => Path.Combine(Dir, key + ".meta");
 
-        private static string RawPath(string key, int slot) => Path.Combine(Dir, key + (slot == 0 ? ".color" : ".mask"));
+        private static string RawPath(string key, int slot) =>
+            Path.Combine(Dir, key + (slot == 0 ? ".color" : ".mask"));
 
         private static void WriteMeta(Meta m)
         {
-            using (var w = new BinaryWriter(new FileStream(MetaPath(m.key) + ".tmp", FileMode.Create, FileAccess.Write)))
+            using (
+                var w = new BinaryWriter(new FileStream(MetaPath(m.key) + ".tmp", FileMode.Create, FileAccess.Write))
+            )
             {
                 w.Write(Magic);
                 w.Write(m.key);
                 w.Write(m.rects.Length);
                 foreach (var r in m.rects)
                 {
-                    w.Write(r.x); w.Write(r.y); w.Write(r.width); w.Write(r.height);
+                    w.Write(r.x);
+                    w.Write(r.y);
+                    w.Write(r.width);
+                    w.Write(r.height);
                 }
                 m.color.Write(w);
                 w.Write(m.mask != null);
@@ -89,9 +95,7 @@ namespace RimWorldLoadingOptimizer
                             File.Delete(p);
                         }
                     }
-                    catch
-                    {
-                    }
+                    catch { }
                 }
             }
         }

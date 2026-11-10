@@ -15,7 +15,9 @@ namespace RimWorldLoadingOptimizer
         private static readonly object gate = new object();
         private static Dictionary<string, Assembly> byName;
         private static bool broken;
-        private static int calls, hits, fallbacks;
+        private static int calls,
+            hits,
+            fallbacks;
         private static readonly MismatchLog mismatches = new MismatchLog("mod assembly loading");
         private static long ticks;
 
@@ -25,16 +27,24 @@ namespace RimWorldLoadingOptimizer
             string status;
             try
             {
-                var prepatcher = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "PrepatcherImpl")?.GetType("Prepatcher.AssemblyLoadingFreePatch");
+                var prepatcher = AppDomain
+                    .CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => a.GetName().Name == "PrepatcherImpl")
+                    ?.GetType("Prepatcher.AssemblyLoadingFreePatch");
                 var original = prepatcher?.GetMethod("LoadFrom", BindingFlags.Public | BindingFlags.Static);
                 var reloadAll = typeof(Verse.ModAssemblyHandler).GetMethod("ReloadAll");
                 if (!ModConstructorSpeedups.PassOne("loadfrom"))
                 {
                     status = "off";
                 }
-                else if (original == null || !Fingerprint.Matches("Faster mod assembly loading",
-                    Fingerprint.Known(original, "A43CD2139DE39401", "92A9831495730C60"),
-                    Fingerprint.Known(reloadAll, "5AE51417B2EE8201", "A7C249B93DA1940C")))
+                else if (
+                    original == null
+                    || !Fingerprint.Matches(
+                        "Faster mod assembly loading",
+                        Fingerprint.Known(original, "A43CD2139DE39401", "92A9831495730C60"),
+                        Fingerprint.Known(reloadAll, "5AE51417B2EE8201", "A7C249B93DA1940C")
+                    )
+                )
                 {
                     status = "fingerprint mismatch or Prepatcher LoadFrom missing";
                 }
@@ -42,19 +52,35 @@ namespace RimWorldLoadingOptimizer
                 {
                     var target = typeof(LoadFromFix).GetMethod(nameof(FastLoadFrom));
                     var replaced = 0;
-                    var type = AccessTools.Method(module.GetType(), "GetType", new[] { typeof(string) }).Invoke(module, new object[] { "Verse.ModAssemblyHandler" });
-                    var method = ((IEnumerable)Traverse.Create(type).Property("Methods").GetValue()).Cast<object>().First(m => Traverse.Create(m).Property("Name").GetValue<string>() == "ReloadAll");
+                    var type = AccessTools
+                        .Method(module.GetType(), "GetType", new[] { typeof(string) })
+                        .Invoke(module, new object[] { "Verse.ModAssemblyHandler" });
+                    var method = ((IEnumerable)Traverse.Create(type).Property("Methods").GetValue())
+                        .Cast<object>()
+                        .First(m => Traverse.Create(m).Property("Name").GetValue<string>() == "ReloadAll");
                     var import = AccessTools.Method(module.GetType(), "ImportReference", new[] { typeof(MethodBase) });
-                    foreach (var instruction in (IEnumerable)Traverse.Create(method).Property("Body").Property("Instructions").GetValue())
+                    foreach (
+                        var instruction in (IEnumerable)
+                            Traverse.Create(method).Property("Body").Property("Instructions").GetValue()
+                    )
                     {
                         var op = Traverse.Create(instruction).Property("Operand");
                         var operand = op.GetValue();
-                        if (operand != null && operand.GetType().Name.Contains("MethodReference") || operand?.GetType().Name == "MethodDefinition")
+                        if (
+                            operand != null && operand.GetType().Name.Contains("MethodReference")
+                            || operand?.GetType().Name == "MethodDefinition"
+                        )
                         {
                             var reference = Traverse.Create(operand);
                             var declaring = reference.Property("DeclaringType").Property("FullName").GetValue<string>();
-                            if (reference.Property("Name").GetValue<string>() == "LoadFrom" && ((IList)reference.Property("Parameters").GetValue()).Count == 1
-                                && (declaring == "System.Reflection.Assembly" || declaring == "Prepatcher.AssemblyLoadingFreePatch"))
+                            if (
+                                reference.Property("Name").GetValue<string>() == "LoadFrom"
+                                && ((IList)reference.Property("Parameters").GetValue()).Count == 1
+                                && (
+                                    declaring == "System.Reflection.Assembly"
+                                    || declaring == "Prepatcher.AssemblyLoadingFreePatch"
+                                )
+                            )
                             {
                                 op.SetValue(import.Invoke(module, new object[] { target }));
                                 replaced++;
@@ -87,7 +113,9 @@ namespace RimWorldLoadingOptimizer
                 hits++;
                 if (DevSwitches.Verify)
                 {
-                    var expected = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == name);
+                    var expected = AppDomain
+                        .CurrentDomain.GetAssemblies()
+                        .FirstOrDefault(a => a.GetName().Name == name);
                     if (!ReferenceEquals(expected, found))
                     {
                         mismatches.Report($"{name}: {found} vs {expected}");
@@ -177,7 +205,9 @@ namespace RimWorldLoadingOptimizer
                 return assembly;
             }
             var raw = File.ReadAllBytes(filePath);
-            var pdb = new FileInfo(Path.Combine(Path.GetDirectoryName(filePath), Path.GetFileNameWithoutExtension(filePath)) + ".pdb");
+            var pdb = new FileInfo(
+                Path.Combine(Path.GetDirectoryName(filePath), Path.GetFileNameWithoutExtension(filePath)) + ".pdb"
+            );
             if (pdb.Exists)
             {
                 return AppDomain.CurrentDomain.Load(raw, File.ReadAllBytes(pdb.FullName));
@@ -185,6 +215,10 @@ namespace RimWorldLoadingOptimizer
             return AppDomain.CurrentDomain.Load(raw);
         }
 
-        public static string Stats() => calls == 0 ? "mod assembly loading: not redirected (needs Prepatcher)" : $"mod assembly loading: {calls} calls in {ticks * 1000.0 / Stopwatch.Frequency:F0} ms, {hits} index hits, {fallbacks} fallbacks" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
+        public static string Stats() =>
+            calls == 0
+                ? "mod assembly loading: not redirected (needs Prepatcher)"
+                : $"mod assembly loading: {calls} calls in {ticks * 1000.0 / Stopwatch.Frequency:F0} ms, {hits} index hits, {fallbacks} fallbacks"
+                    + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
     }
 }

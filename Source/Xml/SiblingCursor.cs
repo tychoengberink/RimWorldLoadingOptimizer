@@ -18,10 +18,13 @@ namespace RimWorldLoadingOptimizer
         private const string Feature = "XML previous-sibling cursor";
         private const int MaxSteps = 512;
         private static XmlNode cursor;
-        private static long hits, walks;
+        private static long hits,
+            walks;
         private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static SelfCheck check;
-        [ThreadStatic] private static bool bypass;
+
+        [ThreadStatic]
+        private static bool bypass;
 
         public static void Install(Harmony harmony)
         {
@@ -31,8 +34,11 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            harmony.Patch(getter, prefix: new HarmonyMethod(typeof(SiblingCursor), nameof(Prefix)) { priority = Priority.Last },
-                postfix: new HarmonyMethod(typeof(SiblingCursor), nameof(Postfix)) { priority = Priority.First });
+            harmony.Patch(
+                getter,
+                prefix: new HarmonyMethod(typeof(SiblingCursor), nameof(Prefix)) { priority = Priority.Last },
+                postfix: new HarmonyMethod(typeof(SiblingCursor), nameof(Postfix)) { priority = Priority.First }
+            );
             MainMenu.UnpatchAfterStartup(getter);
             MainMenu.Then(() => cursor = null);
             StartupPhaseFixes.Reports.Add(Stats);
@@ -122,7 +128,8 @@ namespace RimWorldLoadingOptimizer
             return current;
         }
 
-        public static string Stats() => $"{Feature}: {Interlocked.Read(ref hits)} previous siblings found from the last one, {Interlocked.Read(ref walks)} full walks"
+        public static string Stats() =>
+            $"{Feature}: {Interlocked.Read(ref hits)} previous siblings found from the last one, {Interlocked.Read(ref walks)} full walks"
             + (DevSwitches.Verify ? $", {mismatches.Count} verify mismatches" : "");
     }
 }

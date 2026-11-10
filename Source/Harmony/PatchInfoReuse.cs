@@ -13,12 +13,15 @@ namespace RimWorldLoadingOptimizer
     public static class PatchInfoReuse
     {
         private const string Feature = "Harmony patch state reuse";
-        private static readonly ConditionalWeakTable<byte[], StrongBox<int>> versions = new ConditionalWeakTable<byte[], StrongBox<int>>();
+        private static readonly ConditionalWeakTable<byte[], StrongBox<int>> versions =
+            new ConditionalWeakTable<byte[], StrongBox<int>>();
         private static Dictionary<MethodBase, byte[]> state;
         private static MethodInfo getPatchInfo;
         private static MethodInfo deserializeMethod;
         private static Func<byte[], PatchInfo> deserialize;
-        private static long recorded, hits, misses;
+        private static long recorded,
+            hits,
+            misses;
         private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static SelfCheck check;
 
@@ -28,14 +31,23 @@ namespace RimWorldLoadingOptimizer
             var shared = harmonyAssembly.GetType("HarmonyLib.HarmonySharedState");
             var serialization = harmonyAssembly.GetType("HarmonyLib.PatchInfoSerialization");
             var config = harmonyAssembly.GetType("HarmonyLib.MethodCreatorConfig");
-            getPatchInfo = shared == null ? null : AccessTools.Method(shared, "GetPatchInfo", new[] { typeof(MethodBase) });
-            deserializeMethod = serialization == null ? null : AccessTools.Method(serialization, "Deserialize", new[] { typeof(byte[]) });
+            getPatchInfo =
+                shared == null ? null : AccessTools.Method(shared, "GetPatchInfo", new[] { typeof(MethodBase) });
+            deserializeMethod =
+                serialization == null
+                    ? null
+                    : AccessTools.Method(serialization, "Deserialize", new[] { typeof(byte[]) });
             var prepare = config == null ? null : AccessTools.Method(config, "Prepare");
             var update = shared == null ? null : AccessTools.Method(shared, "UpdatePatchInfo");
-            state = shared == null ? null : AccessTools.Field(shared, "state")?.GetValue(null) as Dictionary<MethodBase, byte[]>;
+            state =
+                shared == null
+                    ? null
+                    : AccessTools.Field(shared, "state")?.GetValue(null) as Dictionary<MethodBase, byte[]>;
             if (state == null || deserializeMethod == null || deserializeMethod.ReturnType != typeof(PatchInfo))
             {
-                RLOLog.Detail($"{Feature}: Harmony's patch state does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail(
+                    $"{Feature}: Harmony's patch state does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken."
+                );
                 return;
             }
             if (getPatchInfo == null || prepare == null || update == null)
@@ -43,8 +55,14 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip(Feature, "a method it needs no longer exists");
                 return;
             }
-            if (!VersionCheck.Pattern(Feature, prepare, code => VersionCheck.Calls(code, getPatchInfo) == 1 && code.All(OnlyReadsVersionCount),
-                "reads only the version count from the patch state"))
+            if (
+                !VersionCheck.Pattern(
+                    Feature,
+                    prepare,
+                    code => VersionCheck.Calls(code, getPatchInfo) == 1 && code.All(OnlyReadsVersionCount),
+                    "reads only the version count from the patch state"
+                )
+            )
             {
                 return;
             }
@@ -54,7 +72,10 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             deserialize = AccessTools.MethodDelegate<Func<byte[], PatchInfo>>(deserializeMethod);
-            harmony.Patch(getPatchInfo, transpiler: new HarmonyMethod(typeof(PatchInfoReuse), nameof(RecordTranspiler)));
+            harmony.Patch(
+                getPatchInfo,
+                transpiler: new HarmonyMethod(typeof(PatchInfoReuse), nameof(RecordTranspiler))
+            );
             harmony.Patch(prepare, transpiler: new HarmonyMethod(typeof(PatchInfoReuse), nameof(PrepareTranspiler)));
             StartupPhaseFixes.Reports.Add(Stats);
         }
@@ -68,20 +89,28 @@ namespace RimWorldLoadingOptimizer
                     {
                         return field.Name == nameof(PatchInfo.VersionCount) && instruction.opcode == OpCodes.Ldfld;
                     }
-                    return instruction.opcode != OpCodes.Stfld && instruction.opcode != OpCodes.Stsfld || !field.FieldType.IsAssignableFrom(typeof(PatchInfo));
+                    return instruction.opcode != OpCodes.Stfld && instruction.opcode != OpCodes.Stsfld
+                        || !field.FieldType.IsAssignableFrom(typeof(PatchInfo));
                 case MethodBase method:
                     if (method.DeclaringType == typeof(PatchInfo))
                     {
-                        return method is ConstructorInfo ? instruction.opcode == OpCodes.Newobj : method.Name == "get_" + nameof(PatchInfo.VersionCount);
+                        return method is ConstructorInfo
+                            ? instruction.opcode == OpCodes.Newobj
+                            : method.Name == "get_" + nameof(PatchInfo.VersionCount);
                     }
-                    return method == getPatchInfo || method.GetParameters().All(p => p.ParameterType != typeof(PatchInfo));
+                    return method == getPatchInfo
+                        || method.GetParameters().All(p => p.ParameterType != typeof(PatchInfo));
                 default:
                     return true;
             }
         }
 
         public static IEnumerable<CodeInstruction> RecordTranspiler(IEnumerable<CodeInstruction> instructions) =>
-            IlScan.Replace(instructions, deserializeMethod, AccessTools.Method(typeof(PatchInfoReuse), nameof(Deserialize)));
+            IlScan.Replace(
+                instructions,
+                deserializeMethod,
+                AccessTools.Method(typeof(PatchInfoReuse), nameof(Deserialize))
+            );
 
         public static IEnumerable<CodeInstruction> PrepareTranspiler(IEnumerable<CodeInstruction> instructions) =>
             IlScan.Replace(instructions, getPatchInfo, AccessTools.Method(typeof(PatchInfoReuse), nameof(ForPrepare)));
@@ -124,14 +153,18 @@ namespace RimWorldLoadingOptimizer
                 check.Report(fresh == version.Value, $"version of {original.DeclaringType?.FullName}.{original.Name}");
                 if (fresh != version.Value)
                 {
-                    mismatches.Report($"{original.DeclaringType?.FullName}.{original.Name}: reused version {version.Value}, deserialized {fresh}");
+                    mismatches.Report(
+                        $"{original.DeclaringType?.FullName}.{original.Name}: reused version {version.Value}, deserialized {fresh}"
+                    );
                     return new PatchInfo { VersionCount = fresh };
                 }
             }
             return new PatchInfo { VersionCount = version.Value };
         }
 
-        public static string Stats() => $"Harmony patch state reuse: {Interlocked.Read(ref hits)} deserializations skipped, {Interlocked.Read(ref misses)} misses, {Interlocked.Read(ref recorded)} states recorded" + (DevSwitches.Verify ? $", {mismatches.Count} verify mismatches" : "");
+        public static string Stats() =>
+            $"Harmony patch state reuse: {Interlocked.Read(ref hits)} deserializations skipped, {Interlocked.Read(ref misses)} misses, {Interlocked.Read(ref recorded)} states recorded"
+            + (DevSwitches.Verify ? $", {mismatches.Count} verify mismatches" : "");
     }
 }
 #endif

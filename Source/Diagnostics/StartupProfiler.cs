@@ -26,7 +26,8 @@ namespace RimWorldLoadingOptimizer
             return type.Assembly.GetName().Name;
         }
 
-        [ThreadStatic] private static Stack<KeyValuePair<string, long>> open;
+        [ThreadStatic]
+        private static Stack<KeyValuePair<string, long>> open;
 
         private static readonly Dictionary<string, long[]> totals = new Dictionary<string, long[]>();
         private static readonly List<string> timeline = new List<string>();
@@ -37,7 +38,8 @@ namespace RimWorldLoadingOptimizer
         private static readonly object gate = new object();
         private static bool active = true;
 
-        [ThreadStatic] private static Stack<long> ctorStarts;
+        [ThreadStatic]
+        private static Stack<long> ctorStarts;
 
         private static readonly Dictionary<Type, long> ctorTicks = new Dictionary<Type, long>();
 
@@ -50,9 +52,15 @@ namespace RimWorldLoadingOptimizer
         {
             try
             {
-                harmony.Patch(AccessTools.Method(typeof(RuntimeHelpers), nameof(RuntimeHelpers.RunClassConstructor), new[] { typeof(RuntimeTypeHandle) }),
+                harmony.Patch(
+                    AccessTools.Method(
+                        typeof(RuntimeHelpers),
+                        nameof(RuntimeHelpers.RunClassConstructor),
+                        new[] { typeof(RuntimeTypeHandle) }
+                    ),
                     prefix: new HarmonyMethod(typeof(StartupProfiler), nameof(CtorStart)),
-                    finalizer: new HarmonyMethod(typeof(StartupProfiler), nameof(CtorEnd)));
+                    finalizer: new HarmonyMethod(typeof(StartupProfiler), nameof(CtorEnd))
+                );
             }
             catch (Exception e)
             {
@@ -60,16 +68,49 @@ namespace RimWorldLoadingOptimizer
             }
             if (DevSwitches.Profile)
             {
-                var updateWrapper = AccessTools.Method(typeof(Harmony).Assembly.GetType("HarmonyLib.PatchFunctions"), "UpdateWrapper");
+                var updateWrapper = AccessTools.Method(
+                    typeof(Harmony).Assembly.GetType("HarmonyLib.PatchFunctions"),
+                    "UpdateWrapper"
+                );
                 if (updateWrapper != null)
                 {
-                    harmony.Patch(updateWrapper, prefix: new HarmonyMethod(typeof(StartupProfiler), nameof(PatchStart)), finalizer: new HarmonyMethod(typeof(StartupProfiler), nameof(PatchEnd)));
+                    harmony.Patch(
+                        updateWrapper,
+                        prefix: new HarmonyMethod(typeof(StartupProfiler), nameof(PatchStart)),
+                        finalizer: new HarmonyMethod(typeof(StartupProfiler), nameof(PatchEnd))
+                    );
                 }
-                harmony.Patch(AccessTools.Method(typeof(DeepProfiler), nameof(DeepProfiler.Start)), prefix: new HarmonyMethod(typeof(StartupProfiler), nameof(OnStart)));
-                harmony.Patch(AccessTools.Method(typeof(DeepProfiler), nameof(DeepProfiler.End)), prefix: new HarmonyMethod(typeof(StartupProfiler), nameof(OnEnd)));
+                harmony.Patch(
+                    AccessTools.Method(typeof(DeepProfiler), nameof(DeepProfiler.Start)),
+                    prefix: new HarmonyMethod(typeof(StartupProfiler), nameof(OnStart))
+                );
+                harmony.Patch(
+                    AccessTools.Method(typeof(DeepProfiler), nameof(DeepProfiler.End)),
+                    prefix: new HarmonyMethod(typeof(StartupProfiler), nameof(OnEnd))
+                );
                 MainMenu.Then(OnMainMenu);
-                harmony.Patch(AccessTools.Method(typeof(Root_Entry), nameof(Root_Entry.Update)), prefix: new HarmonyMethod(typeof(StartupProfiler), nameof(FrameStart)), finalizer: new HarmonyMethod(typeof(StartupProfiler), nameof(FrameEnd)));
-                harmony.Patch(AccessTools.Method(typeof(LongEventHandler), nameof(LongEventHandler.QueueLongEvent), new[] { typeof(Action), typeof(string), typeof(bool), typeof(Action<Exception>), typeof(bool), typeof(bool), typeof(Action) }), prefix: new HarmonyMethod(typeof(StartupProfiler), nameof(WrapLongEvent)));
+                harmony.Patch(
+                    AccessTools.Method(typeof(Root_Entry), nameof(Root_Entry.Update)),
+                    prefix: new HarmonyMethod(typeof(StartupProfiler), nameof(FrameStart)),
+                    finalizer: new HarmonyMethod(typeof(StartupProfiler), nameof(FrameEnd))
+                );
+                harmony.Patch(
+                    AccessTools.Method(
+                        typeof(LongEventHandler),
+                        nameof(LongEventHandler.QueueLongEvent),
+                        new[]
+                        {
+                            typeof(Action),
+                            typeof(string),
+                            typeof(bool),
+                            typeof(Action<Exception>),
+                            typeof(bool),
+                            typeof(bool),
+                            typeof(Action),
+                        }
+                    ),
+                    prefix: new HarmonyMethod(typeof(StartupProfiler), nameof(WrapLongEvent))
+                );
             }
         }
 
@@ -104,13 +145,20 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var stack = open ?? (open = new Stack<KeyValuePair<string, long>>());
-            if (stack.Count <= 2 && timeline.Count < 5000 && label != null && !label.StartsWith("Loading ", StringComparison.Ordinal) && !label.StartsWith("ParseValueAndReturnDef", StringComparison.Ordinal) && !label.StartsWith("Reload ", StringComparison.Ordinal))
+            if (
+                stack.Count <= 2
+                && timeline.Count < 5000
+                && label != null
+                && !label.StartsWith("Loading ", StringComparison.Ordinal)
+                && !label.StartsWith("ParseValueAndReturnDef", StringComparison.Ordinal)
+                && !label.StartsWith("Reload ", StringComparison.Ordinal)
+            )
             {
                 lock (gate)
                 {
                     if (timelineSeen.Add(label))
                     {
-                        timeline.Add($"{Now,7:F1}s d{stack.Count} {label}");
+                        timeline.Add($"{Now, 7:F1}s d{stack.Count} {label}");
                     }
                 }
             }
@@ -126,13 +174,26 @@ namespace RimWorldLoadingOptimizer
             var entry = open.Pop();
             var elapsed = Stopwatch.GetTimestamp() - entry.Value;
             var seconds = elapsed / (double)Stopwatch.Frequency;
-            if (seconds >= 0.25 && !menuReached && (open.Count <= 3 || entry.Key.StartsWith("LongEvent ", StringComparison.Ordinal) || entry.Key.Contains(" -> ")))
+            if (
+                seconds >= 0.25
+                && !menuReached
+                && (
+                    open.Count <= 3
+                    || entry.Key.StartsWith("LongEvent ", StringComparison.Ordinal)
+                    || entry.Key.Contains(" -> ")
+                )
+            )
             {
                 var end = Now;
                 var thread = UnityData.IsInMainThread ? "main" : "t" + Thread.CurrentThread.ManagedThreadId;
                 lock (gate)
                 {
-                    spans.Add(new KeyValuePair<double, string>(end - seconds, $"{end - seconds,7:F1} +{seconds,6:F2} {thread,-5} d{open.Count} {entry.Key}"));
+                    spans.Add(
+                        new KeyValuePair<double, string>(
+                            end - seconds,
+                            $"{end - seconds, 7:F1} +{seconds, 6:F2} {thread, -5} d{open.Count} {entry.Key}"
+                        )
+                    );
                 }
             }
             lock (gate)
@@ -146,8 +207,11 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        [ThreadStatic] private static int patchDepth;
-        [ThreadStatic] private static long patchStarted;
+        [ThreadStatic]
+        private static int patchDepth;
+
+        [ThreadStatic]
+        private static long patchStarted;
         private static long patchTicksMain;
         private static long patchTicksOther;
         private static int patchCalls;
@@ -178,8 +242,12 @@ namespace RimWorldLoadingOptimizer
         }
 
         private static long frameStart;
-        private static readonly FieldInfo currentEventField = AccessTools.Field(typeof(LongEventHandler), "currentEvent");
-        private static readonly FieldInfo eventTextField = currentEventField == null ? null : AccessTools.Field(currentEventField.FieldType, "eventText");
+        private static readonly FieldInfo currentEventField = AccessTools.Field(
+            typeof(LongEventHandler),
+            "currentEvent"
+        );
+        private static readonly FieldInfo eventTextField =
+            currentEventField == null ? null : AccessTools.Field(currentEventField.FieldType, "eventText");
 
         private static string CurrentEventText()
         {
@@ -202,7 +270,12 @@ namespace RimWorldLoadingOptimizer
                     var end = Now;
                     lock (gate)
                     {
-                        spans.Add(new KeyValuePair<double, string>(end - seconds, $"{end - seconds,7:F1} +{seconds,6:F2} frame    {CurrentEventText()}"));
+                        spans.Add(
+                            new KeyValuePair<double, string>(
+                                end - seconds,
+                                $"{end - seconds, 7:F1} +{seconds, 6:F2} frame    {CurrentEventText()}"
+                            )
+                        );
                     }
                 }
             }
@@ -243,7 +316,9 @@ namespace RimWorldLoadingOptimizer
             {
                 rows = spans.OrderBy(r => r.Key).Select(r => r.Value).ToList();
             }
-            RLOLog.Detail($"Harmony patch calls before menu: {patchCalls}, main thread {patchTicksMain / (double)Stopwatch.Frequency:F2} s, other threads {patchTicksOther / (double)Stopwatch.Frequency:F2} s");
+            RLOLog.Detail(
+                $"Harmony patch calls before menu: {patchCalls}, main thread {patchTicksMain / (double)Stopwatch.Frequency:F2} s, other threads {patchTicksOther / (double)Stopwatch.Frequency:F2} s"
+            );
             RLOLog.Detail($"wall spans (start, +seconds, thread, depth):\n  " + string.Join("\n  ", rows));
         }
 
@@ -280,8 +355,10 @@ namespace RimWorldLoadingOptimizer
             var parts = new List<Func<string>>
             {
                 () => $"category cache: {CategoryCache.Hits} hits, {CategoryCache.Builds} builds",
-                () => $"recipe index: {RecipeIndex.Served} defs served ({RecipeIndex.WarmServed} in Alpha Implants' warm-up without a new check), {RecipeIndex.Rebuilds} rebuilds, {RecipeIndex.Mismatches.Count} verify mismatches",
-                () => $"texture lookups: {TextureLookup.Hits} hits, {TextureLookup.CachedMisses} cached misses, {TextureLookup.SkippedScans} holder scans skipped, {TextureLookup.Builds} builds, {TextureLookup.PatchedMethods} methods, {TextureLookup.Mismatches.Count} verify mismatches",
+                () =>
+                    $"recipe index: {RecipeIndex.Served} defs served ({RecipeIndex.WarmServed} in Alpha Implants' warm-up without a new check), {RecipeIndex.Rebuilds} rebuilds, {RecipeIndex.Mismatches.Count} verify mismatches",
+                () =>
+                    $"texture lookups: {TextureLookup.Hits} hits, {TextureLookup.CachedMisses} cached misses, {TextureLookup.SkippedScans} holder scans skipped, {TextureLookup.Builds} builds, {TextureLookup.PatchedMethods} methods, {TextureLookup.Mismatches.Count} verify mismatches",
                 () => $"DDS files recovered from PNG: {DdsFallback.Recovered}",
 #if !NATIVE_ASSETS
                 DdsPrefetch.Stats,
@@ -294,7 +371,8 @@ namespace RimWorldLoadingOptimizer
                 AtlasPacking.Stats,
 #endif
 #if RW17
-                () => $"runtime: JIT {System.Runtime.JitInfo.GetCompiledMethodCount()} methods in {System.Runtime.JitInfo.GetCompilationTime().TotalSeconds:F1} s, GC collections {GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)} (gen0/1/2), GC pauses {GC.GetTotalPauseDuration().TotalSeconds:F1} s, {AppDomain.CurrentDomain.GetAssemblies().Length} assemblies loaded",
+                () =>
+                    $"runtime: JIT {System.Runtime.JitInfo.GetCompiledMethodCount()} methods in {System.Runtime.JitInfo.GetCompilationTime().TotalSeconds:F1} s, GC collections {GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)} (gen0/1/2), GC pauses {GC.GetTotalPauseDuration().TotalSeconds:F1} s, {AppDomain.CurrentDomain.GetAssemblies().Length} assemblies loaded",
 #endif
                 AssemblySafety.Stats,
                 TypeIndex.Stats,
@@ -310,7 +388,8 @@ namespace RimWorldLoadingOptimizer
 #if !NATIVE_ASSETS
                 () => $"audio waits yielded: {AudioStreaming.YieldedWaits}",
 #endif
-                () => $"def XML release: {XmlRelease.Skipped} references skipped, {XmlRelease.Cleared} cleared, XML Extensions document released: {XmlRelease.ReleasedXmlExtensionsDocument}; {MonoHeap.Stats()}",
+                () =>
+                    $"def XML release: {XmlRelease.Skipped} references skipped, {XmlRelease.Cleared} cleared, XML Extensions document released: {XmlRelease.ReleasedXmlExtensionsDocument}; {MonoHeap.Stats()}",
             };
             var sb = new StringBuilder("[RLO] startup report, one line per feature:");
             foreach (var line in parts.SelectMany(p => Part(p).Split('\n')))
@@ -323,17 +402,26 @@ namespace RimWorldLoadingOptimizer
             }
             foreach (var row in rows)
             {
-                sb.Append($"\n  {row.Value[0] / (double)Stopwatch.Frequency,8:F2}  x{row.Value[1],-6} {row.Key}");
+                sb.Append($"\n  {row.Value[0] / (double)Stopwatch.Frequency, 8:F2}  x{row.Value[1], -6} {row.Key}");
             }
             List<KeyValuePair<string, double>> actions;
             lock (gate)
             {
-                actions = totals.Where(r => r.Key.Contains(" -> ")).GroupBy(r => r.Key.Substring(0, r.Key.IndexOf(" -> ", StringComparison.Ordinal))).Select(g => new KeyValuePair<string, double>($"{g.Key} (x{g.Sum(r => r.Value[1])})", g.Sum(r => r.Value[0]) / (double)Stopwatch.Frequency)).OrderByDescending(g => g.Value).Take(25).ToList();
+                actions = totals
+                    .Where(r => r.Key.Contains(" -> "))
+                    .GroupBy(r => r.Key.Substring(0, r.Key.IndexOf(" -> ", StringComparison.Ordinal)))
+                    .Select(g => new KeyValuePair<string, double>(
+                        $"{g.Key} (x{g.Sum(r => r.Value[1])})",
+                        g.Sum(r => r.Value[0]) / (double)Stopwatch.Frequency
+                    ))
+                    .OrderByDescending(g => g.Value)
+                    .Take(25)
+                    .ToList();
             }
             sb.Append("\n[RLO] deferred actions by type (seconds):");
             foreach (var action in actions)
             {
-                sb.Append($"\n  {action.Value,8:F2}  {action.Key}");
+                sb.Append($"\n  {action.Value, 8:F2}  {action.Key}");
             }
             List<KeyValuePair<Type, long>> ctors;
             lock (gate)
@@ -343,22 +431,32 @@ namespace RimWorldLoadingOptimizer
             if (ctors.Count > 0)
             {
                 double Sec(long ticks) => ticks / (double)Stopwatch.Frequency;
-                sb.Append($"\n[RLO] startup static constructors (run through RunClassConstructor, mostly classes marked StaticConstructorOnStartup; includes any Harmony patching they do, Mod class constructors are not included): {ctors.Count} types, {Sec(ctors.Sum(c => c.Value)):F2} s total; slowest mods:");
-                foreach (var mod in ctors.GroupBy(c => ModOf(c.Key)).Select(g => new { g.Key, Ticks = g.Sum(c => c.Value) }).OrderByDescending(g => g.Ticks).Take(12))
+                sb.Append(
+                    $"\n[RLO] startup static constructors (run through RunClassConstructor, mostly classes marked StaticConstructorOnStartup; includes any Harmony patching they do, Mod class constructors are not included): {ctors.Count} types, {Sec(ctors.Sum(c => c.Value)):F2} s total; slowest mods:"
+                );
+                foreach (
+                    var mod in ctors
+                        .GroupBy(c => ModOf(c.Key))
+                        .Select(g => new { g.Key, Ticks = g.Sum(c => c.Value) })
+                        .OrderByDescending(g => g.Ticks)
+                        .Take(12)
+                )
                 {
-                    sb.Append($"\n  {Sec(mod.Ticks),8:F2}  {mod.Key}");
+                    sb.Append($"\n  {Sec(mod.Ticks), 8:F2}  {mod.Key}");
                 }
                 sb.Append("\n  slowest types:");
                 foreach (var ctor in ctors.OrderByDescending(c => c.Value).Take(10))
                 {
-                    sb.Append($"\n  {Sec(ctor.Value),8:F2}  {ctor.Key.FullName} ({ModOf(ctor.Key)})");
+                    sb.Append($"\n  {Sec(ctor.Value), 8:F2}  {ctor.Key.FullName} ({ModOf(ctor.Key)})");
                 }
             }
             if (timeline.Count > 0)
             {
                 lock (gate)
                 {
-                    sb.Append("\n[RLO] phase timeline (seconds since process start):\n  " + string.Join("\n  ", timeline));
+                    sb.Append(
+                        "\n[RLO] phase timeline (seconds since process start):\n  " + string.Join("\n  ", timeline)
+                    );
                 }
             }
             Log.Message(sb.ToString());

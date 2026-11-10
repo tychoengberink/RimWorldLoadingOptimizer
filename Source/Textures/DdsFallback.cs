@@ -10,15 +10,23 @@ namespace RimWorldLoadingOptimizer
 {
     public static class DdsFallback
     {
-        private static readonly MethodInfo LoadPng = AccessTools.Method(typeof(ModContentLoader<Texture2D>), "LoadTextureViaImageConversion");
-        private static readonly ConstructorInfo FileCtor = AccessTools.Constructor(AccessTools.TypeByName("RimWorld.IO.FilesystemFile"), new[] { typeof(FileInfo) });
+        private static readonly MethodInfo LoadPng = AccessTools.Method(
+            typeof(ModContentLoader<Texture2D>),
+            "LoadTextureViaImageConversion"
+        );
+        private static readonly ConstructorInfo FileCtor = AccessTools.Constructor(
+            AccessTools.TypeByName("RimWorld.IO.FilesystemFile"),
+            new[] { typeof(FileInfo) }
+        );
 
         public static int Recovered;
 
         public static void Install(Harmony harmony)
         {
-            harmony.Patch(AccessTools.Method(typeof(ModDdsLoader), nameof(ModDdsLoader.TryLoadDds)),
-                finalizer: new HarmonyMethod(typeof(DdsFallback), nameof(Finalizer)));
+            harmony.Patch(
+                AccessTools.Method(typeof(ModDdsLoader), nameof(ModDdsLoader.TryLoadDds)),
+                finalizer: new HarmonyMethod(typeof(DdsFallback), nameof(Finalizer))
+            );
         }
 
         private static string Png(string ddsPath)
@@ -31,8 +39,10 @@ namespace RimWorldLoadingOptimizer
             var stem = Path.GetFileNameWithoutExtension(ddsPath);
             foreach (var candidate in Directory.GetFiles(directory, stem + ".*"))
             {
-                if (string.Equals(Path.GetExtension(candidate), ".png", StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(Path.GetFileNameWithoutExtension(candidate), stem, StringComparison.Ordinal))
+                if (
+                    string.Equals(Path.GetExtension(candidate), ".png", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(Path.GetFileNameWithoutExtension(candidate), stem, StringComparison.Ordinal)
+                )
                 {
                     return candidate;
                 }

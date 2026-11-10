@@ -20,18 +20,32 @@ namespace RimWorldLoadingOptimizer
 {
     public static class PrecompilePatched
     {
-        private static readonly ConcurrentDictionary<MethodBase, bool> preparedMethods = new ConcurrentDictionary<MethodBase, bool>();
+        private static readonly ConcurrentDictionary<MethodBase, bool> preparedMethods =
+            new ConcurrentDictionary<MethodBase, bool>();
         private static readonly Dictionary<string, int> skipReasons = new Dictionary<string, int>();
         private static readonly Dictionary<Assembly, string> verdicts = new Dictionary<Assembly, string>();
-        private static readonly ConcurrentDictionary<string, int> missingReferences = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        private static readonly Dictionary<string, bool> moduleInitializers = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private static readonly ConcurrentDictionary<string, int> missingReferences = new ConcurrentDictionary<
+            string,
+            int
+        >(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, bool> moduleInitializers = new Dictionary<string, bool>(
+            StringComparer.OrdinalIgnoreCase
+        );
         private static Dictionary<string, List<Assembly>> loaded;
         private static HashSet<string> platform;
         private static List<(string pattern, string target)> redirects;
         private static string path;
         private static volatile string state = "not started";
-        private static int listed, notFound, skipped, prepared, failed, workers, cursor = -1, stopped;
-        private static long ticks, jitTicks;
+        private static int listed,
+            notFound,
+            skipped,
+            prepared,
+            failed,
+            workers,
+            cursor = -1,
+            stopped;
+        private static long ticks,
+            jitTicks;
 
         public static void Install()
         {
@@ -44,7 +58,10 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             state = "running";
-            RLOMod.StartAfterPatching("pre-compile patched methods", () => new Thread(() => Run(path)) { IsBackground = true, Name = "RLO pre-compile" }.Start());
+            RLOMod.StartAfterPatching(
+                "pre-compile patched methods",
+                () => new Thread(() => Run(path)) { IsBackground = true, Name = "RLO pre-compile" }.Start()
+            );
         }
 
         public static void Run(string file)
@@ -122,10 +139,21 @@ namespace RimWorldLoadingOptimizer
                 }
                 list.Add(assembly);
             }
-            platform = new HashSet<string>(((AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string) ?? "")
-                .Split(new[] { Path.PathSeparator }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(Path.GetFileNameWithoutExtension), StringComparer.OrdinalIgnoreCase);
-            foreach (var folder in new[] { Path.GetDirectoryName(typeof(object).Assembly.Location), AppContext.BaseDirectory }.Where(f => !string.IsNullOrEmpty(f) && Directory.Exists(f)).Distinct())
+            platform = new HashSet<string>(
+                ((AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string) ?? "")
+                    .Split(new[] { Path.PathSeparator }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(Path.GetFileNameWithoutExtension),
+                StringComparer.OrdinalIgnoreCase
+            );
+            foreach (
+                var folder in new[]
+                {
+                    Path.GetDirectoryName(typeof(object).Assembly.Location),
+                    AppContext.BaseDirectory,
+                }
+                    .Where(f => !string.IsNullOrEmpty(f) && Directory.Exists(f))
+                    .Distinct()
+            )
             {
                 platform.UnionWith(Directory.GetFiles(folder, "*.dll").Select(Path.GetFileNameWithoutExtension));
             }
@@ -134,7 +162,10 @@ namespace RimWorldLoadingOptimizer
             foreach (var line in lines)
             {
                 var parts = line.Split('\t');
-                if (parts.Length != 5 || !int.TryParse(parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var token))
+                if (
+                    parts.Length != 5
+                    || !int.TryParse(parts[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var token)
+                )
                 {
                     continue;
                 }
@@ -179,7 +210,11 @@ namespace RimWorldLoadingOptimizer
                     {
                         continue;
                     }
-                    if (method?.DeclaringType?.FullName == parts[2] && method.Name == parts[3] && method.ToString() == parts[4])
+                    if (
+                        method?.DeclaringType?.FullName == parts[2]
+                        && method.Name == parts[3]
+                        && method.ToString() == parts[4]
+                    )
                     {
                         return method;
                     }
@@ -202,7 +237,13 @@ namespace RimWorldLoadingOptimizer
             {
                 return "static constructor";
             }
-            if ((method.Attributes & MethodAttributes.PinvokeImpl) != 0 || (method.MethodImplementationFlags & (MethodImplAttributes.InternalCall | MethodImplAttributes.CodeTypeMask)) != 0)
+            if (
+                (method.Attributes & MethodAttributes.PinvokeImpl) != 0
+                || (
+                    method.MethodImplementationFlags
+                    & (MethodImplAttributes.InternalCall | MethodImplAttributes.CodeTypeMask)
+                ) != 0
+            )
             {
                 return "no IL body";
             }
@@ -262,7 +303,9 @@ namespace RimWorldLoadingOptimizer
                     {
                         if (target != assembly && Verdict(target) is string inner && inner != "precompiled assembly")
                         {
-                            return inner == "references an assembly that is not loaded" ? inner : "references an assembly that may run initialization code";
+                            return inner == "references an assembly that is not loaded"
+                                ? inner
+                                : "references an assembly that may run initialization code";
                         }
                     }
                 }
@@ -281,7 +324,9 @@ namespace RimWorldLoadingOptimizer
                 return false;
             }
             var global = metadata.GetTypeDefinition(MetadataTokens.TypeDefinitionHandle(1));
-            return global.GetMethods().Any(handle => metadata.StringComparer.Equals(metadata.GetMethodDefinition(handle).Name, ".cctor"));
+            return global
+                .GetMethods()
+                .Any(handle => metadata.StringComparer.Equals(metadata.GetMethodDefinition(handle).Name, ".cctor"));
         }
 
         private static string Redirected(string name)
@@ -308,7 +353,13 @@ namespace RimWorldLoadingOptimizer
         public static string Line(MethodBase method)
         {
             var type = method?.DeclaringType;
-            if (type == null || method.IsAbstract || method.IsGenericMethod || type.IsGenericType || method.Module.Assembly.IsDynamic)
+            if (
+                type == null
+                || method.IsAbstract
+                || method.IsGenericMethod
+                || type.IsGenericType
+                || method.Module.Assembly.IsDynamic
+            )
             {
                 return null;
             }
@@ -322,7 +373,11 @@ namespace RimWorldLoadingOptimizer
             {
                 try
                 {
-                    var lines = methods.Select(Line).Where(line => line != null && line.Split('\t').Length == 5).Distinct().ToList();
+                    var lines = methods
+                        .Select(Line)
+                        .Where(line => line != null && line.Split('\t').Length == 5)
+                        .Distinct()
+                        .ToList();
                     Directory.CreateDirectory(Path.GetDirectoryName(path));
                     var temp = path + ".tmp";
                     File.WriteAllLines(temp, lines);
@@ -330,20 +385,38 @@ namespace RimWorldLoadingOptimizer
                     if (DevSwitches.Verify)
                     {
                         var patched = methods.Count(preparedMethods.ContainsKey);
-                        RLOLog.Detail($"pre-compile patched methods verify: {patched} of {preparedMethods.Count} prepared methods were patched this start, {lines.Count} methods listed for the next start, no errors reached game code");
+                        RLOLog.Detail(
+                            $"pre-compile patched methods verify: {patched} of {preparedMethods.Count} prepared methods were patched this start, {lines.Count} methods listed for the next start, no errors reached game code"
+                        );
                     }
                 }
                 catch (Exception e)
                 {
-                    RLOLog.Detail($"pre-compile patched methods: could not save the list for the next start: {e.Message}");
+                    RLOLog.Detail(
+                        $"pre-compile patched methods: could not save the list for the next start: {e.Message}"
+                    );
                 }
             });
         }
 
         public static string Stats()
         {
-            var reasons = state == "running" || skipReasons.Count == 0 ? "" : " (" + string.Join(", ", skipReasons.OrderByDescending(r => r.Value).Select(r => $"{r.Key} {r.Value}")) + ")";
-            var missing = missingReferences.IsEmpty ? "" : "; references not loaded: " + string.Join(", ", missingReferences.OrderByDescending(r => r.Value).Take(8).Select(r => $"{r.Key} ({r.Value})"));
+            var reasons =
+                state == "running" || skipReasons.Count == 0
+                    ? ""
+                    : " ("
+                        + string.Join(
+                            ", ",
+                            skipReasons.OrderByDescending(r => r.Value).Select(r => $"{r.Key} {r.Value}")
+                        )
+                        + ")";
+            var missing = missingReferences.IsEmpty
+                ? ""
+                : "; references not loaded: "
+                    + string.Join(
+                        ", ",
+                        missingReferences.OrderByDescending(r => r.Value).Take(8).Select(r => $"{r.Key} ({r.Value})")
+                    );
             return $"pre-compile patched methods: {state}; listed {listed}, prepared {prepared}, skipped {skipped}{reasons}, not loaded or changed {notFound}, failed {failed}; {workers} threads, {StartupPhaseFixes.Seconds(ticks):F2} s wall, {TimeSpan.FromTicks(jitTicks).TotalSeconds:F2} s JIT on those threads{missing}";
         }
     }

@@ -15,11 +15,16 @@ namespace RimWorldLoadingOptimizer
         private static int version;
         private static bool inWindow;
         private static Thread windowThread;
-        private static long hits, misses, mutations;
+        private static long hits,
+            misses,
+            mutations;
         private static readonly MismatchLog verifyMismatches = new MismatchLog("child-list cursor");
 
-        [ThreadStatic] private static Slot[] slots;
-        [ThreadStatic] private static int nextSlot;
+        [ThreadStatic]
+        private static Slot[] slots;
+
+        [ThreadStatic]
+        private static int nextSlot;
 
         private sealed class Slot
         {
@@ -38,12 +43,20 @@ namespace RimWorldLoadingOptimizer
             containerRef = AccessTools.FieldRefAccess<XmlNode>(type, "container");
 #endif
             var item = AccessTools.Method(type, "Item", new[] { typeof(int) });
-            harmony.Patch(item, prefix: new HarmonyMethod(typeof(ChildCursor), nameof(ItemPrefix)) { priority = Priority.Last });
+            harmony.Patch(
+                item,
+                prefix: new HarmonyMethod(typeof(ChildCursor), nameof(ItemPrefix)) { priority = Priority.Last }
+            );
             MainMenu.UnpatchAfterStartup(item);
-            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
+            harmony.Patch(
+                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
                 prefix: new HarmonyMethod(typeof(ChildCursor), nameof(WindowPrefix)),
-                finalizer: new HarmonyMethod(typeof(ChildCursor), nameof(WindowFinalizer)));
-            harmony.Patch(AccessTools.Method(typeof(XmlInheritance), nameof(XmlInheritance.Resolve)), postfix: new HarmonyMethod(typeof(ChildCursor), nameof(ResolvePostfix)) { priority = Priority.Last });
+                finalizer: new HarmonyMethod(typeof(ChildCursor), nameof(WindowFinalizer))
+            );
+            harmony.Patch(
+                AccessTools.Method(typeof(XmlInheritance), nameof(XmlInheritance.Resolve)),
+                postfix: new HarmonyMethod(typeof(ChildCursor), nameof(ResolvePostfix)) { priority = Priority.Last }
+            );
         }
 
         [Hook]
@@ -80,7 +93,10 @@ namespace RimWorldLoadingOptimizer
                 {
                     activeDoc.NodeInserted -= OnMutation;
                     activeDoc.NodeRemoved -= OnMutation;
-                    RLOLog.Detail($"child-list cursor: {hits} sequential hits, {misses} walks, {mutations} document mutations seen" + (DevSwitches.Verify ? $", verify mismatches {verifyMismatches.Count}" : ""));
+                    RLOLog.Detail(
+                        $"child-list cursor: {hits} sequential hits, {misses} walks, {mutations} document mutations seen"
+                            + (DevSwitches.Verify ? $", verify mismatches {verifyMismatches.Count}" : "")
+                    );
                 }
                 slots = null;
                 inWindow = false;

@@ -64,7 +64,10 @@ namespace RimWorldLoadingOptimizer
                     problems.Add("loaded mask differs from vanilla");
                 }
                 var tiles = Tiles(probe);
-                if (tiles.Count != fresh.rects.Length || Textures(atlas).Where((t, i) => tiles[t].uvRect != fresh.rects[i]).Any())
+                if (
+                    tiles.Count != fresh.rects.Length
+                    || Textures(atlas).Where((t, i) => tiles[t].uvRect != fresh.rects[i]).Any()
+                )
                 {
                     problems.Add("loaded tiles differ from vanilla");
                 }
@@ -72,7 +75,9 @@ namespace RimWorldLoadingOptimizer
             probe.Destroy();
             if (problems.Count == 0)
             {
-                RLOLog.Detail($"atlas cache: verify {atlas.groupKey} {fresh.rects.Length} tiles {fresh.color.Describe()}: identical (rects, format, {fresh.color.bytes + (fresh.mask?.bytes ?? 0)} pixel bytes)");
+                RLOLog.Detail(
+                    $"atlas cache: verify {atlas.groupKey} {fresh.rects.Length} tiles {fresh.color.Describe()}: identical (rects, format, {fresh.color.bytes + (fresh.mask?.bytes ?? 0)} pixel bytes)"
+                );
             }
             else
             {
@@ -83,7 +88,8 @@ namespace RimWorldLoadingOptimizer
         private static bool Apply(StaticTextureAtlas atlas, Meta meta)
         {
             var sw = Stopwatch.StartNew();
-            Texture2D color = null, mask = null;
+            Texture2D color = null,
+                mask = null;
             try
             {
                 color = Load(meta.color, RawPath(meta.key, 0));
@@ -131,7 +137,9 @@ namespace RimWorldLoadingOptimizer
                 {
                     throw new IOException($"size {fs.Length} != {m.bytes}");
                 }
-                var flags = TextureCreationFlags.DontInitializePixels | (m.mips > 1 ? TextureCreationFlags.MipChain : TextureCreationFlags.None);
+                var flags =
+                    TextureCreationFlags.DontInitializePixels
+                    | (m.mips > 1 ? TextureCreationFlags.MipChain : TextureCreationFlags.None);
                 var tex = new Texture2D(m.width, m.height, (GraphicsFormat)m.format, m.mips, flags);
                 var ptr = Marshal.AllocHGlobal(new IntPtr(m.bytes));
                 try
@@ -171,7 +179,12 @@ namespace RimWorldLoadingOptimizer
                 tex.anisoLevel = m.aniso;
                 tex.mipMapBias = m.bias;
                 tex.Apply(false, true);
-                if (tex.width != m.width || tex.height != m.height || (int)tex.graphicsFormat != m.format || tex.mipmapCount != m.mips)
+                if (
+                    tex.width != m.width
+                    || tex.height != m.height
+                    || (int)tex.graphicsFormat != m.format
+                    || tex.mipmapCount != m.mips
+                )
                 {
                     UnityEngine.Object.DestroyImmediate(tex);
                     throw new IOException("texture properties differ after load");
@@ -223,7 +236,15 @@ namespace RimWorldLoadingOptimizer
             }
             Directory.CreateDirectory(Dir);
             var sum = ChecksumSeed;
-            using (var fs = new FileStream(RawPath(p.key, slot) + ".tmp", FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16))
+            using (
+                var fs = new FileStream(
+                    RawPath(p.key, slot) + ".tmp",
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None,
+                    1 << 16
+                )
+            )
             {
                 for (int off = 0; off < raw.Length; off += Chunk)
                 {

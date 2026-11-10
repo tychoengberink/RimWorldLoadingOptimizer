@@ -22,11 +22,16 @@ namespace RimWorldLoadingOptimizer
         private static Assembly[] order;
         private static Dictionary<string, Entry> index;
         private static int[] unindexed;
-        private static long fast, slow, builds, ticks;
+        private static long fast,
+            slow,
+            builds,
+            ticks;
         private static readonly MismatchLog mismatches = new MismatchLog("type name index");
         private static SelfCheck check;
         private static Func<string, Type> original;
-        [ThreadStatic] private static bool bypass;
+
+        [ThreadStatic]
+        private static bool bypass;
 
         public static void Install(Harmony harmony)
         {
@@ -34,17 +39,39 @@ namespace RimWorldLoadingOptimizer
             var getter = AccessTools.PropertyGetter(typeof(GenTypes), "AllActiveAssemblies");
             if (raw == null || getter == null)
             {
-                VersionCheck.Skip("Def type name lookups", "GenTypes.GetTypeInAnyAssemblyRaw or AllActiveAssemblies no longer exists");
+                VersionCheck.Skip(
+                    "Def type name lookups",
+                    "GenTypes.GetTypeInAnyAssemblyRaw or AllActiveAssemblies no longer exists"
+                );
                 return;
             }
-            check = new SelfCheck("Def type name lookups", VersionCheck.Code(raw, AccessTools.EnumeratorMoveNext(getter)));
+            check = new SelfCheck(
+                "Def type name lookups",
+                VersionCheck.Code(raw, AccessTools.EnumeratorMoveNext(getter))
+            );
             allActive = AccessTools.MethodDelegate<Func<IEnumerable<Assembly>>>(getter);
             original = AccessTools.MethodDelegate<Func<string, Type>>((MethodInfo)raw);
             harmony.Patch(raw, prefix: new HarmonyMethod(typeof(TypeNameIndex), nameof(Prefix)));
             StartupPhaseFixes.Reports.Add(Stats);
         }
 
-        private static readonly HashSet<string> Keywords = new HashSet<string>(StringComparer.Ordinal) { "int", "uint", "short", "ushort", "float", "double", "long", "ulong", "byte", "sbyte", "char", "bool", "decimal", "string" };
+        private static readonly HashSet<string> Keywords = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "int",
+            "uint",
+            "short",
+            "ushort",
+            "float",
+            "double",
+            "long",
+            "ulong",
+            "byte",
+            "sbyte",
+            "char",
+            "bool",
+            "decimal",
+            "string",
+        };
 
         private static bool Simple(string name)
         {
@@ -54,7 +81,17 @@ namespace RimWorldLoadingOptimizer
             }
             foreach (var c in name)
             {
-                if (!(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '.' || c == '`' || c == '+'))
+                if (
+                    !(
+                        c >= 'a' && c <= 'z'
+                        || c >= 'A' && c <= 'Z'
+                        || c >= '0' && c <= '9'
+                        || c == '_'
+                        || c == '.'
+                        || c == '`'
+                        || c == '+'
+                    )
+                )
                 {
                     return false;
                 }
@@ -133,7 +170,8 @@ namespace RimWorldLoadingOptimizer
             return i == a.Length - 1 && a[i] == typeof(object).Assembly;
         }
 
-        private static readonly Dictionary<Assembly, Dictionary<string, (Type type, bool ambiguous)>> perAssembly = new Dictionary<Assembly, Dictionary<string, (Type, bool)>>();
+        private static readonly Dictionary<Assembly, Dictionary<string, (Type type, bool ambiguous)>> perAssembly =
+            new Dictionary<Assembly, Dictionary<string, (Type, bool)>>();
 
         private static Dictionary<string, (Type type, bool ambiguous)> Local(Assembly assembly)
         {
@@ -145,7 +183,14 @@ namespace RimWorldLoadingOptimizer
             var simpleName = assembly.GetName().Name ?? "";
             try
             {
-                types = assembly.IsDynamic || simpleName == "netstandard" || simpleName == "mscorlib" || simpleName.StartsWith("System", StringComparison.Ordinal) || simpleName.StartsWith("Microsoft", StringComparison.Ordinal) ? null : assembly.GetTypes();
+                types =
+                    assembly.IsDynamic
+                    || simpleName == "netstandard"
+                    || simpleName == "mscorlib"
+                    || simpleName.StartsWith("System", StringComparison.Ordinal)
+                    || simpleName.StartsWith("Microsoft", StringComparison.Ordinal)
+                        ? null
+                        : assembly.GetTypes();
             }
             catch
             {
@@ -206,7 +251,12 @@ namespace RimWorldLoadingOptimizer
                 {
                     if (!map.ContainsKey(pair.Key))
                     {
-                        map[pair.Key] = new Entry { Position = p, Type = pair.Value.type, Ambiguous = pair.Value.ambiguous };
+                        map[pair.Key] = new Entry
+                        {
+                            Position = p,
+                            Type = pair.Value.type,
+                            Ambiguous = pair.Value.ambiguous,
+                        };
                     }
                 }
             }
@@ -238,7 +288,10 @@ namespace RimWorldLoadingOptimizer
                 {
                     break;
                 }
-                var found = p == assemblies.Length - 1 ? Type.GetType(typeName, false, true) : assemblies[p].GetType(typeName, false, true);
+                var found =
+                    p == assemblies.Length - 1
+                        ? Type.GetType(typeName, false, true)
+                        : assemblies[p].GetType(typeName, false, true);
                 if (found != null)
                 {
                     return found;
@@ -314,6 +367,8 @@ namespace RimWorldLoadingOptimizer
             return false;
         }
 
-        public static string Stats() => $"type name index: {fast} fast lookups in {ticks / (double)Stopwatch.Frequency:F2} s, {slow} left to vanilla, {builds} builds, {unindexed?.Length ?? 0} unindexed assemblies" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
+        public static string Stats() =>
+            $"type name index: {fast} fast lookups in {ticks / (double)Stopwatch.Frequency:F2} s, {slow} left to vanilla, {builds} builds, {unindexed?.Length ?? 0} unindexed assemblies"
+            + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
     }
 }

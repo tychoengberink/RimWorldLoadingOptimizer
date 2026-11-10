@@ -88,7 +88,9 @@ namespace RimWorldLoadingOptimizer
             var kept = new HashSet<Texture2D>(mods.SelectMany(m => m.GetContentHolder<Texture2D>().contentList.Values));
             long bytes = 0;
             var destroyed = 0;
-            foreach (var texture in released.Where(t => t != null && t != BaseContent.BadTex && !kept.Contains(t)).Distinct())
+            foreach (
+                var texture in released.Where(t => t != null && t != BaseContent.BadTex && !kept.Contains(t)).Distinct()
+            )
             {
 #if RW17
                 var size = EstimatedBytes(texture);
@@ -109,9 +111,13 @@ namespace RimWorldLoadingOptimizer
             }
 #endif
 #if !NATIVE_ASSETS
-            RLOLog.Detail($"released {destroyed} shadowed textures (~{bytes / (1 << 20)} MB), kept {codeTextures.Count} overridden textures of code mods (~{keptBytes / (1 << 20)} MB) and {keptForMelee} melee weapon textures for Melee Animation; streamed {AudioStreaming.Streamed} extra sound files ({AudioStreaming.StreamedBytes >> 20} MB on disk) instead of decoding them; {MonoHeap.Stats()}");
+            RLOLog.Detail(
+                $"released {destroyed} shadowed textures (~{bytes / (1 << 20)} MB), kept {codeTextures.Count} overridden textures of code mods (~{keptBytes / (1 << 20)} MB) and {keptForMelee} melee weapon textures for Melee Animation; streamed {AudioStreaming.Streamed} extra sound files ({AudioStreaming.StreamedBytes >> 20} MB on disk) instead of decoding them; {MonoHeap.Stats()}"
+            );
 #else
-            RLOLog.Detail($"released {destroyed} shadowed textures (~{bytes / (1 << 20)} MB), kept {codeTextures.Count} overridden textures of code mods (~{keptBytes / (1 << 20)} MB) and {keptForMelee} melee weapon textures for Melee Animation; {MonoHeap.Stats()}");
+            RLOLog.Detail(
+                $"released {destroyed} shadowed textures (~{bytes / (1 << 20)} MB), kept {codeTextures.Count} overridden textures of code mods (~{keptBytes / (1 << 20)} MB) and {keptForMelee} melee weapon textures for Melee Animation; {MonoHeap.Stats()}"
+            );
 #endif
         }
 
@@ -165,7 +171,12 @@ namespace RimWorldLoadingOptimizer
                     _ => width * height * 4L,
                 };
 #else
-                total += (long)GraphicsFormatUtility.ComputeMipmapSize(Math.Max(1, texture.width >> mip), Math.Max(1, texture.height >> mip), texture.graphicsFormat);
+                total += (long)
+                    GraphicsFormatUtility.ComputeMipmapSize(
+                        Math.Max(1, texture.width >> mip),
+                        Math.Max(1, texture.height >> mip),
+                        texture.graphicsFormat
+                    );
 #endif
             }
             return total;

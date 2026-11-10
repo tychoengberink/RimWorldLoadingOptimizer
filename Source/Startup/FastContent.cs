@@ -11,25 +11,40 @@ namespace RimWorldLoadingOptimizer
 {
     public static partial class FastContent
     {
-        private static readonly MethodInfo OriginalGet = AccessTools.Method(typeof(ContentFinder<Texture2D>), nameof(ContentFinder<Texture2D>.Get));
-        private static readonly MethodInfo OriginalFolder = AccessTools.Method(typeof(ContentFinder<Texture2D>), nameof(ContentFinder<Texture2D>.GetAllInFolder));
-        private static readonly MethodInfo OriginalAudioFolder = AccessTools.Method(typeof(ContentFinder<AudioClip>), nameof(ContentFinder<AudioClip>.GetAllInFolder));
-        private static readonly MethodInfo LookupGet = AccessTools.Method(typeof(TextureLookup), nameof(TextureLookup.Get));
+        private static readonly MethodInfo OriginalGet = AccessTools.Method(
+            typeof(ContentFinder<Texture2D>),
+            nameof(ContentFinder<Texture2D>.Get)
+        );
+        private static readonly MethodInfo OriginalFolder = AccessTools.Method(
+            typeof(ContentFinder<Texture2D>),
+            nameof(ContentFinder<Texture2D>.GetAllInFolder)
+        );
+        private static readonly MethodInfo OriginalAudioFolder = AccessTools.Method(
+            typeof(ContentFinder<AudioClip>),
+            nameof(ContentFinder<AudioClip>.GetAllInFolder)
+        );
+        private static readonly MethodInfo LookupGet = AccessTools.Method(
+            typeof(TextureLookup),
+            nameof(TextureLookup.Get)
+        );
 
         // Which mods have content under a folder, so a folder lookup visits only those holders instead of all of them.
         // A holder is re-indexed when it or its entry count changes, the same signal the per-holder key lists used.
-        private static class BundleFolders<T> where T : class
+        private static class BundleFolders<T>
+            where T : class
         {
             public struct Entry
             {
-                public int Mod, Bundle;
+                public int Mod,
+                    Bundle;
                 public string Base;
             }
 
             private static readonly List<Entry> None = new List<Entry>();
             private static Dictionary<string, List<Entry>> bySuffix;
             private static long stamp = -1;
-            public static int Fallbacks, Builds;
+            public static int Fallbacks,
+                Builds;
 
             public static string Suffix(string folderPath)
             {
@@ -79,10 +94,28 @@ namespace RimWorldLoadingOptimizer
                     {
                         continue;
                     }
-                    var bases = new List<string> { Path.Combine(Path.Combine(Path.Combine(modsDir, mods[i].FolderName), GenFilePaths.ContentPath<T>()).Replace('\\', '/'), "").ToLower() };
+                    var bases = new List<string>
+                    {
+                        Path.Combine(
+                                Path.Combine(Path.Combine(modsDir, mods[i].FolderName), GenFilePaths.ContentPath<T>())
+                                    .Replace('\\', '/'),
+                                ""
+                            )
+                            .ToLower(),
+                    };
                     if (!mods[i].IsOfficialMod)
                     {
-                        bases.Add(Path.Combine(Path.Combine(Path.Combine(modsDir, mods[i].PackageIdPlayerFacing), GenFilePaths.ContentPath<T>()).Replace('\\', '/'), "").ToLower());
+                        bases.Add(
+                            Path.Combine(
+                                    Path.Combine(
+                                            Path.Combine(modsDir, mods[i].PackageIdPlayerFacing),
+                                            GenFilePaths.ContentPath<T>()
+                                        )
+                                        .Replace('\\', '/'),
+                                    ""
+                                )
+                                .ToLower()
+                        );
                     }
                     if (bases.Any(b => b.Length == 0 || b[b.Length - 1] != '/'))
                     {
@@ -114,7 +147,14 @@ namespace RimWorldLoadingOptimizer
                                     list = new List<Entry>();
                                     result[suffix] = list;
                                 }
-                                list.Add(new Entry { Mod = i, Bundle = j, Base = basePath });
+                                list.Add(
+                                    new Entry
+                                    {
+                                        Mod = i,
+                                        Bundle = j,
+                                        Base = basePath,
+                                    }
+                                );
                             }
                         }
                     }
@@ -123,10 +163,13 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        private static class FolderIndex<T> where T : class
+        private static class FolderIndex<T>
+            where T : class
         {
             private static readonly List<int> None = new List<int>();
-            private static readonly Dictionary<string, List<int>> byDir = new Dictionary<string, List<int>>(StringComparer.Ordinal);
+            private static readonly Dictionary<string, List<int>> byDir = new Dictionary<string, List<int>>(
+                StringComparer.Ordinal
+            );
             private static readonly List<int> nonEmpty = new List<int>();
             private static ModContentHolder<T>[] holders;
             private static int[] counts;
@@ -159,9 +202,15 @@ namespace RimWorldLoadingOptimizer
                 var from = after + 1;
                 while (true)
                 {
-                    var list = prefix.NullOrEmpty() ? nonEmpty : byDir.TryGetValue(prefix, out var found) ? found : None;
+                    var list =
+                        prefix.NullOrEmpty() ? nonEmpty
+                        : byDir.TryGetValue(prefix, out var found) ? found
+                        : None;
                     var at = list.BinarySearch(from);
-                    var candidate = at >= 0 ? list[at] : ~at < list.Count ? list[~at] : -1;
+                    var candidate =
+                        at >= 0 ? list[at]
+                        : ~at < list.Count ? list[~at]
+                        : -1;
                     var limit = candidate < 0 ? mods.Count - 1 : candidate;
                     var changed = -1;
                     for (var i = from; i <= limit; i++)
@@ -268,10 +317,15 @@ namespace RimWorldLoadingOptimizer
             return found.ToArray();
         }
 
-        public static int Misses, Folders, SkippedHolders, Methods;
+        public static int Misses,
+            Folders,
+            SkippedHolders,
+            Methods;
         public static readonly MismatchLog Mismatches = new MismatchLog("fast content");
 #if NATIVE_ASSETS
-        public static int BundleLookups, SkippedLoads, SkippedSearches;
+        public static int BundleLookups,
+            SkippedLoads,
+            SkippedSearches;
 #endif
 
         public static bool Installed { get; private set; }
@@ -286,16 +340,26 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip("Fast content lookups", "a ContentFinder method it replaces no longer exists");
                 return;
             }
-            check = new SelfCheck("Fast content lookups", VersionCheck.Code(
-                OriginalGet,
-                OriginalFolder,
-                AccessTools.EnumeratorMoveNext(OriginalFolder),
-                AccessTools.EnumeratorMoveNext(OriginalAudioFolder)));
+            check = new SelfCheck(
+                "Fast content lookups",
+                VersionCheck.Code(
+                    OriginalGet,
+                    OriginalFolder,
+                    AccessTools.EnumeratorMoveNext(OriginalFolder),
+                    AccessTools.EnumeratorMoveNext(OriginalAudioFolder)
+                )
+            );
 #if NATIVE_ASSETS
             InstallBundles();
 #endif
-            harmony.Patch(AccessTools.Method(typeof(ModContentPack), "ReloadContentInt"), postfix: new HarmonyMethod(typeof(FastContent), nameof(ForgetKeys)));
-            harmony.Patch(AccessTools.Method(typeof(ModContentPack), nameof(ModContentPack.ClearDestroy)), postfix: new HarmonyMethod(typeof(FastContent), nameof(ForgetKeys)));
+            harmony.Patch(
+                AccessTools.Method(typeof(ModContentPack), "ReloadContentInt"),
+                postfix: new HarmonyMethod(typeof(FastContent), nameof(ForgetKeys))
+            );
+            harmony.Patch(
+                AccessTools.Method(typeof(ModContentPack), nameof(ModContentPack.ClearDestroy)),
+                postfix: new HarmonyMethod(typeof(FastContent), nameof(ForgetKeys))
+            );
             redirectGet = textureLookup ? LookupGet : AccessTools.Method(typeof(FastContent), nameof(Get));
             if (textureLookup && LookupGet != null && OriginalGet != null)
             {
@@ -305,7 +369,11 @@ namespace RimWorldLoadingOptimizer
             var folderTranspiler = new HarmonyMethod(typeof(FastContent), nameof(FolderTranspiler));
             var lookupTranspiler = new HarmonyMethod(typeof(FastContent), nameof(LookupTranspiler));
             var modGraphics = new List<Type>();
-            foreach (var type in GenTypes.AllSubclasses(typeof(Graphic)).Concat(new[] { typeof(Graphic), typeof(RimWorld.ExpansionDef) }))
+            foreach (
+                var type in GenTypes
+                    .AllSubclasses(typeof(Graphic))
+                    .Concat(new[] { typeof(Graphic), typeof(RimWorld.ExpansionDef) })
+            )
             {
                 if (type.Assembly == typeof(Graphic).Assembly)
                 {
@@ -323,9 +391,19 @@ namespace RimWorldLoadingOptimizer
                     PatchCallers(harmony, type, OriginalFolder, folderTranspiler, null);
                 }
             });
-            foreach (var type in typeof(Verse.Sound.AudioGrain_Folder).GetNestedTypes(BindingFlags.NonPublic | BindingFlags.Public).Concat(new[] { typeof(Verse.Sound.AudioGrain_Folder) }))
+            foreach (
+                var type in typeof(Verse.Sound.AudioGrain_Folder)
+                    .GetNestedTypes(BindingFlags.NonPublic | BindingFlags.Public)
+                    .Concat(new[] { typeof(Verse.Sound.AudioGrain_Folder) })
+            )
             {
-                PatchCallers(harmony, type, OriginalAudioFolder, new HarmonyMethod(typeof(FastContent), nameof(AudioTranspiler)), null);
+                PatchCallers(
+                    harmony,
+                    type,
+                    OriginalAudioFolder,
+                    new HarmonyMethod(typeof(FastContent), nameof(AudioTranspiler)),
+                    null
+                );
             }
             foreach (var type in typeof(Def).Assembly.GetTypes())
             {
@@ -340,7 +418,13 @@ namespace RimWorldLoadingOptimizer
                 }
                 else if (typeof(Def).IsAssignableFrom(outer))
                 {
-                    PatchCallers(harmony, type, OriginalGet, lookupTranspiler, m => m.Name.Contains("<PostLoad>") || m.Name.Contains("<ResolveReferences>"));
+                    PatchCallers(
+                        harmony,
+                        type,
+                        OriginalGet,
+                        lookupTranspiler,
+                        m => m.Name.Contains("<PostLoad>") || m.Name.Contains("<ResolveReferences>")
+                    );
                 }
             }
             StartupPhaseFixes.Reports.Add(Stats);
@@ -357,15 +441,34 @@ namespace RimWorldLoadingOptimizer
 #endif
         }
 
-        private static void PatchCallers(Harmony harmony, Type type, MethodInfo target, HarmonyMethod transpiler, Func<MethodInfo, bool> filter)
+        private static void PatchCallers(
+            Harmony harmony,
+            Type type,
+            MethodInfo target,
+            HarmonyMethod transpiler,
+            Func<MethodInfo, bool> filter
+        )
         {
             if (!AssemblySafety.CanScan(type) || type.ContainsGenericParameters)
             {
                 return;
             }
-            foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            foreach (
+                var method in type.GetMethods(
+                    BindingFlags.Instance
+                        | BindingFlags.Static
+                        | BindingFlags.Public
+                        | BindingFlags.NonPublic
+                        | BindingFlags.DeclaredOnly
+                )
+            )
             {
-                if (method.IsAbstract || method.ContainsGenericParameters || (filter != null && !filter(method)) || !IlScan.CallsAny(method, target))
+                if (
+                    method.IsAbstract
+                    || method.ContainsGenericParameters
+                    || (filter != null && !filter(method))
+                    || !IlScan.CallsAny(method, target)
+                )
                 {
                     continue;
                 }
@@ -381,23 +484,32 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-
         public static IEnumerable<CodeInstruction> MissTranspiler(IEnumerable<CodeInstruction> instructions) =>
             IlScan.Replace(instructions, OriginalGet, AccessTools.Method(typeof(FastContent), nameof(Get)));
 
         public static IEnumerable<CodeInstruction> FolderTranspiler(IEnumerable<CodeInstruction> instructions) =>
-            IlScan.Replace(instructions, OriginalFolder, AccessTools.Method(typeof(FastContent), nameof(GetAllInFolder)));
+            IlScan.Replace(
+                instructions,
+                OriginalFolder,
+                AccessTools.Method(typeof(FastContent), nameof(GetAllInFolder))
+            );
 
         public static IEnumerable<CodeInstruction> AudioTranspiler(IEnumerable<CodeInstruction> instructions) =>
-            IlScan.Replace(instructions, OriginalAudioFolder, AccessTools.Method(typeof(FastContent), nameof(GetAllInAudioFolder)));
+            IlScan.Replace(
+                instructions,
+                OriginalAudioFolder,
+                AccessTools.Method(typeof(FastContent), nameof(GetAllInAudioFolder))
+            );
 
         public static IEnumerable<CodeInstruction> LookupTranspiler(IEnumerable<CodeInstruction> instructions) =>
             IlScan.Replace(instructions, OriginalGet, redirectGet);
 
 #if NATIVE_ASSETS
-        public static string Stats() => $"fast content: {Methods} methods, {Misses} misses resolved, {BundleLookups} bundle lookups ({SkippedSearches} answered from the bundle index, {SkippedLoads} bundle loads skipped), {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches.Count} verify mismatches";
+        public static string Stats() =>
+            $"fast content: {Methods} methods, {Misses} misses resolved, {BundleLookups} bundle lookups ({SkippedSearches} answered from the bundle index, {SkippedLoads} bundle loads skipped), {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches.Count} verify mismatches";
 #else
-        public static string Stats() => $"fast content: {Methods} methods, {Misses} misses resolved, {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches.Count} verify mismatches";
+        public static string Stats() =>
+            $"fast content: {Methods} methods, {Misses} misses resolved, {Folders} folder lookups ({SkippedHolders} holders skipped), {Mismatches.Count} verify mismatches";
 #endif
 
         public static Texture2D Get(string itemPath, bool reportFailure)
@@ -434,8 +546,19 @@ namespace RimWorldLoadingOptimizer
             }
             if ((object)result == null && reportFailure)
             {
-                var text = ContentFinderRequester.requester != null ? " for def '" + ContentFinderRequester.requester.defName + "'" : "";
-                Log.Error("Could not load " + typeof(Texture2D).Name + " at '" + itemPath + "'" + text + " in any active mod or in base resources.");
+                var text =
+                    ContentFinderRequester.requester != null
+                        ? " for def '" + ContentFinderRequester.requester.defName + "'"
+                        : "";
+                Log.Error(
+                    "Could not load "
+                        + typeof(Texture2D).Name
+                        + " at '"
+                        + itemPath
+                        + "'"
+                        + text
+                        + " in any active mod or in base resources."
+                );
             }
             return result;
         }
@@ -486,15 +609,28 @@ namespace RimWorldLoadingOptimizer
                 var viaPackage = !mods[i].IsOfficialMod;
                 foreach (var bundle in bundles)
                 {
-                    var folderAssetPath = Path.Combine(Path.Combine(byFolder, GenFilePaths.ContentPath<Texture2D>()), itemPath);
-                    var packageAssetPath = Path.Combine(Path.Combine(byPackage, GenFilePaths.ContentPath<Texture2D>()), itemPath);
+                    var folderAssetPath = Path.Combine(
+                        Path.Combine(byFolder, GenFilePaths.ContentPath<Texture2D>()),
+                        itemPath
+                    );
+                    var packageAssetPath = Path.Combine(
+                        Path.Combine(byPackage, GenFilePaths.ContentPath<Texture2D>()),
+                        itemPath
+                    );
                     foreach (var extension in extensions)
                     {
-                        if (bundle.LoadAsset(folderAssetPath + extension, typeof(Texture2D)) is Texture2D byFolderTexture)
+                        if (
+                            bundle.LoadAsset(folderAssetPath + extension, typeof(Texture2D))
+                            is Texture2D byFolderTexture
+                        )
                         {
                             return byFolderTexture;
                         }
-                        if (viaPackage && bundle.LoadAsset(packageAssetPath + extension, typeof(Texture2D)) is Texture2D byPackageTexture)
+                        if (
+                            viaPackage
+                            && bundle.LoadAsset(packageAssetPath + extension, typeof(Texture2D))
+                                is Texture2D byPackageTexture
+                        )
                         {
                             return byPackageTexture;
                         }
@@ -548,13 +684,16 @@ namespace RimWorldLoadingOptimizer
             return same ? fast : original;
         }
 
-        private static IEnumerable<Texture2D> Folder(string folderPath) => Folder<Texture2D>(folderPath, ModAssetBundlesHandler.TextureExtensions);
+        private static IEnumerable<Texture2D> Folder(string folderPath) =>
+            Folder<Texture2D>(folderPath, ModAssetBundlesHandler.TextureExtensions);
 
-        private static IEnumerable<T> Folder<T>(string folderPath, string[] validExtensions) where T : UnityEngine.Object
+        private static IEnumerable<T> Folder<T>(string folderPath, string[] validExtensions)
+            where T : UnityEngine.Object
         {
-            var prefix = folderPath.NullOrEmpty() || folderPath[folderPath.Length - 1] == '/' ? folderPath : folderPath + "/";
+            var prefix =
+                folderPath.NullOrEmpty() || folderPath[folderPath.Length - 1] == '/' ? folderPath : folderPath + "/";
             var running = LoadedModManager.RunningModsListForReading;
-            for (var last = -1; ;)
+            for (var last = -1; ; )
             {
                 var next = FolderIndex<T>.Next(running, prefix, last);
                 SkippedHolders += (next < 0 ? running.Count : next) - last - 1;
@@ -580,7 +719,11 @@ namespace RimWorldLoadingOptimizer
                 foreach (var entry in bundles)
                 {
                     var assetBundle = running2[entry.Mod].assetBundles.loadedAssetBundles[entry.Bundle];
-                    foreach (var item in running2[entry.Mod].AllAssetNamesInBundleTrie(entry.Bundle).GetByPrefix(entry.Base + suffix))
+                    foreach (
+                        var item in running2[entry.Mod]
+                            .AllAssetNamesInBundleTrie(entry.Bundle)
+                            .GetByPrefix(entry.Base + suffix)
+                    )
                     {
                         if (validExtensions.Contains(Path.GetExtension(item)))
                         {
@@ -605,8 +748,16 @@ namespace RimWorldLoadingOptimizer
                 for (var j = 0; j < mods[i].assetBundles.loadedAssetBundles.Count; j++)
                 {
                     var assetBundle = mods[i].assetBundles.loadedAssetBundles[j];
-                    var withFolderName = Path.Combine(Path.Combine(dirForBundleWithFolderName, GenFilePaths.ContentPath<T>()).Replace('\\', '/'), folderPath).ToLower();
-                    var withPackageId = Path.Combine(Path.Combine(dirForBundleWithPackageId, GenFilePaths.ContentPath<T>()).Replace('\\', '/'), folderPath).ToLower();
+                    var withFolderName = Path.Combine(
+                            Path.Combine(dirForBundleWithFolderName, GenFilePaths.ContentPath<T>()).Replace('\\', '/'),
+                            folderPath
+                        )
+                        .ToLower();
+                    var withPackageId = Path.Combine(
+                            Path.Combine(dirForBundleWithPackageId, GenFilePaths.ContentPath<T>()).Replace('\\', '/'),
+                            folderPath
+                        )
+                        .ToLower();
                     if (withFolderName[withFolderName.Length - 1] != '/')
                     {
                         withFolderName += "/";
@@ -635,5 +786,6 @@ namespace RimWorldLoadingOptimizer
                     }
                 }
             }
-        }    }
+        }
+    }
 }

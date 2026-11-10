@@ -26,29 +26,41 @@ namespace RimWorldLoadingOptimizer
         private static MethodInfo compressionEnabled;
 
         private static readonly List<string> pages = new List<string>();
-        private static int hits, keyless, uncached, compressionOff;
+        private static int hits,
+            keyless,
+            uncached,
+            compressionOff;
         private static Dictionary<Texture2D, string> owners;
 
         public static void Install(Harmony harmony)
         {
             var bake = AccessTools.Method(typeof(StaticTextureAtlas), nameof(StaticTextureAtlas.Bake));
-            compressionEnabled = AccessTools.PropertyGetter(typeof(GlobalTextureAtlasManager), "AtlasCompressionEnabled");
+            compressionEnabled = AccessTools.PropertyGetter(
+                typeof(GlobalTextureAtlasManager),
+                "AtlasCompressionEnabled"
+            );
             if (bake == null || compressionEnabled == null)
             {
-                RLOLog.Detail("atlas cache miss report: the game's atlas baking or compression switch was not found; report skipped");
+                RLOLog.Detail(
+                    "atlas cache miss report: the game's atlas baking or compression switch was not found; report skipped"
+                );
                 return;
             }
             try
             {
                 textures = AccessTools.FieldRefAccess<StaticTextureAtlas, List<Texture2D>>("textures");
                 masks = AccessTools.FieldRefAccess<StaticTextureAtlas, Dictionary<Texture2D, Texture2D>>("masks");
-                tiles = AccessTools.FieldRefAccess<StaticTextureAtlas, Dictionary<Texture, StaticTextureAtlasTile>>("tiles");
+                tiles = AccessTools.FieldRefAccess<StaticTextureAtlas, Dictionary<Texture, StaticTextureAtlasTile>>(
+                    "tiles"
+                );
                 colorKey = AccessTools.FieldRefAccess<StaticTextureAtlas, string>("colorCacheKey");
                 maskKey = AccessTools.FieldRefAccess<StaticTextureAtlas, string>("maskCacheKey");
             }
             catch (Exception e)
             {
-                RLOLog.Detail($"atlas cache miss report: the game's atlas fields changed ({e.Message}); report skipped");
+                RLOLog.Detail(
+                    $"atlas cache miss report: the game's atlas fields changed ({e.Message}); report skipped"
+                );
                 return;
             }
             harmony.Patch(bake, postfix: new HarmonyMethod(typeof(AtlasMisses), nameof(BakePostfix)));
@@ -117,7 +129,9 @@ namespace RimWorldLoadingOptimizer
                 var problem = StampProblem(texture);
                 if (problem == null && mask)
                 {
-                    problem = maskMap.TryGetValue(texture, out var maskTexture) ? StampProblem(maskTexture) : "no mask texture";
+                    problem = maskMap.TryGetValue(texture, out var maskTexture)
+                        ? StampProblem(maskTexture)
+                        : "no mask texture";
                     problem = problem == null ? null : "mask " + problem;
                 }
                 if (problem == null && !tileMap.ContainsKey(texture))
@@ -181,7 +195,9 @@ namespace RimWorldLoadingOptimizer
         }
 
         private static string UvOf(StaticTextureAtlas atlas, Texture2D texture) =>
-            texture != null && tiles(atlas).TryGetValue(texture, out var tile) ? $"{tile.uvRect.x}:{tile.uvRect.y}:{tile.uvRect.width}:{tile.uvRect.height}" : "none";
+            texture != null && tiles(atlas).TryGetValue(texture, out var tile)
+                ? $"{tile.uvRect.x}:{tile.uvRect.y}:{tile.uvRect.width}:{tile.uvRect.height}"
+                : "none";
 
         private static string Owner(Texture2D texture)
         {
@@ -211,7 +227,8 @@ namespace RimWorldLoadingOptimizer
         {
             var writes = GpuTextureService.TextureCacheWrites ? "on" : "off";
             var damaged = AssetPack.CorruptEntries;
-            var head = $"atlas cache of the game: {pages.Count} pages, {hits} loaded from cache, {keyless} without a cache key, {uncached} not in the cache, {compressionOff} with compression off; cache writes {writes}, damaged asset pack entries {damaged}"
+            var head =
+                $"atlas cache of the game: {pages.Count} pages, {hits} loaded from cache, {keyless} without a cache key, {uncached} not in the cache, {compressionOff} with compression off; cache writes {writes}, damaged asset pack entries {damaged}"
                 + (damaged > 0 ? " (the game saves no atlas page while any entry is damaged)" : "");
             return string.Join("\n", pages.Select(p => "  atlas page " + p).Prepend(head));
         }

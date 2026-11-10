@@ -61,35 +61,47 @@ namespace RimWorldLoadingOptimizer
             StartupPhaseFixes.Reports.Add(Report);
         }
 
-        private static Sample Take() => new Sample
-        {
-            At = (DateTime.Now - (Measurement.ProcessStart ?? DateTime.Now)).TotalSeconds,
-            Allocated = GC.GetTotalAllocatedBytes(false),
-            Gen0 = GC.CollectionCount(0),
-            Gen1 = GC.CollectionCount(1),
-            Gen2 = GC.CollectionCount(2),
-            Pause = GC.GetTotalPauseDuration(),
-            Jit = System.Runtime.JitInfo.GetCompilationTime(false),
-            Taken = true,
-        };
+        private static Sample Take() =>
+            new Sample
+            {
+                At = (DateTime.Now - (Measurement.ProcessStart ?? DateTime.Now)).TotalSeconds,
+                Allocated = GC.GetTotalAllocatedBytes(false),
+                Gen0 = GC.CollectionCount(0),
+                Gen1 = GC.CollectionCount(1),
+                Gen2 = GC.CollectionCount(2),
+                Pause = GC.GetTotalPauseDuration(),
+                Jit = System.Runtime.JitInfo.GetCompilationTime(false),
+                Taken = true,
+            };
 
         private static int PhaseOf(string label)
         {
             switch (label)
             {
-                case "LoadModXML()": return 2;
-                case "CombineIntoUnifiedXML()": return 3;
-                case "ApplyPatches()": return 4;
-                case "ParseAndProcessXML()": return 5;
-                case "Copy all Defs from mods to global databases.": return 6;
-                case "Resolve references.": return 7;
-                case "ExecuteToExecuteWhenFinished()": return 8;
+                case "LoadModXML()":
+                    return 2;
+                case "CombineIntoUnifiedXML()":
+                    return 3;
+                case "ApplyPatches()":
+                    return 4;
+                case "ParseAndProcessXML()":
+                    return 5;
+                case "Copy all Defs from mods to global databases.":
+                    return 6;
+                case "Resolve references.":
+                    return 7;
+                case "ExecuteToExecuteWhenFinished()":
+                    return 8;
                 case "StaticConstructorOnStartupUtility.CallAll()":
                 case "StaticConstructorOnStartupUtilityReplacement.CallAll()":
-                case "Static constructor calls": return 9;
-                case "Atlas baking.": return 10;
-                case "Garbage Collection": return 11;
-                default: return -1;
+                case "Static constructor calls":
+                    return 9;
+                case "Atlas baking.":
+                    return 10;
+                case "Garbage Collection":
+                    return 11;
+                default:
+                    return -1;
             }
         }
 
@@ -117,16 +129,24 @@ namespace RimWorldLoadingOptimizer
 
         private static string Row(string name, Sample from, Sample to)
         {
-            return $"{name,-28}{from.At,7:F1}{to.At - from.At,7:F1}{(to.Allocated - from.Allocated) / 1048576.0,9:F0}{to.Gen0 - from.Gen0,7}{to.Gen1 - from.Gen1,6}{to.Gen2 - from.Gen2,5}{(to.Pause - from.Pause).TotalSeconds,7:F2}{(to.Jit - from.Jit).TotalSeconds,7:F2}";
+            return $"{name, -28}{from.At, 7:F1}{to.At - from.At, 7:F1}{(to.Allocated - from.Allocated) / 1048576.0, 9:F0}{to.Gen0 - from.Gen0, 7}{to.Gen1 - from.Gen1, 6}{to.Gen2 - from.Gen2, 5}{(to.Pause - from.Pause).TotalSeconds, 7:F2}{(to.Jit - from.Jit).TotalSeconds, 7:F2}";
         }
 
         private static string Settings()
         {
             var info = GC.GetGCMemoryInfo();
             GC.GetConfigurationVariables().TryGetValue("GCGen0MaxBudget", out var budget);
-            var env = Environment.GetEnvironmentVariables().Cast<DictionaryEntry>()
+            var env = Environment
+                .GetEnvironmentVariables()
+                .Cast<DictionaryEntry>()
                 .Select(e => e.Key as string)
-                .Where(k => k != null && (k.StartsWith("DOTNET_GC", StringComparison.OrdinalIgnoreCase) || k.StartsWith("COMPlus_GC", StringComparison.OrdinalIgnoreCase)))
+                .Where(k =>
+                    k != null
+                    && (
+                        k.StartsWith("DOTNET_GC", StringComparison.OrdinalIgnoreCase)
+                        || k.StartsWith("COMPlus_GC", StringComparison.OrdinalIgnoreCase)
+                    )
+                )
                 .OrderBy(k => k)
                 .Select(k => $"{k}={Environment.GetEnvironmentVariable(k)}")
                 .ToList();
@@ -144,7 +164,9 @@ namespace RimWorldLoadingOptimizer
             }
             taken[taken.Length - 1] = atReport;
             var sb = new StringBuilder(Settings());
-            sb.Append($"\nGC per phase (process-wide; allocated is approximate, includes all threads running at the time):\n{"phase",-28}{"start",7}{"secs",7}{"alloc MB",9}{"gen0",7}{"gen1",6}{"gen2",5}{"pause",7}{"JIT s",7}");
+            sb.Append(
+                $"\nGC per phase (process-wide; allocated is approximate, includes all threads running at the time):\n{"phase", -28}{"start", 7}{"secs", 7}{"alloc MB", 9}{"gen0", 7}{"gen1", 6}{"gen2", 5}{"pause", 7}{"JIT s", 7}"
+            );
             var seen = 0;
             for (var i = 0; i < Names.Length; i++)
             {
@@ -159,7 +181,9 @@ namespace RimWorldLoadingOptimizer
             sb.Append('\n').Append(Row("total until report", taken[0], atReport));
             if (DevSwitches.Verify)
             {
-                sb.Append($"\nGC per phase verify: {seen - 1} of {Names.Length - 1} phase boundaries seen in order, nothing to compare (counters only, no behaviour change)");
+                sb.Append(
+                    $"\nGC per phase verify: {seen - 1} of {Names.Length - 1} phase boundaries seen in order, nothing to compare (counters only, no behaviour change)"
+                );
             }
             return sb.ToString();
         }

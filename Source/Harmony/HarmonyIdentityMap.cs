@@ -12,12 +12,24 @@ namespace RimWorldLoadingOptimizer
     {
         private static MethodInfo resolve;
         private static bool verify;
-        [ThreadStatic] private static Dictionary<object, MemberInfo> map;
-        [ThreadStatic] private static int wrapperDepth;
-        [ThreadStatic] private static int collecting;
-        [ThreadStatic] private static int transpiling;
-        [ThreadStatic] private static int generating;
-        [ThreadStatic] private static bool inVerify;
+
+        [ThreadStatic]
+        private static Dictionary<object, MemberInfo> map;
+
+        [ThreadStatic]
+        private static int wrapperDepth;
+
+        [ThreadStatic]
+        private static int collecting;
+
+        [ThreadStatic]
+        private static int transpiling;
+
+        [ThreadStatic]
+        private static int generating;
+
+        [ThreadStatic]
+        private static bool inVerify;
         private static long mapped;
         private static long hits;
         private static long misses;
@@ -38,14 +50,28 @@ namespace RimWorldLoadingOptimizer
             Type T(string name) => harmonyAssembly.GetType(name, true);
             var provider = T("Mono.Cecil.IGenericParameterProvider");
             var importer = T("MonoMod.Utils.MMReflectionImporter");
-            var imports = new[] { typeof(Type), typeof(FieldInfo), typeof(MethodBase) }.Select(t => AccessTools.Method(importer, "ImportReference", new[] { t, provider })).ToArray();
+            var imports = new[] { typeof(Type), typeof(FieldInfo), typeof(MethodBase) }
+                .Select(t => AccessTools.Method(importer, "ImportReference", new[] { t, provider }))
+                .ToArray();
             resolve = AccessTools.Method(T("MonoMod.Utils.ReflectionHelper"), "_ResolveReflection");
             var prepare = AccessTools.Method(T("HarmonyLib.MethodCreatorConfig"), "Prepare");
             var create = AccessTools.Method(T("HarmonyLib.MethodCreator"), "CreateReplacement");
             var transpile = AccessTools.Method(T("HarmonyLib.CodeTranspiler"), "GetResult");
-            var generate = AccessTools.Method(T("MonoMod.Utils.DynamicMethodDefinition"), "Generate", new[] { typeof(object) });
+            var generate = AccessTools.Method(
+                T("MonoMod.Utils.DynamicMethodDefinition"),
+                "Generate",
+                new[] { typeof(object) }
+            );
             var update = AccessTools.Method(T("HarmonyLib.PatchFunctions"), "UpdateWrapper");
-            if (imports.Any(m => m == null) || resolve == null || prepare == null || create == null || transpile == null || generate == null || update == null)
+            if (
+                imports.Any(m => m == null)
+                || resolve == null
+                || prepare == null
+                || create == null
+                || transpile == null
+                || generate == null
+                || update == null
+            )
             {
                 VersionCheck.Skip("Harmony identity map", "a Harmony method it hooks no longer exists");
                 return;
@@ -67,7 +93,12 @@ namespace RimWorldLoadingOptimizer
                 harmony.Patch(import, postfix: post);
             }
             harmony.Patch(resolve, prefix: new HarmonyMethod(typeof(HarmonyIdentityMap), nameof(ResolvePre)));
-            void Scope(MethodBase method, string pre, string fin) => harmony.Patch(method, prefix: new HarmonyMethod(typeof(HarmonyIdentityMap), pre), finalizer: new HarmonyMethod(typeof(HarmonyIdentityMap), fin));
+            void Scope(MethodBase method, string pre, string fin) =>
+                harmony.Patch(
+                    method,
+                    prefix: new HarmonyMethod(typeof(HarmonyIdentityMap), pre),
+                    finalizer: new HarmonyMethod(typeof(HarmonyIdentityMap), fin)
+                );
             Scope(prepare, nameof(CollectPre), nameof(CollectFin));
             Scope(create, nameof(CollectPre), nameof(CollectFin));
             Scope(transpile, nameof(TranspilePre), nameof(TranspileFin));
@@ -111,7 +142,14 @@ namespace RimWorldLoadingOptimizer
 
         public static void ImportPost(object __result, object __0)
         {
-            if (collecting > 0 && transpiling == 0 && wrapperDepth > 0 && __result != null && __0 is MemberInfo member && Mappable(member))
+            if (
+                collecting > 0
+                && transpiling == 0
+                && wrapperDepth > 0
+                && __result != null
+                && __0 is MemberInfo member
+                && Mappable(member)
+            )
             {
                 map[__result] = member;
                 if (verify)
@@ -189,12 +227,16 @@ namespace RimWorldLoadingOptimizer
             {
                 if (Interlocked.Increment(ref equalMember) <= 10)
                 {
-                    RLOLog.Warning($"Harmony identity map equal member: {mref} -> map {found} (reflected {found?.ReflectedType}) vs original {expected} (reflected {expected?.ReflectedType})");
+                    RLOLog.Warning(
+                        $"Harmony identity map equal member: {mref} -> map {found} (reflected {found?.ReflectedType}) vs original {expected} (reflected {expected?.ReflectedType})"
+                    );
                 }
             }
             else
             {
-                mismatches.Report($"{mref} -> map {found} ({found?.GetType().Name}) vs original {expected} ({expected?.GetType().Name})");
+                mismatches.Report(
+                    $"{mref} -> map {found} ({found?.GetType().Name}) vs original {expected} ({expected?.GetType().Name})"
+                );
             }
             __result = expected;
             return false;

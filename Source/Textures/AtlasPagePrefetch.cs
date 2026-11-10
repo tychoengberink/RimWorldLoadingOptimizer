@@ -18,17 +18,23 @@ namespace RimWorldLoadingOptimizer
         private const int Window = 4;
         private const int Workers = 3;
 
-        private static string KeyFile => Path.Combine(GenFilePaths.SaveDataFolderPath, "RimWorldLoadingOptimizer", "atlas-page-keys.txt");
+        private static string KeyFile =>
+            Path.Combine(GenFilePaths.SaveDataFolderPath, "RimWorldLoadingOptimizer", "atlas-page-keys.txt");
 
         private static readonly List<string> Used = new List<string>();
         private static Slot[] slots;
         private static Dictionary<string, int> index;
         private static SemaphoreSlim window;
-        private static int next = -1, consumed, served, fallbacks, wasted;
+        private static int next = -1,
+            consumed,
+            served,
+            fallbacks,
+            wasted;
         private static long waitTicks;
         private static string previous;
 
-        [ThreadStatic] private static bool reading;
+        [ThreadStatic]
+        private static bool reading;
 
         private delegate bool OpenKeyed(string key, out ITextureCacheSource source);
         private static OpenKeyed Open;
@@ -49,16 +55,37 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var store = AccessTools.TypeByName("Waylith.Rendering.TextureCacheStore");
-            var open = store == null ? null : AccessTools.Method(store, "TryOpenKeyed", new[] { typeof(string), typeof(ITextureCacheSource).MakeByRefType() });
-            var bake = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases));
+            var open =
+                store == null
+                    ? null
+                    : AccessTools.Method(
+                        store,
+                        "TryOpenKeyed",
+                        new[] { typeof(string), typeof(ITextureCacheSource).MakeByRefType() }
+                    );
+            var bake = AccessTools.Method(
+                typeof(GlobalTextureAtlasManager),
+                nameof(GlobalTextureAtlasManager.BakeStaticAtlases)
+            );
             if (open == null || bake == null || open.ReturnType != typeof(bool))
             {
                 VersionCheck.Skip(Feature, "a method it needs no longer exists");
                 return;
             }
             Open = (OpenKeyed)Delegate.CreateDelegate(typeof(OpenKeyed), open);
-            harmony.Patch(open, prefix: new HarmonyMethod(typeof(AtlasPagePrefetch), nameof(OpenPrefix)) { priority = Priority.Last }, postfix: new HarmonyMethod(typeof(AtlasPagePrefetch), nameof(OpenPostfix)));
-            harmony.Patch(bake, prefix: new HarmonyMethod(typeof(AtlasPagePrefetch), nameof(BakePrefix)) { priority = Priority.Low }, finalizer: new HarmonyMethod(typeof(AtlasPagePrefetch), nameof(BakeFinalizer)) { priority = Priority.High });
+            harmony.Patch(
+                open,
+                prefix: new HarmonyMethod(typeof(AtlasPagePrefetch), nameof(OpenPrefix)) { priority = Priority.Last },
+                postfix: new HarmonyMethod(typeof(AtlasPagePrefetch), nameof(OpenPostfix))
+            );
+            harmony.Patch(
+                bake,
+                prefix: new HarmonyMethod(typeof(AtlasPagePrefetch), nameof(BakePrefix)) { priority = Priority.Low },
+                finalizer: new HarmonyMethod(typeof(AtlasPagePrefetch), nameof(BakeFinalizer))
+                {
+                    priority = Priority.High,
+                }
+            );
             MainMenu.UnpatchAfterStartup(open);
             MainMenu.UnpatchAfterStartup(bake);
             StartupPhaseFixes.Reports.Add(Stats);

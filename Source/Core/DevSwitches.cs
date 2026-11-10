@@ -28,13 +28,24 @@ namespace RimWorldLoadingOptimizer
         public static readonly bool NoFilterLoops = On("RLO_NO_FILTER_LOOPS");
         public static readonly bool ConstructorTiming = On("RLO_CONSTRUCTOR_TIMING");
         public static readonly bool LateModSupportVerify = On("RLO_LATE_SUPPORT_VERIFY");
-        public static readonly string[] LateModSupportOff = List("RLO_LATE_SUPPORT_OFF").Select(s => s.ToLowerInvariant()).ToArray();
+        public static readonly string[] LateModSupportOff = List("RLO_LATE_SUPPORT_OFF")
+            .Select(s => s.ToLowerInvariant())
+            .ToArray();
         public static readonly string[] ModConstructorSpeedupsOff = List("RLO_CONSTRUCTOR_FIXES_OFF");
         public static readonly float StartupFrameSeconds =
-            float.TryParse(Environment.GetEnvironmentVariable("RLO_STARTUP_FRAME"), NumberStyles.Float, CultureInfo.InvariantCulture, out var f) && f > 0.1f ? f : 0.25f;
+            float.TryParse(
+                Environment.GetEnvironmentVariable("RLO_STARTUP_FRAME"),
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var f
+            )
+            && f > 0.1f
+                ? f
+                : 0.25f;
 
         private static bool On(string name) => Environment.GetEnvironmentVariable(name) == "1";
 
-        private static string[] List(string name) => (Environment.GetEnvironmentVariable(name) ?? "").Split(',').Select(s => s.Trim()).ToArray();
+        private static string[] List(string name) =>
+            (Environment.GetEnvironmentVariable(name) ?? "").Split(',').Select(s => s.Trim()).ToArray();
     }
 }

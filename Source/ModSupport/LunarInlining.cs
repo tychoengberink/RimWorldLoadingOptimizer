@@ -11,10 +11,17 @@ namespace RimWorldLoadingOptimizer
 {
     public static class LunarInlining
     {
-        private static int replaced = -1, scanned, fallbacks, withTargets;
+        private static int replaced = -1,
+            scanned,
+            fallbacks,
+            withTargets;
         private static readonly MismatchLog mismatches = new MismatchLog("Lunar scan");
         private static long ticks;
-        private static readonly MethodInfo original = AccessTools.Method(typeof(PatchProcessor), nameof(PatchProcessor.ReadMethodBody), new[] { typeof(MethodBase) });
+        private static readonly MethodInfo original = AccessTools.Method(
+            typeof(PatchProcessor),
+            nameof(PatchProcessor.ReadMethodBody),
+            new[] { typeof(MethodBase) }
+        );
         private static SelfCheck check;
 
         public static void Install(Harmony harmony)
@@ -27,14 +34,21 @@ namespace RimWorldLoadingOptimizer
             var apply = AccessTools.Method(type, "Apply");
             if (apply == null || original == null)
             {
-                VersionCheck.Skip("Lunar inlining fixer", "HarmonyInliningFixer.Apply or PatchProcessor.ReadMethodBody no longer exists");
+                VersionCheck.Skip(
+                    "Lunar inlining fixer",
+                    "HarmonyInliningFixer.Apply or PatchProcessor.ReadMethodBody no longer exists"
+                );
                 return;
             }
-            var code = VersionCheck.Code(
-                apply,
-                original);
-            if (!VersionCheck.Pattern("Lunar inlining fixer", apply, code => VersionCheck.Calls(code, original) >= 1 && LooksOnlyForMethods(type, code),
-                "reads method bodies only to look for called methods"))
+            var code = VersionCheck.Code(apply, original);
+            if (
+                !VersionCheck.Pattern(
+                    "Lunar inlining fixer",
+                    apply,
+                    code => VersionCheck.Calls(code, original) >= 1 && LooksOnlyForMethods(type, code),
+                    "reads method bodies only to look for called methods"
+                )
+            )
             {
                 return;
             }
@@ -44,12 +58,17 @@ namespace RimWorldLoadingOptimizer
 
         private static bool LooksOnlyForMethods(Type type, List<CodeInstruction> apply)
         {
-            bool IsMethodCheck(CodeInstruction i) => i.opcode == OpCodes.Isinst && i.operand is Type t && t == typeof(MethodBase);
+            bool IsMethodCheck(CodeInstruction i) =>
+                i.opcode == OpCodes.Isinst && i.operand is Type t && t == typeof(MethodBase);
             if (apply.Any(IsMethodCheck))
             {
                 return true;
             }
-            foreach (var method in type.GetNestedTypes(AccessTools.all).SelectMany(t => AccessTools.GetDeclaredMethods(t)).Concat(AccessTools.GetDeclaredMethods(type)))
+            foreach (
+                var method in type.GetNestedTypes(AccessTools.all)
+                    .SelectMany(t => AccessTools.GetDeclaredMethods(t))
+                    .Concat(AccessTools.GetDeclaredMethods(type))
+            )
             {
                 if (!method.Name.StartsWith("<Apply>"))
                 {
@@ -125,7 +144,9 @@ namespace RimWorldLoadingOptimizer
                 check.Report(same, $"method operands of {method.Name}");
                 if (!same)
                 {
-                    mismatches.Report($"{method.FullDescription()}: fast {fast.Count}, original {slow.Count} method operands");
+                    mismatches.Report(
+                        $"{method.FullDescription()}: fast {fast.Count}, original {slow.Count} method operands"
+                    );
                     return body;
                 }
             }
@@ -212,11 +233,19 @@ namespace RimWorldLoadingOptimizer
                         pos += 4 + 4 * BitConverter.ToInt32(il, pos);
                         break;
                     case OperandType.InlineMethod:
-                        result.Add(new KeyValuePair<OpCode, object>(op, module.ResolveMethod(BitConverter.ToInt32(il, pos), typeArguments, methodArguments)));
+                        result.Add(
+                            new KeyValuePair<OpCode, object>(
+                                op,
+                                module.ResolveMethod(BitConverter.ToInt32(il, pos), typeArguments, methodArguments)
+                            )
+                        );
                         pos += 4;
                         break;
                     case OperandType.InlineTok:
-                        if (module.ResolveMember(BitConverter.ToInt32(il, pos), typeArguments, methodArguments) is MethodBase member)
+                        if (
+                            module.ResolveMember(BitConverter.ToInt32(il, pos), typeArguments, methodArguments)
+                            is MethodBase member
+                        )
                         {
                             result.Add(new KeyValuePair<OpCode, object>(op, member));
                         }

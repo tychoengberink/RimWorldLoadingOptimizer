@@ -13,12 +13,30 @@ namespace RimWorldLoadingOptimizer
     {
 #if NATIVE_ASSETS
 
-        private static readonly MethodInfo BundlesCached = AccessTools.Method(typeof(ContentFinder<Texture2D>), nameof(ContentFinder<Texture2D>.TryFindAssetInModBundles));
-        private static readonly MethodInfo BundlesUncached = AccessTools.Method(typeof(ContentFinder<Texture2D>), "TryFindAssetInModBundlesUncached");
-        private static readonly MethodInfo BundlesStamp = AccessTools.Method(typeof(ContentFinder<Texture2D>), "LoadedAssetBundlesStamp");
-        private static readonly MethodInfo BundleLoad = AccessTools.Method(typeof(AssetBundle), nameof(AssetBundle.LoadAsset), new[] { typeof(string), typeof(Type) });
-        private static readonly MethodInfo BundleNames = AccessTools.Method(typeof(AssetBundle), nameof(AssetBundle.GetAllAssetNames));
-        private static readonly Type Reader = typeof(AssetBundle).Assembly.GetType("UnityStubs.Internal.AssetBundleReader");
+        private static readonly MethodInfo BundlesCached = AccessTools.Method(
+            typeof(ContentFinder<Texture2D>),
+            nameof(ContentFinder<Texture2D>.TryFindAssetInModBundles)
+        );
+        private static readonly MethodInfo BundlesUncached = AccessTools.Method(
+            typeof(ContentFinder<Texture2D>),
+            "TryFindAssetInModBundlesUncached"
+        );
+        private static readonly MethodInfo BundlesStamp = AccessTools.Method(
+            typeof(ContentFinder<Texture2D>),
+            "LoadedAssetBundlesStamp"
+        );
+        private static readonly MethodInfo BundleLoad = AccessTools.Method(
+            typeof(AssetBundle),
+            nameof(AssetBundle.LoadAsset),
+            new[] { typeof(string), typeof(Type) }
+        );
+        private static readonly MethodInfo BundleNames = AccessTools.Method(
+            typeof(AssetBundle),
+            nameof(AssetBundle.GetAllAssetNames)
+        );
+        private static readonly Type Reader = typeof(AssetBundle).Assembly.GetType(
+            "UnityStubs.Internal.AssetBundleReader"
+        );
 
         private sealed class BundleMod
         {
@@ -28,7 +46,10 @@ namespace RimWorldLoadingOptimizer
             public bool ViaPackage;
         }
 
-        private static readonly Dictionary<AssetBundle, HashSet<string>> bundleNames = new Dictionary<AssetBundle, HashSet<string>>(ReferenceComparer<AssetBundle>.Instance);
+        private static readonly Dictionary<AssetBundle, HashSet<string>> bundleNames = new Dictionary<
+            AssetBundle,
+            HashSet<string>
+        >(ReferenceComparer<AssetBundle>.Instance);
         private static MethodBase[] bundleWatched;
         private static SelfCheck bundleCheck;
         private static Dictionary<string, Texture2D> bundleCache;
@@ -50,46 +71,82 @@ namespace RimWorldLoadingOptimizer
             var stampField = AccessTools.Field(typeof(ContentFinder<Texture2D>), "bundleAssetCacheStamp");
             if (Reader == null || cacheField == null || stampField == null)
             {
-                RLOLog.Detail("Fast content bundle lookups: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail(
+                    "Fast content bundle lookups: a member it needs is missing. This speedup is skipped and the "
+                        + "original code runs; nothing is broken."
+                );
                 return;
             }
             var assetNames = AccessTools.PropertyGetter(Reader, "AssetNames");
             var lookup = AccessTools.Method(Reader, "Lookup");
             var load = AccessTools.Method(Reader, "Load");
             var add = AccessTools.Method(Reader, "Add");
-            if (BundlesCached == null || BundlesUncached == null || BundlesStamp == null || BundleLoad == null || BundleNames == null || assetNames == null || lookup == null || load == null || add == null)
+            if (
+                BundlesCached == null
+                || BundlesUncached == null
+                || BundlesStamp == null
+                || BundleLoad == null
+                || BundleNames == null
+                || assetNames == null
+                || lookup == null
+                || load == null
+                || add == null
+            )
             {
                 VersionCheck.Skip("Fast content bundle lookups", "a method it needs no longer exists");
                 return;
             }
-            bundleCheck = new SelfCheck("Fast content bundle lookups", VersionCheck.Code(
-                BundlesCached,
-                BundlesUncached,
-                BundlesStamp,
-                BundleLoad,
-                BundleNames,
-                assetNames,
-                lookup,
-                load,
-                add));
+            bundleCheck = new SelfCheck(
+                "Fast content bundle lookups",
+                VersionCheck.Code(
+                    BundlesCached,
+                    BundlesUncached,
+                    BundlesStamp,
+                    BundleLoad,
+                    BundleNames,
+                    assetNames,
+                    lookup,
+                    load,
+                    add
+                )
+            );
             try
             {
                 bundleCacheStamp = AccessTools.StaticFieldRefAccess<int>(stampField);
                 uncached = AccessTools.MethodDelegate<Func<string, Texture2D>>(BundlesUncached);
-                bundleWatched = new MethodBase[] { BundlesCached, BundlesUncached, BundlesStamp, BundleLoad, BundleNames, assetNames, lookup, load, add };
+                bundleWatched = new MethodBase[]
+                {
+                    BundlesCached,
+                    BundlesUncached,
+                    BundlesStamp,
+                    BundleLoad,
+                    BundleNames,
+                    assetNames,
+                    lookup,
+                    load,
+                    add,
+                };
                 bundleCache = (Dictionary<string, Texture2D>)cacheField.GetValue(null);
             }
             catch (Exception e)
             {
                 bundleCache = null;
-                RLOLog.Detail($"Fast content bundle lookups: could not reach the bundle cache ({e.Message}). This speedup is skipped and the original code runs; nothing is broken.");
+                RLOLog.Detail(
+                    $"Fast content bundle lookups: could not reach the bundle cache ({e.Message}). This speedup is skipped and the original code runs; nothing is broken."
+                );
             }
         }
 
         // ContentFinder<Texture2D>.TryFindAssetInModBundles with the same cache and stamp, around the faster search.
         private static Texture2D NativeBundles(string itemPath)
         {
-            if (bundleCache == null || bundleCheck.IsOff || itemPath == null || !UnityData.IsInMainThread || !BundlesUnpatched())
+            if (
+                bundleCache == null
+                || bundleCheck.IsOff
+                || itemPath == null
+                || !UnityData.IsInMainThread
+                || !BundlesUnpatched()
+            )
             {
                 return ContentFinder<Texture2D>.TryFindAssetInModBundles(itemPath);
             }
@@ -163,13 +220,15 @@ namespace RimWorldLoadingOptimizer
                 {
                     continue;
                 }
-                list.Add(new BundleMod
-                {
-                    Mod = mod,
-                    ByFolder = Path.Combine(Path.Combine(root, mod.FolderName), contentPath),
-                    ByPackage = Path.Combine(Path.Combine(root, mod.PackageIdPlayerFacing), contentPath),
-                    ViaPackage = !mod.IsOfficialMod
-                });
+                list.Add(
+                    new BundleMod
+                    {
+                        Mod = mod,
+                        ByFolder = Path.Combine(Path.Combine(root, mod.FolderName), contentPath),
+                        ByPackage = Path.Combine(Path.Combine(root, mod.PackageIdPlayerFacing), contentPath),
+                        ViaPackage = !mod.IsOfficialMod,
+                    }
+                );
             }
             bundleMods = list;
             bundleCounts = counts;
@@ -184,7 +243,9 @@ namespace RimWorldLoadingOptimizer
             var extensions = ModAssetBundlesHandler.TextureExtensions;
             foreach (var entry in mods)
             {
-                var prefixes = entry.ViaPackage ? new[] { Prefix(entry.ByFolder), Prefix(entry.ByPackage) } : new[] { Prefix(entry.ByFolder) };
+                var prefixes = entry.ViaPackage
+                    ? new[] { Prefix(entry.ByFolder), Prefix(entry.ByPackage) }
+                    : new[] { Prefix(entry.ByFolder) };
                 foreach (var bundle in entry.Mod.assetBundles.loadedAssetBundles)
                 {
                     var names = NamesOf(bundle);
@@ -203,9 +264,17 @@ namespace RimWorldLoadingOptimizer
                             }
                             foreach (var extension in extensions)
                             {
-                                if (normalized.Length >= prefix.Length + extension.Length && normalized.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+                                if (
+                                    normalized.Length >= prefix.Length + extension.Length
+                                    && normalized.EndsWith(extension, StringComparison.OrdinalIgnoreCase)
+                                )
                                 {
-                                    items.Add(normalized.Substring(prefix.Length, normalized.Length - prefix.Length - extension.Length));
+                                    items.Add(
+                                        normalized.Substring(
+                                            prefix.Length,
+                                            normalized.Length - prefix.Length - extension.Length
+                                        )
+                                    );
                                 }
                             }
                         }
@@ -248,7 +317,10 @@ namespace RimWorldLoadingOptimizer
                     foreach (var extension in extensions)
                     {
                         var byFolder = folderAssetPath + extension;
-                        if (MayHold(names, byFolder) && bundle.LoadAsset(byFolder, typeof(Texture2D)) is Texture2D byFolderTexture)
+                        if (
+                            MayHold(names, byFolder)
+                            && bundle.LoadAsset(byFolder, typeof(Texture2D)) is Texture2D byFolderTexture
+                        )
                         {
                             return byFolderTexture;
                         }
@@ -257,7 +329,10 @@ namespace RimWorldLoadingOptimizer
                             continue;
                         }
                         var byPackage = packageAssetPath + extension;
-                        if (MayHold(names, byPackage) && bundle.LoadAsset(byPackage, typeof(Texture2D)) is Texture2D byPackageTexture)
+                        if (
+                            MayHold(names, byPackage)
+                            && bundle.LoadAsset(byPackage, typeof(Texture2D)) is Texture2D byPackageTexture
+                        )
                         {
                             return byPackageTexture;
                         }
@@ -276,7 +351,10 @@ namespace RimWorldLoadingOptimizer
             if (!bundleNames.TryGetValue(bundle, out var names))
             {
                 // The reader's name table is fixed once the bundle exists; an unloaded bundle lists nothing and loads nothing.
-                bundleNames[bundle] = names = new HashSet<string>(bundle.GetAllAssetNames(), StringComparer.OrdinalIgnoreCase);
+                bundleNames[bundle] = names = new HashSet<string>(
+                    bundle.GetAllAssetNames(),
+                    StringComparer.OrdinalIgnoreCase
+                );
             }
             return names;
         }

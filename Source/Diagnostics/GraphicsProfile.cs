@@ -15,12 +15,15 @@ namespace RimWorldLoadingOptimizer
     {
         private sealed class Cost
         {
-            public long Inclusive, Exclusive;
+            public long Inclusive,
+                Exclusive;
             public int Calls;
         }
 
         private static readonly Dictionary<string, Cost> Costs = new Dictionary<string, Cost>();
-        [ThreadStatic] private static Stack<long> children;
+
+        [ThreadStatic]
+        private static Stack<long> children;
         private static volatile bool resolving;
         private static int depth;
         private static long lambdaTicks;
@@ -30,43 +33,117 @@ namespace RimWorldLoadingOptimizer
 
         public static void Install(Harmony harmony)
         {
-            var lambda = AccessTools.GetDeclaredMethods(typeof(ThingDef)).FirstOrDefault(m => m.Name.StartsWith("<PostLoad>b__", StringComparison.Ordinal) && m.GetParameters().Length == 0 && m.ReturnType == typeof(void));
+            var lambda = AccessTools
+                .GetDeclaredMethods(typeof(ThingDef))
+                .FirstOrDefault(m =>
+                    m.Name.StartsWith("<PostLoad>b__", StringComparison.Ordinal)
+                    && m.GetParameters().Length == 0
+                    && m.ReturnType == typeof(void)
+                );
             if (lambda == null)
             {
                 RLOLog.Warning("graphics profile: ThingDef graphics lambda not found");
                 return;
             }
-            var roots = new List<MethodBase> { lambda, AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases)) };
-            roots.AddRange(AccessTools.GetDeclaredMethods(typeof(Verse.Sound.SubSoundDef)).Where(m => m.Name.StartsWith("<ResolveReferences>b__", StringComparison.Ordinal)));
-            roots.AddRange(AccessTools.GetDeclaredMethods(typeof(SongDef)).Where(m => m.Name.StartsWith("<ResolveReferences>b__", StringComparison.Ordinal)));
+            var roots = new List<MethodBase>
+            {
+                lambda,
+                AccessTools.Method(
+                    typeof(GlobalTextureAtlasManager),
+                    nameof(GlobalTextureAtlasManager.BakeStaticAtlases)
+                ),
+            };
+            roots.AddRange(
+                AccessTools
+                    .GetDeclaredMethods(typeof(Verse.Sound.SubSoundDef))
+                    .Where(m => m.Name.StartsWith("<ResolveReferences>b__", StringComparison.Ordinal))
+            );
+            roots.AddRange(
+                AccessTools
+                    .GetDeclaredMethods(typeof(SongDef))
+                    .Where(m => m.Name.StartsWith("<ResolveReferences>b__", StringComparison.Ordinal))
+            );
             foreach (var root in roots.Where(r => r != null))
             {
-                harmony.Patch(root, prefix: new HarmonyMethod(typeof(GraphicsProfile), nameof(LambdaPrefix)), postfix: new HarmonyMethod(typeof(GraphicsProfile), nameof(LambdaPostfix)));
+                harmony.Patch(
+                    root,
+                    prefix: new HarmonyMethod(typeof(GraphicsProfile), nameof(LambdaPrefix)),
+                    postfix: new HarmonyMethod(typeof(GraphicsProfile), nameof(LambdaPostfix))
+                );
             }
             var targets = new List<MethodBase>
             {
                 AccessTools.Method(typeof(GraphicData), "Init"),
                 AccessTools.Method(typeof(ContentFinder<Texture2D>), nameof(ContentFinder<Texture2D>.Get)),
-                AccessTools.Method(typeof(MaterialPool), nameof(MaterialPool.MatFrom), new[] { typeof(MaterialRequest) }),
-                AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.TryInsertStatic)),
-                AccessTools.Method(typeof(Resources), nameof(Resources.LoadAll), new[] { typeof(string), typeof(Type) }),
+                AccessTools.Method(
+                    typeof(MaterialPool),
+                    nameof(MaterialPool.MatFrom),
+                    new[] { typeof(MaterialRequest) }
+                ),
+                AccessTools.Method(
+                    typeof(GlobalTextureAtlasManager),
+                    nameof(GlobalTextureAtlasManager.TryInsertStatic)
+                ),
+                AccessTools.Method(
+                    typeof(Resources),
+                    nameof(Resources.LoadAll),
+                    new[] { typeof(string), typeof(Type) }
+                ),
             };
-            targets.AddRange(AccessTools.GetDeclaredMethods(typeof(StaticTextureAtlas)).Where(m => !m.IsGenericMethodDefinition && !m.Name.StartsWith("<", StringComparison.Ordinal)));
-            targets.AddRange(AccessTools.GetDeclaredMethods(typeof(GlobalTextureAtlasManager)).Where(m => !m.IsGenericMethodDefinition && m.Name != nameof(GlobalTextureAtlasManager.BakeStaticAtlases) && !m.Name.StartsWith("<", StringComparison.Ordinal)));
-            targets.Add(AccessTools.Method(typeof(Waylith.Rendering.Texture2D), nameof(Waylith.Rendering.Texture2D.EndDeferredLoading)));
+            targets.AddRange(
+                AccessTools
+                    .GetDeclaredMethods(typeof(StaticTextureAtlas))
+                    .Where(m => !m.IsGenericMethodDefinition && !m.Name.StartsWith("<", StringComparison.Ordinal))
+            );
+            targets.AddRange(
+                AccessTools
+                    .GetDeclaredMethods(typeof(GlobalTextureAtlasManager))
+                    .Where(m =>
+                        !m.IsGenericMethodDefinition
+                        && m.Name != nameof(GlobalTextureAtlasManager.BakeStaticAtlases)
+                        && !m.Name.StartsWith("<", StringComparison.Ordinal)
+                    )
+            );
+            targets.Add(
+                AccessTools.Method(
+                    typeof(Waylith.Rendering.Texture2D),
+                    nameof(Waylith.Rendering.Texture2D.EndDeferredLoading)
+                )
+            );
             targets.Add(AccessTools.Method(typeof(TextureLookup), nameof(TextureLookup.Get)));
             targets.Add(AccessTools.Method(typeof(FastContent), nameof(FastContent.Get)));
             targets.Add(AccessTools.Method(typeof(FastContent), nameof(FastContent.GetOutsideHolders)));
-            foreach (var name in new[] { "Outside", "NativeBundles", "IndexBundles", "SearchBundles", "NamesOf", "BundlesUnpatched" })
+            foreach (
+                var name in new[]
+                {
+                    "Outside",
+                    "NativeBundles",
+                    "IndexBundles",
+                    "SearchBundles",
+                    "NamesOf",
+                    "BundlesUnpatched",
+                }
+            )
             {
                 targets.Add(AccessTools.Method(typeof(FastContent), name));
             }
-            targets.Add(AccessTools.Method(typeof(ContentFinder<Texture2D>), nameof(ContentFinder<Texture2D>.TryFindAssetInModBundles)));
-            targets.Add(AccessTools.Method(typeof(Resources), nameof(Resources.Load), new[] { typeof(string), typeof(Type) }));
+            targets.Add(
+                AccessTools.Method(
+                    typeof(ContentFinder<Texture2D>),
+                    nameof(ContentFinder<Texture2D>.TryFindAssetInModBundles)
+                )
+            );
+            targets.Add(
+                AccessTools.Method(typeof(Resources), nameof(Resources.Load), new[] { typeof(string), typeof(Type) })
+            );
             targets.Add(AccessTools.Method(typeof(ShaderUtility), nameof(ShaderUtility.SupportsMaskTex)));
             targets.Add(AccessTools.Method(typeof(ContentFinder<AudioClip>), nameof(ContentFinder<AudioClip>.Get)));
-            targets.Add(AccessTools.Method(typeof(ContentFinder<AudioClip>), nameof(ContentFinder<AudioClip>.GetAllInFolder)));
-            targets.Add(AccessTools.Method(typeof(UnityStubs.ImportDefaults), nameof(UnityStubs.ImportDefaults.KeepStereo)));
+            targets.Add(
+                AccessTools.Method(typeof(ContentFinder<AudioClip>), nameof(ContentFinder<AudioClip>.GetAllInFolder))
+            );
+            targets.Add(
+                AccessTools.Method(typeof(UnityStubs.ImportDefaults), nameof(UnityStubs.ImportDefaults.KeepStereo))
+            );
             foreach (var type in typeof(Verse.Sound.AudioGrain).AllSubclasses())
             {
                 targets.Add(AccessTools.DeclaredMethod(type, nameof(Verse.Sound.AudioGrain.GetResolvedGrains)));
@@ -77,31 +154,69 @@ namespace RimWorldLoadingOptimizer
             }
             foreach (var type in typeof(CompProperties).AllSubclasses().Concat(new[] { typeof(CompProperties) }))
             {
-                targets.Add(AccessTools.DeclaredMethod(type, nameof(CompProperties.ResolveReferences), new[] { typeof(ThingDef) }));
+                targets.Add(
+                    AccessTools.DeclaredMethod(
+                        type,
+                        nameof(CompProperties.ResolveReferences),
+                        new[] { typeof(ThingDef) }
+                    )
+                );
             }
             targets.Add(AccessTools.Method(typeof(ThingFilter), nameof(ThingFilter.ResolveReferences)));
-            targets.AddRange(AccessTools.GetDeclaredMethods(typeof(ThingFilter)).Where(m => m.Name == nameof(ThingFilter.SetAllow) || m.Name == "SetAllowAllWhoCanMake"));
+            targets.AddRange(
+                AccessTools
+                    .GetDeclaredMethods(typeof(ThingFilter))
+                    .Where(m => m.Name == nameof(ThingFilter.SetAllow) || m.Name == "SetAllowAllWhoCanMake")
+            );
             targets.Add(AccessTools.Method(typeof(ThingDef), nameof(ThingDef.EverStorable)));
             targets.Add(AccessTools.PropertyGetter(typeof(ThingDef), nameof(ThingDef.BaseMarketValue)));
             targets.Add(AccessTools.Method(typeof(ThingDef), nameof(ThingDef.HasComp), new[] { typeof(Type) }));
-            targets.Add(AccessTools.Method(typeof(RaceProperties), nameof(RaceProperties.CanEverEat), new[] { typeof(ThingDef) }));
-            targets.Add(AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.DescendantThingDefs)));
-            harmony.Patch(AccessTools.Method(typeof(PlayDataLoader), "ResetStaticDataPre"), postfix: new HarmonyMethod(typeof(GraphicsProfile), nameof(ResolveStart)));
-            harmony.Patch(AccessTools.Method(typeof(RimWorld.DefGenerator), nameof(RimWorld.DefGenerator.GenerateImpliedDefs_PostResolve)), prefix: new HarmonyMethod(typeof(GraphicsProfile), nameof(ResolveEnd)));
+            targets.Add(
+                AccessTools.Method(
+                    typeof(RaceProperties),
+                    nameof(RaceProperties.CanEverEat),
+                    new[] { typeof(ThingDef) }
+                )
+            );
+            targets.Add(
+                AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.DescendantThingDefs))
+            );
+            harmony.Patch(
+                AccessTools.Method(typeof(PlayDataLoader), "ResetStaticDataPre"),
+                postfix: new HarmonyMethod(typeof(GraphicsProfile), nameof(ResolveStart))
+            );
+            harmony.Patch(
+                AccessTools.Method(
+                    typeof(RimWorld.DefGenerator),
+                    nameof(RimWorld.DefGenerator.GenerateImpliedDefs_PostResolve)
+                ),
+                prefix: new HarmonyMethod(typeof(GraphicsProfile), nameof(ResolveEnd))
+            );
             foreach (var type in typeof(Graphic).AllSubclasses().Concat(new[] { typeof(Graphic) }))
             {
                 targets.Add(AccessTools.DeclaredMethod(type, "Init", new[] { typeof(GraphicRequest) }));
                 targets.Add(AccessTools.DeclaredMethod(type, nameof(Graphic.TryInsertIntoAtlas)));
             }
-            foreach (var target in targets.Where(t => t != null && !t.IsAbstract && t.GetMethodBody() != null).Distinct())
+            foreach (
+                var target in targets.Where(t => t != null && !t.IsAbstract && t.GetMethodBody() != null).Distinct()
+            )
             {
                 try
                 {
-                    harmony.Patch(target, prefix: new HarmonyMethod(typeof(GraphicsProfile), nameof(Enter)) { priority = Priority.First }, finalizer: new HarmonyMethod(typeof(GraphicsProfile), nameof(Leave)) { priority = Priority.Last });
+                    harmony.Patch(
+                        target,
+                        prefix: new HarmonyMethod(typeof(GraphicsProfile), nameof(Enter)) { priority = Priority.First },
+                        finalizer: new HarmonyMethod(typeof(GraphicsProfile), nameof(Leave))
+                        {
+                            priority = Priority.Last,
+                        }
+                    );
                 }
                 catch (Exception e)
                 {
-                    RLOLog.Detail($"graphics profile: {target.DeclaringType?.Name}.{target.Name} not measured ({e.GetType().Name})");
+                    RLOLog.Detail(
+                        $"graphics profile: {target.DeclaringType?.Name}.{target.Name} not measured ({e.GetType().Name})"
+                    );
                 }
             }
             StartupPhaseFixes.Reports.Add(Stats);
@@ -165,10 +280,14 @@ namespace RimWorldLoadingOptimizer
         public static string Stats()
         {
             double S(long t) => t / (double)Stopwatch.Frequency;
-            var sb = new StringBuilder($"graphics profile: {lambdas:N0} measured actions (ThingDef graphics, atlas baking, sounds, songs) in {S(lambdaTicks):F2} s; per method inclusive / exclusive / calls:");
+            var sb = new StringBuilder(
+                $"graphics profile: {lambdas:N0} measured actions (ThingDef graphics, atlas baking, sounds, songs) in {S(lambdaTicks):F2} s; per method inclusive / exclusive / calls:"
+            );
             foreach (var pair in Costs.OrderByDescending(p => p.Value.Exclusive).Take(40))
             {
-                sb.Append($"\n[RLO]   {S(pair.Value.Inclusive),7:F2} {S(pair.Value.Exclusive),7:F2} {pair.Value.Calls,8:N0}  {pair.Key}");
+                sb.Append(
+                    $"\n[RLO]   {S(pair.Value.Inclusive), 7:F2} {S(pair.Value.Exclusive), 7:F2} {pair.Value.Calls, 8:N0}  {pair.Key}"
+                );
             }
             return sb.ToString();
         }

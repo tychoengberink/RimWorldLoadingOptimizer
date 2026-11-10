@@ -30,7 +30,14 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip(Feature, "the frame budget or the frame skip counter has another type");
                 return;
             }
-            if (!VersionCheck.Pattern(Feature, update, code => CountsDown(code, field), "counts its skipped frames down"))
+            if (
+                !VersionCheck.Pattern(
+                    Feature,
+                    update,
+                    code => CountsDown(code, field),
+                    "counts its skipped frames down"
+                )
+            )
             {
                 return;
             }
@@ -43,7 +50,12 @@ namespace RimWorldLoadingOptimizer
         {
             for (var i = 2; i < code.Count; i++)
             {
-                if (code[i].opcode == OpCodes.Stfld && Equals(code[i].operand, field) && code[i - 1].opcode == OpCodes.Sub && code[i - 2].opcode == OpCodes.Ldc_I4_1)
+                if (
+                    code[i].opcode == OpCodes.Stfld
+                    && Equals(code[i].operand, field)
+                    && code[i - 1].opcode == OpCodes.Sub
+                    && code[i - 2].opcode == OpCodes.Ldc_I4_1
+                )
                 {
                     return code.Any(c => c.opcode == OpCodes.Ldfld && Equals(c.operand, field));
                 }

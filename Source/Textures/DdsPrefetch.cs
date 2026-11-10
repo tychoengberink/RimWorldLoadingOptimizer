@@ -36,7 +36,9 @@ namespace RimWorldLoadingOptimizer
         private static bool vanillaBuffers;
         private static SelfCheck ddsCheck;
         private static readonly object windowGate = new object();
-        private static readonly ConcurrentDictionary<string, Entry> ready = new ConcurrentDictionary<string, Entry>(StringComparer.Ordinal);
+        private static readonly ConcurrentDictionary<string, Entry> ready = new ConcurrentDictionary<string, Entry>(
+            StringComparer.Ordinal
+        );
         private static volatile Dictionary<string, int> indexOf;
         private static readonly object budgetGate = new object();
         private static long inFlight;
@@ -53,36 +55,56 @@ namespace RimWorldLoadingOptimizer
         public static int Warmed;
         public static int VerifyChecks;
         public static readonly MismatchLog VerifyMismatches = new MismatchLog("DDS buffer");
-        [ThreadStatic] private static bool bypass;
+
+        [ThreadStatic]
+        private static bool bypass;
 
         public static void Install(Harmony harmony)
         {
             var mods = LoadedModManager.RunningModsListForReading.ToList();
             var loadDds = AccessTools.Method(AccessTools.TypeByName("GraphicSetter.DDSLoader"), "LoadDDS");
             var parameters = loadDds?.GetParameters();
-            buffers = RLOMod.Settings.Supports("graphicssettings") && loadDds != null && loadDds.ReturnType == typeof(Texture2D) && parameters.Length == 3
-                && parameters[0].ParameterType == typeof(string) && parameters[0].Name == "path"
-                && parameters[1].ParameterType == typeof(bool).MakeByRefType() && parameters[1].Name == "hasMipMaps";
+            buffers =
+                RLOMod.Settings.Supports("graphicssettings")
+                && loadDds != null
+                && loadDds.ReturnType == typeof(Texture2D)
+                && parameters.Length == 3
+                && parameters[0].ParameterType == typeof(string)
+                && parameters[0].Name == "path"
+                && parameters[1].ParameterType == typeof(bool).MakeByRefType()
+                && parameters[1].Name == "hasMipMaps";
             if (buffers && PatchProcessor.GetOriginalInstructions(loadDds).Count(i => i.Calls(SpanGetter)) != 1)
             {
                 buffers = false;
-                RLOLog.Detail("Graphics Settings+ texture buffers: its DDS loader no longer reads the file the expected way; using read-ahead instead.");
+                RLOLog.Detail(
+                    "Graphics Settings+ texture buffers: its DDS loader no longer reads the file the expected way; "
+                        + "using read-ahead instead."
+                );
             }
             if (buffers)
             {
-                harmony.Patch(loadDds, prefix: new HarmonyMethod(typeof(DdsPrefetch), nameof(GraphicsSettingsPrefix)),
+                harmony.Patch(
+                    loadDds,
+                    prefix: new HarmonyMethod(typeof(DdsPrefetch), nameof(GraphicsSettingsPrefix)),
                     transpiler: new HarmonyMethod(typeof(DdsPrefetch), nameof(GraphicsSettingsTranspiler)),
-                    finalizer: new HarmonyMethod(typeof(DdsPrefetch), nameof(GraphicsSettingsFinalizer)));
+                    finalizer: new HarmonyMethod(typeof(DdsPrefetch), nameof(GraphicsSettingsFinalizer))
+                );
             }
-            var vanillaDds = AccessTools.Method(typeof(ModDdsLoader), nameof(ModDdsLoader.TryLoadDds), new[] { typeof(RimWorld.IO.VirtualFile) });
+            var vanillaDds = AccessTools.Method(
+                typeof(ModDdsLoader),
+                nameof(ModDdsLoader.TryLoadDds),
+                new[] { typeof(RimWorld.IO.VirtualFile) }
+            );
             if (loadDds == null && vanillaDds != null)
             {
                 vanillaBuffers = AccessTools.Method(typeof(ModDdsLoader), "CreateTexture") != null;
                 if (vanillaBuffers)
                 {
-                    ddsCheck = new SelfCheck("DDS buffers for the game's own loader (falls back to read-ahead)", VersionCheck.Code(
-                        vanillaDds,
-                        AccessTools.Method(typeof(ModDdsLoader), "CreateTexture")), 50);
+                    ddsCheck = new SelfCheck(
+                        "DDS buffers for the game's own loader (falls back to read-ahead)",
+                        VersionCheck.Code(vanillaDds, AccessTools.Method(typeof(ModDdsLoader), "CreateTexture")),
+                        50
+                    );
                 }
                 buffers = vanillaBuffers;
             }
@@ -93,9 +115,15 @@ namespace RimWorldLoadingOptimizer
             var reloadContent = AccessTools.Method(typeof(ModContentPack), "ReloadContentInt");
             if (reloadContent != null)
             {
-                harmony.Patch(reloadContent, prefix: new HarmonyMethod(typeof(DdsPrefetch), nameof(ReloadContentPrefix)));
+                harmony.Patch(
+                    reloadContent,
+                    prefix: new HarmonyMethod(typeof(DdsPrefetch), nameof(ReloadContentPrefix))
+                );
             }
-            RLOMod.StartAfterPatching("DDS prefetch", () => new Thread(() => Start(mods)) { IsBackground = true, Name = "RLO DDS scan" }.Start());
+            RLOMod.StartAfterPatching(
+                "DDS prefetch",
+                () => new Thread(() => Start(mods)) { IsBackground = true, Name = "RLO DDS scan" }.Start()
+            );
         }
 
         private static void Start(List<ModContentPack> mods)
@@ -127,9 +155,7 @@ namespace RimWorldLoadingOptimizer
                             }
                         }
                     }
-                    catch
-                    {
-                    }
+                    catch { }
                 }
             }
             var offsets = new long[sizes.Count + 1];
@@ -172,16 +198,23 @@ namespace RimWorldLoadingOptimizer
                         Warm(i, scratch);
                     }
                 }
-                catch
-                {
-                }
+                catch { }
             }
         }
 
         private static void Read(int index, byte[] scratch)
         {
             var path = files[index];
-            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1, FileOptions.SequentialScan))
+            using (
+                var stream = new FileStream(
+                    path,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    1,
+                    FileOptions.SequentialScan
+                )
+            )
             {
                 var length = stream.Length;
                 if (length <= 148 || length > int.MaxValue)
@@ -242,7 +275,12 @@ namespace RimWorldLoadingOptimizer
                     throw;
                 }
                 Interlocked.Add(ref BytesRead, length);
-                var entry = new Entry { Index = index, Data = data, Length = (int)length };
+                var entry = new Entry
+                {
+                    Index = index,
+                    Data = data,
+                    Length = (int)length,
+                };
                 if (stopped || !buffers || index <= Volatile.Read(ref consumed) - Lag || !ready.TryAdd(path, entry))
                 {
                     Free(data, length);
@@ -267,7 +305,16 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            using (var stream = new FileStream(files[index], FileMode.Open, FileAccess.Read, FileShare.Read, 1, FileOptions.SequentialScan))
+            using (
+                var stream = new FileStream(
+                    files[index],
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    1,
+                    FileOptions.SequentialScan
+                )
+            )
             {
                 long total = 0;
                 int n;
@@ -344,7 +391,14 @@ namespace RimWorldLoadingOptimizer
         public static bool VanillaDdsPrefix(RimWorld.IO.VirtualFile file, ref Texture2D __result)
         {
             var map = indexOf;
-            if (bypass || stopped || map == null || file == null || file.GetType().Name != "FilesystemFile" || !UnityData.IsInMainThread)
+            if (
+                bypass
+                || stopped
+                || map == null
+                || file == null
+                || file.GetType().Name != "FilesystemFile"
+                || !UnityData.IsInMainThread
+            )
             {
                 return true;
             }
@@ -414,17 +468,22 @@ namespace RimWorldLoadingOptimizer
             {
                 vanilla = ModDdsLoader.TryLoadDds(file);
             }
-            catch
-            {
-            }
+            catch { }
             finally
             {
                 bypass = false;
             }
             VerifyChecks++;
-            var same = vanilla != null && vanilla.width == texture.width && vanilla.height == texture.height && vanilla.format == texture.format
-                && vanilla.mipmapCount == texture.mipmapCount && vanilla.name == texture.name && vanilla.filterMode == texture.filterMode
-                && vanilla.anisoLevel == texture.anisoLevel && vanilla.isReadable == texture.isReadable;
+            var same =
+                vanilla != null
+                && vanilla.width == texture.width
+                && vanilla.height == texture.height
+                && vanilla.format == texture.format
+                && vanilla.mipmapCount == texture.mipmapCount
+                && vanilla.name == texture.name
+                && vanilla.filterMode == texture.filterMode
+                && vanilla.anisoLevel == texture.anisoLevel
+                && vanilla.isReadable == texture.isReadable;
             ddsCheck.Report(same, $"texture {file.FullPath}");
             if (!same)
             {
@@ -436,13 +495,28 @@ namespace RimWorldLoadingOptimizer
             return texture;
         }
 
-        private static unsafe bool Parse(Entry entry, out uint width, out uint height, out uint mips, out TextureFormat format, out int offset)
+        private static unsafe bool Parse(
+            Entry entry,
+            out uint width,
+            out uint height,
+            out uint mips,
+            out TextureFormat format,
+            out int offset
+        )
         {
             width = height = mips = 0;
             format = TextureFormat.DXT1;
             offset = 0;
             var bytes = (byte*)entry.Data;
-            if (entry.Length < 128 || bytes[0] != 'D' || bytes[1] != 'D' || bytes[2] != 'S' || bytes[3] != ' ' || *(uint*)(bytes + 4) != 124 || *(uint*)(bytes + 76) != 32)
+            if (
+                entry.Length < 128
+                || bytes[0] != 'D'
+                || bytes[1] != 'D'
+                || bytes[2] != 'S'
+                || bytes[3] != ' '
+                || *(uint*)(bytes + 4) != 124
+                || *(uint*)(bytes + 76) != 32
+            )
             {
                 return false;
             }
@@ -491,22 +565,41 @@ namespace RimWorldLoadingOptimizer
         public static void ReloadContentPrefix(ModContentPack __instance)
         {
             var first = firstOfMod;
-            if (stopped || buffers || first == null || __instance == null || !UnityData.IsInMainThread || !first.TryGetValue(__instance, out var index))
+            if (
+                stopped
+                || buffers
+                || first == null
+                || __instance == null
+                || !UnityData.IsInMainThread
+                || !first.TryGetValue(__instance, out var index)
+            )
             {
                 return;
             }
             Advance(index - 1);
         }
 
-        private static readonly MethodInfo SpanGetter = AccessTools.Method(typeof(MemoryMappedFileSpanWrapper), nameof(MemoryMappedFileSpanWrapper.GetSpan), new[] { typeof(long) });
+        private static readonly MethodInfo SpanGetter = AccessTools.Method(
+            typeof(MemoryMappedFileSpanWrapper),
+            nameof(MemoryMappedFileSpanWrapper.GetSpan),
+            new[] { typeof(long) }
+        );
 
-        [ThreadStatic] private static Entry serving;
+        [ThreadStatic]
+        private static Entry serving;
 
         public static void GraphicsSettingsPrefix(string path)
         {
             serving = null;
             var map = indexOf;
-            if (stopped || !buffers || map == null || path == null || !UnityData.IsInMainThread || !map.TryGetValue(path, out var index))
+            if (
+                stopped
+                || !buffers
+                || map == null
+                || path == null
+                || !UnityData.IsInMainThread
+                || !map.TryGetValue(path, out var index)
+            )
             {
                 return;
             }
@@ -528,7 +621,12 @@ namespace RimWorldLoadingOptimizer
             {
                 if (instruction.Calls(SpanGetter))
                 {
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(DdsPrefetch), nameof(ServeSpan))).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
+                    yield return new CodeInstruction(
+                        OpCodes.Call,
+                        AccessTools.Method(typeof(DdsPrefetch), nameof(ServeSpan))
+                    )
+                        .WithLabels(instruction.labels)
+                        .WithBlocks(instruction.blocks);
                 }
                 else
                 {
@@ -567,8 +665,9 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static string Stats() => buffers
-            ? $"DDS prefetch ({(vanillaBuffers ? "buffers for the game's own loader" : "Graphics Settings+ buffers")}, {Workers} threads): {Hits} hits, {Misses} misses, {Discarded} discarded, {BytesRead >> 20} MB read ahead, peak {PeakInFlight >> 20} MB buffered{(DevSwitches.Verify && vanillaBuffers ? $", verify checks {VerifyChecks}, mismatches {VerifyMismatches.Count}" : "")}"
-            : $"DDS prefetch (read-ahead for the game's own loader): {Warmed} files, {BytesRead >> 20} MB read ahead, progress at file {consumed + 1} of {files?.Length ?? 0}";
+        public static string Stats() =>
+            buffers
+                ? $"DDS prefetch ({(vanillaBuffers ? "buffers for the game's own loader" : "Graphics Settings+ buffers")}, {Workers} threads): {Hits} hits, {Misses} misses, {Discarded} discarded, {BytesRead >> 20} MB read ahead, peak {PeakInFlight >> 20} MB buffered{(DevSwitches.Verify && vanillaBuffers ? $", verify checks {VerifyChecks}, mismatches {VerifyMismatches.Count}" : "")}"
+                : $"DDS prefetch (read-ahead for the game's own loader): {Warmed} files, {BytesRead >> 20} MB read ahead, progress at file {consumed + 1} of {files?.Length ?? 0}";
     }
 }

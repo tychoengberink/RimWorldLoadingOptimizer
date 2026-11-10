@@ -19,10 +19,15 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony h)
         {
             harmony = h;
-            harmony.Patch(AccessTools.Method(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI)),
-                prefix: new HarmonyMethod(typeof(MainMenu), nameof(Prefix)) { priority = Priority.First });
+            harmony.Patch(
+                AccessTools.Method(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI)),
+                prefix: new HarmonyMethod(typeof(MainMenu), nameof(Prefix)) { priority = Priority.First }
+            );
             var gameStart = new HarmonyMethod(typeof(MainMenu), nameof(GameStart));
-            harmony.Patch(AccessTools.Method(typeof(SavedGameLoaderNow), nameof(SavedGameLoaderNow.LoadGameFromSaveFileNow)), prefix: gameStart);
+            harmony.Patch(
+                AccessTools.Method(typeof(SavedGameLoaderNow), nameof(SavedGameLoaderNow.LoadGameFromSaveFileNow)),
+                prefix: gameStart
+            );
             harmony.Patch(AccessTools.Method(typeof(Game), nameof(Game.InitNewGame)), prefix: gameStart);
         }
 
@@ -85,7 +90,9 @@ namespace RimWorldLoadingOptimizer
                 }
                 catch (Exception e)
                 {
-                    RLOLog.Warning($"could not remove the startup patch on {method.DeclaringType?.FullName}.{method.Name}: {e.Message}");
+                    RLOLog.Warning(
+                        $"could not remove the startup patch on {method.DeclaringType?.FullName}.{method.Name}: {e.Message}"
+                    );
                 }
             }
         }

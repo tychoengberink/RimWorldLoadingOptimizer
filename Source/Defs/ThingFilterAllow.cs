@@ -22,28 +22,58 @@ namespace RimWorldLoadingOptimizer
             public int CheckedAt;
         }
 
-        private static readonly ConditionalWeakTable<ReadOnlyCollection<ThingDef>, Closure> closures = new ConditionalWeakTable<ReadOnlyCollection<ThingDef>, Closure>();
+        private static readonly ConditionalWeakTable<ReadOnlyCollection<ThingDef>, Closure> closures =
+            new ConditionalWeakTable<ReadOnlyCollection<ThingDef>, Closure>();
         private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static AccessTools.FieldRef<ThingFilter, HashSet<ThingDef>> allowed;
         private static AccessTools.FieldRef<ThingFilter, Action> callback;
         private static AccessTools.FieldRef<ThingFilter, TreeNode_ThingCategory> displayRoot;
         private static Fingerprint.Guard guard;
         private static SelfCheck check;
-        [ThreadStatic] private static bool bypass;
-        private static long served, added, left, inexact;
+
+        [ThreadStatic]
+        private static bool bypass;
+        private static long served,
+            added,
+            left,
+            inexact;
 
         public static void Install(Harmony harmony)
         {
-            var setCategory = AccessTools.Method(typeof(ThingFilter), nameof(ThingFilter.SetAllow), new[] { typeof(ThingCategoryDef), typeof(bool), typeof(IEnumerable<ThingDef>), typeof(IEnumerable<SpecialThingFilterDef>) });
-            var setThing = AccessTools.Method(typeof(ThingFilter), nameof(ThingFilter.SetAllow), new[] { typeof(ThingDef), typeof(bool) });
-            var setSpecial = AccessTools.Method(typeof(ThingFilter), nameof(ThingFilter.SetAllow), new[] { typeof(SpecialThingFilterDef), typeof(bool) });
+            var setCategory = AccessTools.Method(
+                typeof(ThingFilter),
+                nameof(ThingFilter.SetAllow),
+                new[]
+                {
+                    typeof(ThingCategoryDef),
+                    typeof(bool),
+                    typeof(IEnumerable<ThingDef>),
+                    typeof(IEnumerable<SpecialThingFilterDef>),
+                }
+            );
+            var setThing = AccessTools.Method(
+                typeof(ThingFilter),
+                nameof(ThingFilter.SetAllow),
+                new[] { typeof(ThingDef), typeof(bool) }
+            );
+            var setSpecial = AccessTools.Method(
+                typeof(ThingFilter),
+                nameof(ThingFilter.SetAllow),
+                new[] { typeof(SpecialThingFilterDef), typeof(bool) }
+            );
             var allowedField = AccessTools.Field(typeof(ThingFilter), "allowedDefs");
             var callbackField = AccessTools.Field(typeof(ThingFilter), "settingsChangedCallback");
             var displayField = AccessTools.Field(typeof(ThingFilter), "displayRootCategoryInt");
             var virtualField = AccessTools.Field(typeof(ThingDef), nameof(ThingDef.virtualDefs));
-            if (setCategory == null || setThing == null || setSpecial == null
-                || allowedField?.FieldType != typeof(HashSet<ThingDef>) || callbackField?.FieldType != typeof(Action)
-                || displayField?.FieldType != typeof(TreeNode_ThingCategory) || virtualField?.FieldType != typeof(List<ThingDef>))
+            if (
+                setCategory == null
+                || setThing == null
+                || setSpecial == null
+                || allowedField?.FieldType != typeof(HashSet<ThingDef>)
+                || callbackField?.FieldType != typeof(Action)
+                || displayField?.FieldType != typeof(TreeNode_ThingCategory)
+                || virtualField?.FieldType != typeof(List<ThingDef>)
+            )
             {
                 VersionCheck.Skip(Feature, "a method or field it needs no longer exists");
                 return;
@@ -57,16 +87,33 @@ namespace RimWorldLoadingOptimizer
             StartupPhaseFixes.Reports.Add(Stats);
         }
 
-        public static bool Prefix(ThingFilter __instance, ThingCategoryDef categoryDef, bool allow, IEnumerable<ThingDef> exceptedDefs, IEnumerable<SpecialThingFilterDef> exceptedFilters)
+        public static bool Prefix(
+            ThingFilter __instance,
+            ThingCategoryDef categoryDef,
+            bool allow,
+            IEnumerable<ThingDef> exceptedDefs,
+            IEnumerable<SpecialThingFilterDef> exceptedFilters
+        )
         {
-            if (bypass || !allow || exceptedDefs != null || categoryDef == null || check.IsOff || !ThingCategoryNodeDatabase.initialized
-                || callback(__instance) != null || !guard.Ours)
+            if (
+                bypass
+                || !allow
+                || exceptedDefs != null
+                || categoryDef == null
+                || check.IsOff
+                || !ThingCategoryNodeDatabase.initialized
+                || callback(__instance) != null
+                || !guard.Ours
+            )
             {
                 return true;
             }
             var target = allowed(__instance);
-            if (target == null || !ReferenceEquals(target.Comparer, EqualityComparer<ThingDef>.Default)
-                || !(categoryDef.DescendantThingDefs is ReadOnlyCollection<ThingDef> defs))
+            if (
+                target == null
+                || !ReferenceEquals(target.Comparer, EqualityComparer<ThingDef>.Default)
+                || !(categoryDef.DescendantThingDefs is ReadOnlyCollection<ThingDef> defs)
+            )
             {
                 Interlocked.Increment(ref left);
                 return true;
@@ -107,7 +154,13 @@ namespace RimWorldLoadingOptimizer
             return false;
         }
 
-        private static void Compare(ThingFilter filter, ThingCategoryDef category, IEnumerable<SpecialThingFilterDef> exceptedFilters, Closure closure, HashSet<ThingDef> target)
+        private static void Compare(
+            ThingFilter filter,
+            ThingCategoryDef category,
+            IEnumerable<SpecialThingFilterDef> exceptedFilters,
+            Closure closure,
+            HashSet<ThingDef> target
+        )
         {
             var expected = new HashSet<ThingDef>(target);
             expected.UnionWith(closure.All);
@@ -226,9 +279,10 @@ namespace RimWorldLoadingOptimizer
             return true;
         }
 
-        public static string Stats() => guard.Blocked
-            ? Feature + ": off, another mod patches ThingFilter.SetAllow"
-            : $"thing filter category allows: {served:N0} categories allowed in one step ({added:N0} things added), {left:N0} left to the game (no category cache or changed things), {inexact:N0} left to the game because a thing was allowed without its variants"
-                + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
+        public static string Stats() =>
+            guard.Blocked
+                ? Feature + ": off, another mod patches ThingFilter.SetAllow"
+                : $"thing filter category allows: {served:N0} categories allowed in one step ({added:N0} things added), {left:N0} left to the game (no category cache or changed things), {inexact:N0} left to the game because a thing was allowed without its variants"
+                    + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
     }
 }

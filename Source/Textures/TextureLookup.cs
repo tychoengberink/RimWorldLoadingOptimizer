@@ -10,7 +10,10 @@ namespace RimWorldLoadingOptimizer
 {
     public static class TextureLookup
     {
-        private static readonly MethodInfo Original = AccessTools.Method(typeof(ContentFinder<Texture2D>), nameof(ContentFinder<Texture2D>.Get));
+        private static readonly MethodInfo Original = AccessTools.Method(
+            typeof(ContentFinder<Texture2D>),
+            nameof(ContentFinder<Texture2D>.Get)
+        );
 
         private struct Winner
         {
@@ -45,20 +48,41 @@ namespace RimWorldLoadingOptimizer
             check = new SelfCheck("Texture lookup index", VersionCheck.Code(Original));
             Installed = true;
             var transpiler = new HarmonyMethod(typeof(TextureLookup), nameof(Transpiler)) { priority = Priority.Last };
-            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ClearDestroy)),
-                postfix: new HarmonyMethod(typeof(TextureLookup), nameof(Reset)));
-            harmony.Patch(AccessTools.Method(typeof(PlayDataLoader), nameof(PlayDataLoader.ClearAllPlayData)),
-                postfix: new HarmonyMethod(typeof(TextureLookup), nameof(Reset)));
-            var namedTargets = (RLOMod.Settings.Supports("childrenwearanything") ? new[] { "ChildClothingUnrestricted.TextureRouting.TexturePathResolver" } : new string[0])
+            harmony.Patch(
+                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ClearDestroy)),
+                postfix: new HarmonyMethod(typeof(TextureLookup), nameof(Reset))
+            );
+            harmony.Patch(
+                AccessTools.Method(typeof(PlayDataLoader), nameof(PlayDataLoader.ClearAllPlayData)),
+                postfix: new HarmonyMethod(typeof(TextureLookup), nameof(Reset))
+            );
+            var namedTargets = (
+                RLOMod.Settings.Supports("childrenwearanything")
+                    ? new[] { "ChildClothingUnrestricted.TextureRouting.TexturePathResolver" }
+                    : new string[0]
+            )
                 .Select(AccessTools.TypeByName)
                 .Where(t => t != null);
-            foreach (var type in GenTypes.AllSubclasses(typeof(Graphic)).Concat(new[] { typeof(Graphic) }).Concat(namedTargets))
+            foreach (
+                var type in GenTypes
+                    .AllSubclasses(typeof(Graphic))
+                    .Concat(new[] { typeof(Graphic) })
+                    .Concat(namedTargets)
+            )
             {
                 if (!AssemblySafety.CanScan(type) || type.ContainsGenericParameters)
                 {
                     continue;
                 }
-                foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                foreach (
+                    var method in type.GetMethods(
+                        BindingFlags.Instance
+                            | BindingFlags.Static
+                            | BindingFlags.Public
+                            | BindingFlags.NonPublic
+                            | BindingFlags.DeclaredOnly
+                    )
+                )
                 {
                     if (method.IsAbstract || method.ContainsGenericParameters || !IlScan.CallsAny(method, Original))
                     {
@@ -71,7 +95,9 @@ namespace RimWorldLoadingOptimizer
                     }
                     catch (Exception e)
                     {
-                        RLOLog.Warning($"could not accelerate texture lookups in {type.FullName}.{method.Name}: {e.Message}");
+                        RLOLog.Warning(
+                            $"could not accelerate texture lookups in {type.FullName}.{method.Name}: {e.Message}"
+                        );
                     }
                 }
             }
@@ -153,8 +179,8 @@ namespace RimWorldLoadingOptimizer
             }
             var mods = LoadedModManager.RunningModsListForReading;
             return winner.Mod < mods.Count
-                   && mods[winner.Mod].GetContentHolder<Texture2D>().contentList.TryGetValue(itemPath, out var current)
-                   && ReferenceEquals(current, winner.Texture);
+                && mods[winner.Mod].GetContentHolder<Texture2D>().contentList.TryGetValue(itemPath, out var current)
+                && ReferenceEquals(current, winner.Texture);
         }
 
         private static int OwnerOf(string itemPath, Texture2D texture)
@@ -162,7 +188,10 @@ namespace RimWorldLoadingOptimizer
             var mods = LoadedModManager.RunningModsListForReading;
             for (var i = mods.Count - 1; i >= 0; i--)
             {
-                if (mods[i].GetContentHolder<Texture2D>().contentList.TryGetValue(itemPath, out var t) && ReferenceEquals(t, texture))
+                if (
+                    mods[i].GetContentHolder<Texture2D>().contentList.TryGetValue(itemPath, out var t)
+                    && ReferenceEquals(t, texture)
+                )
                 {
                     return i;
                 }

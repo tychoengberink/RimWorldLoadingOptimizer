@@ -18,12 +18,21 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             var target = AccessTools.Method(typeof(LongEventHandler), "UpdateCurrentEnumeratorEvent");
-            if (!VersionCheck.Pattern("Loading frame budget", target, code => code.Count(i => i.opcode == OpCodes.Ldc_R4 && i.operand is float f && f == Default) == 1, "has one 0.1 s frame budget constant"))
+            if (
+                !VersionCheck.Pattern(
+                    "Loading frame budget",
+                    target,
+                    code => code.Count(i => i.opcode == OpCodes.Ldc_R4 && i.operand is float f && f == Default) == 1,
+                    "has one 0.1 s frame budget constant"
+                )
+            )
             {
                 return;
             }
             harmony.Patch(target, transpiler: new HarmonyMethod(typeof(FrameBudget), nameof(Transpiler)));
-            StartupPhaseFixes.Reports.Add(() => $"frame budget: {Replaced} constant(s) replaced, {Startup:F2} s per frame until the main menu");
+            StartupPhaseFixes.Reports.Add(() =>
+                $"frame budget: {Replaced} constant(s) replaced, {Startup:F2} s per frame until the main menu"
+            );
         }
 
         public static float Budget() => MenuReached || Current.Game != null ? Default : Startup;
@@ -36,7 +45,12 @@ namespace RimWorldLoadingOptimizer
                 if (instruction.opcode == OpCodes.Ldc_R4 && instruction.operand is float f && f == Default)
                 {
                     replaced++;
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(FrameBudget), nameof(Budget))).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
+                    yield return new CodeInstruction(
+                        OpCodes.Call,
+                        AccessTools.Method(typeof(FrameBudget), nameof(Budget))
+                    )
+                        .WithLabels(instruction.labels)
+                        .WithBlocks(instruction.blocks);
                     continue;
                 }
                 yield return instruction;

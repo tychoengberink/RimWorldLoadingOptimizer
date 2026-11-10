@@ -18,7 +18,9 @@ namespace RimWorldLoadingOptimizer
         private static MethodBase[] guarded;
         private static Fingerprint.Guard guard;
         private static bool reported;
-        private static long narrowed, full, scanned;
+        private static long narrowed,
+            full,
+            scanned;
 
         public static void Install(Harmony harmony)
         {
@@ -31,14 +33,24 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var resolve = AccessTools.Method(typeof(ThingFilter), nameof(ThingFilter.ResolveReferences));
-            allDefs = AccessTools.PropertyGetter(typeof(DefDatabase<ThingDef>), nameof(DefDatabase<ThingDef>.AllDefsListForReading));
+            allDefs = AccessTools.PropertyGetter(
+                typeof(DefDatabase<ThingDef>),
+                nameof(DefDatabase<ThingDef>.AllDefsListForReading)
+            );
             var field = AccessTools.Field(typeof(ThingFilter), "allowedDefs");
             if (resolve == null || allDefs == null || field == null || field.FieldType != typeof(HashSet<ThingDef>))
             {
                 VersionCheck.Skip(Feature, "a method or field it needs no longer exists");
                 return;
             }
-            if (!VersionCheck.Pattern(Feature, resolve, code => code.Count(i => i.Calls(allDefs)) == 11, "walks every ThingDef in exactly eleven places, eight of them only to disallow"))
+            if (
+                !VersionCheck.Pattern(
+                    Feature,
+                    resolve,
+                    code => code.Count(i => i.Calls(allDefs)) == 11,
+                    "walks every ThingDef in exactly eleven places, eight of them only to disallow"
+                )
+            )
             {
                 return;
             }
@@ -47,7 +59,11 @@ namespace RimWorldLoadingOptimizer
             {
                 resolve,
                 AccessTools.Method(typeof(ThingFilter), nameof(ThingFilter.Allows), new[] { typeof(ThingDef) }),
-                AccessTools.Method(typeof(ThingFilter), nameof(ThingFilter.SetAllow), new[] { typeof(ThingDef), typeof(bool) }),
+                AccessTools.Method(
+                    typeof(ThingFilter),
+                    nameof(ThingFilter.SetAllow),
+                    new[] { typeof(ThingDef), typeof(bool) }
+                ),
             };
             harmony.Patch(resolve, transpiler: new HarmonyMethod(typeof(ThingFilterDisallow), nameof(Transpiler)));
             StartupPhaseFixes.Reports.Add(Stats);
@@ -61,7 +77,9 @@ namespace RimWorldLoadingOptimizer
             {
                 if (instruction.Calls(allDefs) && RemovalLoops.Contains(seen++))
                 {
-                    yield return new CodeInstruction(OpCodes.Ldarg_0).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
+                    yield return new CodeInstruction(OpCodes.Ldarg_0)
+                        .WithLabels(instruction.labels)
+                        .WithBlocks(instruction.blocks);
                     yield return new CodeInstruction(OpCodes.Call, narrow);
                     continue;
                 }
@@ -78,8 +96,16 @@ namespace RimWorldLoadingOptimizer
             if (!reported)
             {
                 reported = true;
-                var owners = guarded.SelectMany(m => Harmony.GetPatchInfo(m)?.Owners ?? Enumerable.Empty<string>()).Where(o => o != RLOMod.HarmonyId).Distinct();
-                RLOLog.Detail(Feature + ": another mod patches ThingFilter (" + string.Join(", ", owners) + "), the original loops run");
+                var owners = guarded
+                    .SelectMany(m => Harmony.GetPatchInfo(m)?.Owners ?? Enumerable.Empty<string>())
+                    .Where(o => o != RLOMod.HarmonyId)
+                    .Distinct();
+                RLOLog.Detail(
+                    Feature
+                        + ": another mod patches ThingFilter ("
+                        + string.Join(", ", owners)
+                        + "), the original loops run"
+                );
             }
             return false;
         }
@@ -130,7 +156,13 @@ namespace RimWorldLoadingOptimizer
                     continue;
                 }
                 count++;
-                var text = name + ":" + string.Join(",", filter.AllowedThingDefs.Select(d => d.defName).OrderBy(n => n, System.StringComparer.Ordinal));
+                var text =
+                    name
+                    + ":"
+                    + string.Join(
+                        ",",
+                        filter.AllowedThingDefs.Select(d => d.defName).OrderBy(n => n, System.StringComparer.Ordinal)
+                    );
                 foreach (var c in text)
                 {
                     hash = hash * 31 + c;
@@ -139,6 +171,9 @@ namespace RimWorldLoadingOptimizer
             return $"{count} filters, hash {hash:X16}";
         }
 
-        public static string Stats() => guard?.Blocked == true ? Feature + ": off, another mod patches ThingFilter" : $"thing filter removal loops: {narrowed:N0} loops walked only the allowed defs ({scanned:N0} ThingDef checks skipped), {full:N0} walked every ThingDef";
+        public static string Stats() =>
+            guard?.Blocked == true
+                ? Feature + ": off, another mod patches ThingFilter"
+                : $"thing filter removal loops: {narrowed:N0} loops walked only the allowed defs ({scanned:N0} ThingDef checks skipped), {full:N0} walked every ThingDef";
     }
 }

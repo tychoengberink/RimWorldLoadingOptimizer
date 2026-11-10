@@ -54,8 +54,6 @@ namespace RimWorldLoadingOptimizer
                 }
             }
         }
-
-
     }
 
     [StaticConstructorOnStartup]

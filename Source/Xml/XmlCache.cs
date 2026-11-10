@@ -21,9 +21,18 @@ namespace RimWorldLoadingOptimizer
         private const string Format = "rlo-xmlcache 1";
         private const string MissileGirlHarmonyId = "VR.MissileGirl.Gagarin";
 
-        private static readonly FieldInfo AssetName = AccessTools.Field(typeof(LoadableXmlAsset), nameof(LoadableXmlAsset.name));
-        private static readonly FieldInfo AssetFolder = AccessTools.Field(typeof(LoadableXmlAsset), nameof(LoadableXmlAsset.fullFolderPath));
-        private static readonly FieldInfo AssetMod = AccessTools.Field(typeof(LoadableXmlAsset), nameof(LoadableXmlAsset.mod));
+        private static readonly FieldInfo AssetName = AccessTools.Field(
+            typeof(LoadableXmlAsset),
+            nameof(LoadableXmlAsset.name)
+        );
+        private static readonly FieldInfo AssetFolder = AccessTools.Field(
+            typeof(LoadableXmlAsset),
+            nameof(LoadableXmlAsset.fullFolderPath)
+        );
+        private static readonly FieldInfo AssetMod = AccessTools.Field(
+            typeof(LoadableXmlAsset),
+            nameof(LoadableXmlAsset.mod)
+        );
 
         private sealed class Input
         {
@@ -41,7 +50,8 @@ namespace RimWorldLoadingOptimizer
             public int Patched;
         }
 
-        private static string Dir => Path.Combine(GenFilePaths.SaveDataFolderPath, "RimWorldLoadingOptimizer", "xmlcache");
+        private static string Dir =>
+            Path.Combine(GenFilePaths.SaveDataFolderPath, "RimWorldLoadingOptimizer", "xmlcache");
         private static string XmlPath => Path.Combine(Dir, "defs.xml");
         private static string MetaPath => Path.Combine(Dir, "defs.meta");
         private static string SkipPath => Path.Combine(Dir, "defs.skip");
@@ -60,11 +70,19 @@ namespace RimWorldLoadingOptimizer
         private static int[] pendingOwners;
         private static string state = "not reached";
         private static int files;
-        private static double fingerprintSeconds, readSeconds, waitSeconds, writeSeconds;
+        private static double fingerprintSeconds,
+            readSeconds,
+            waitSeconds,
+            writeSeconds;
         private static long readBytes;
-        private static Task<System.Collections.Concurrent.ConcurrentDictionary<ModContentPack, LoadableXmlAsset[]>> patchFiles;
+        private static Task<System.Collections.Concurrent.ConcurrentDictionary<
+            ModContentPack,
+            LoadableXmlAsset[]
+        >> patchFiles;
         private static int patchFilesServed;
-        [ThreadStatic] private static bool readingAhead;
+
+        [ThreadStatic]
+        private static bool readingAhead;
         private static double patchSeconds;
 
         public static bool Used { get; private set; }
@@ -79,27 +97,56 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var mods = LoadedModManager.RunningModsListForReading;
-            var inputs = mods.Select(m => new Input { PackageId = m.PackageId, Name = m.Name, Folders = m.foldersToLoadDescendingOrder.ToList() }).ToList();
+            var inputs = mods.Select(m => new Input
+                {
+                    PackageId = m.PackageId,
+                    Name = m.Name,
+                    Folders = m.foldersToLoadDescendingOrder.ToList(),
+                })
+                .ToList();
             var settingFiles = SettingFiles();
             var version = RimWorld.VersionControl.CurrentVersionStringWithRev;
             fingerprint = new Task<string>(() => Fingerprint(version, inputs, settingFiles));
-            cached = fingerprint.ContinueWith(t => t.Status == TaskStatus.RanToCompletion ? Read(t.Result, mods) : null, TaskContinuationOptions.ExecuteSynchronously);
-            patchFiles = fingerprint.ContinueWith(t => t.Status == TaskStatus.RanToCompletion && t.Result == StoredFingerprint() ? ReadPatchFiles(mods) : null);
+            cached = fingerprint.ContinueWith(
+                t => t.Status == TaskStatus.RanToCompletion ? Read(t.Result, mods) : null,
+                TaskContinuationOptions.ExecuteSynchronously
+            );
+            patchFiles = fingerprint.ContinueWith(t =>
+                t.Status == TaskStatus.RanToCompletion && t.Result == StoredFingerprint() ? ReadPatchFiles(mods) : null
+            );
             RLOMod.StartAfterPatching(Feature, StartKey);
 
-            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML)),
-                prefix: new HarmonyMethod(typeof(XmlCache), nameof(LoadModXmlPrefix)) { priority = Priority.Last });
-            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.CombineIntoUnifiedXML)),
-                prefix: new HarmonyMethod(typeof(XmlCache), nameof(CombinePrefix)) { priority = Priority.Last });
-            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ApplyPatches)),
+            harmony.Patch(
+                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML)),
+                prefix: new HarmonyMethod(typeof(XmlCache), nameof(LoadModXmlPrefix)) { priority = Priority.Last }
+            );
+            harmony.Patch(
+                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.CombineIntoUnifiedXML)),
+                prefix: new HarmonyMethod(typeof(XmlCache), nameof(CombinePrefix)) { priority = Priority.Last }
+            );
+            harmony.Patch(
+                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ApplyPatches)),
                 prefix: new HarmonyMethod(typeof(XmlCache), nameof(ApplyPatchesPrefix)) { priority = Priority.Last },
-                postfix: new HarmonyMethod(typeof(XmlCache), nameof(ApplyPatchesPostfix)) { priority = Priority.Last });
-            harmony.Patch(AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)),
-                prefix: new HarmonyMethod(typeof(XmlCache), nameof(PatchFilesPrefix)) { priority = Priority.Last });
-            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ClearCachedPatches)),
-                prefix: new HarmonyMethod(typeof(XmlCache), nameof(ClearCachedPatchesPrefix)) { priority = Priority.Last });
-            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
-                postfix: new HarmonyMethod(typeof(XmlCache), nameof(ParseAndProcessXmlPostfix)) { priority = Priority.Last });
+                postfix: new HarmonyMethod(typeof(XmlCache), nameof(ApplyPatchesPostfix)) { priority = Priority.Last }
+            );
+            harmony.Patch(
+                AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)),
+                prefix: new HarmonyMethod(typeof(XmlCache), nameof(PatchFilesPrefix)) { priority = Priority.Last }
+            );
+            harmony.Patch(
+                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ClearCachedPatches)),
+                prefix: new HarmonyMethod(typeof(XmlCache), nameof(ClearCachedPatchesPrefix))
+                {
+                    priority = Priority.Last,
+                }
+            );
+            harmony.Patch(
+                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
+                postfix: new HarmonyMethod(typeof(XmlCache), nameof(ParseAndProcessXmlPostfix))
+                {
+                    priority = Priority.Last,
+                }
+            );
             var apply = AccessTools.Method(typeof(PatchOperation), nameof(PatchOperation.Apply));
             harmony.Patch(apply, prefix: new HarmonyMethod(typeof(XmlCache), nameof(OperationApplyPrefix)));
             MainMenu.Then(() =>
@@ -109,8 +156,15 @@ namespace RimWorldLoadingOptimizer
             });
             MainMenu.UnpatchAfterStartup(apply);
 
-            var missileGirl = AccessTools.Constructor(AccessTools.TypeByName("MissileGirl.RocketMod"), new[] { typeof(ModContentPack) });
-            if (Harmony.GetPatchInfo(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML)))?.Owners.Contains(MissileGirlHarmonyId) == true)
+            var missileGirl = AccessTools.Constructor(
+                AccessTools.TypeByName("MissileGirl.RocketMod"),
+                new[] { typeof(ModContentPack) }
+            );
+            if (
+                Harmony
+                    .GetPatchInfo(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML)))
+                    ?.Owners.Contains(MissileGirlHarmonyId) == true
+            )
             {
                 MissileGirlOff();
             }
@@ -144,18 +198,25 @@ namespace RimWorldLoadingOptimizer
             var watch = Stopwatch.StartNew();
             var perMod = new string[inputs.Count];
             var counts = new int[inputs.Count];
-            Parallel.For(0, inputs.Count, i =>
-            {
-                var sb = new StringBuilder();
-                sb.Append(inputs[i].PackageId).Append('\n');
-                sb.Append("name ").Append(inputs[i].Name).Append('\n');
-                foreach (var folder in inputs[i].Folders)
+            Parallel.For(
+                0,
+                inputs.Count,
+                i =>
                 {
-                    sb.Append("folder ").Append(folder).Append('\n');
-                    counts[i] += Stamp(sb, folder, "Defs/", "*.xml") + Stamp(sb, folder, "Patches/", "*.xml") + Stamp(sb, folder, "Assemblies/", "*.dll");
+                    var sb = new StringBuilder();
+                    sb.Append(inputs[i].PackageId).Append('\n');
+                    sb.Append("name ").Append(inputs[i].Name).Append('\n');
+                    foreach (var folder in inputs[i].Folders)
+                    {
+                        sb.Append("folder ").Append(folder).Append('\n');
+                        counts[i] +=
+                            Stamp(sb, folder, "Defs/", "*.xml")
+                            + Stamp(sb, folder, "Patches/", "*.xml")
+                            + Stamp(sb, folder, "Assemblies/", "*.dll");
+                    }
+                    perMod[i] = sb.ToString();
                 }
-                perMod[i] = sb.ToString();
-            });
+            );
             using (var sha = SHA256.Create())
             {
                 var all = new StringBuilder();
@@ -166,7 +227,11 @@ namespace RimWorldLoadingOptimizer
                 }
                 foreach (var file in settingFiles)
                 {
-                    all.Append("setting ").Append(Path.GetFileName(file)).Append(' ').Append(Convert.ToHexString(sha.ComputeHash(File.ReadAllBytes(file)))).Append('\n');
+                    all.Append("setting ")
+                        .Append(Path.GetFileName(file))
+                        .Append(' ')
+                        .Append(Convert.ToHexString(sha.ComputeHash(File.ReadAllBytes(file))))
+                        .Append('\n');
                 }
                 files = counts.Sum();
                 var result = Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(all.ToString())));
@@ -186,7 +251,12 @@ namespace RimWorldLoadingOptimizer
             Array.Sort(found, (a, b) => string.CompareOrdinal(a.FullName, b.FullName));
             foreach (var file in found)
             {
-                sb.Append(file.FullName, folder.Length, file.FullName.Length - folder.Length).Append(' ').Append(file.Length).Append(' ').Append(file.LastWriteTimeUtc.Ticks).Append('\n');
+                sb.Append(file.FullName, folder.Length, file.FullName.Length - folder.Length)
+                    .Append(' ')
+                    .Append(file.Length)
+                    .Append(' ')
+                    .Append(file.LastWriteTimeUtc.Ticks)
+                    .Append('\n');
             }
             return found.Length;
         }
@@ -221,9 +291,7 @@ namespace RimWorldLoadingOptimizer
             {
                 task.Start();
             }
-            catch (InvalidOperationException)
-            {
-            }
+            catch (InvalidOperationException) { }
         }
 
         private static bool WillHit()
@@ -243,13 +311,19 @@ namespace RimWorldLoadingOptimizer
         {
             if (current == null || current != StoredFingerprint())
             {
-                state = File.Exists(MetaPath) ? "miss, a mod, a file, a setting or the game changed" : "miss, no cache yet";
+                state = File.Exists(MetaPath)
+                    ? "miss, a mod, a file, a setting or the game changed"
+                    : "miss, no cache yet";
                 return null;
             }
             try
             {
                 var watch = Stopwatch.StartNew();
-                var result = new Cached { Assets = new List<LoadableXmlAsset>(), Counts = new Dictionary<string, int>() };
+                var result = new Cached
+                {
+                    Assets = new List<LoadableXmlAsset>(),
+                    Counts = new Dictionary<string, int>(),
+                };
                 foreach (var line in File.ReadLines(MetaPath).Skip(2))
                 {
                     var space = line.IndexOf(' ');
@@ -260,7 +334,9 @@ namespace RimWorldLoadingOptimizer
                         case "asset":
                             var parts = rest.Split('\t');
                             var index = int.Parse(parts[0]);
-                            result.Assets.Add(Asset(index >= 0 && index < mods.Count ? mods[index] : null, parts[1], parts[2]));
+                            result.Assets.Add(
+                                Asset(index >= 0 && index < mods.Count ? mods[index] : null, parts[1], parts[2])
+                            );
                             break;
                         case "owners":
                             result.Owners = rest.Length == 0 ? new int[0] : rest.Split(' ').Select(int.Parse).ToArray();
@@ -275,14 +351,33 @@ namespace RimWorldLoadingOptimizer
                     }
                 }
                 var document = new XmlDocument();
-                var settings = new XmlReaderSettings { IgnoreComments = false, IgnoreWhitespace = false, CheckCharacters = false, DtdProcessing = DtdProcessing.Prohibit };
-                using (var stream = new FileStream(XmlPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, FileOptions.SequentialScan))
+                var settings = new XmlReaderSettings
+                {
+                    IgnoreComments = false,
+                    IgnoreWhitespace = false,
+                    CheckCharacters = false,
+                    DtdProcessing = DtdProcessing.Prohibit,
+                };
+                using (
+                    var stream = new FileStream(
+                        XmlPath,
+                        FileMode.Open,
+                        FileAccess.Read,
+                        FileShare.Read,
+                        1 << 20,
+                        FileOptions.SequentialScan
+                    )
+                )
                 using (var reader = XmlReader.Create(stream, settings))
                 {
                     readBytes = stream.Length;
                     document.Load(reader);
                 }
-                if (result.Owners == null || document.DocumentElement == null || document.DocumentElement.ChildNodes.Count != result.Owners.Length)
+                if (
+                    result.Owners == null
+                    || document.DocumentElement == null
+                    || document.DocumentElement.ChildNodes.Count != result.Owners.Length
+                )
                 {
                     state = "miss, the cache file does not match its index";
                     return null;
@@ -298,30 +393,48 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        private static System.Collections.Concurrent.ConcurrentDictionary<ModContentPack, LoadableXmlAsset[]> ReadPatchFiles(List<ModContentPack> mods)
+        private static System.Collections.Concurrent.ConcurrentDictionary<
+            ModContentPack,
+            LoadableXmlAsset[]
+        > ReadPatchFiles(List<ModContentPack> mods)
         {
             var watch = Stopwatch.StartNew();
             var result = new System.Collections.Concurrent.ConcurrentDictionary<ModContentPack, LoadableXmlAsset[]>();
-            Parallel.ForEach(mods, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount / 2) }, mod =>
-            {
-                readingAhead = true;
-                try
+            Parallel.ForEach(
+                mods,
+                new ParallelOptions { MaxDegreeOfParallelism = Math.Max(2, Environment.ProcessorCount / 2) },
+                mod =>
                 {
-                    result[mod] = DirectXmlLoader.XmlAssetsInModFolder(mod, "Patches/");
+                    readingAhead = true;
+                    try
+                    {
+                        result[mod] = DirectXmlLoader.XmlAssetsInModFolder(mod, "Patches/");
+                    }
+                    finally
+                    {
+                        readingAhead = false;
+                    }
                 }
-                finally
-                {
-                    readingAhead = false;
-                }
-            });
+            );
             patchSeconds = watch.Elapsed.TotalSeconds;
             return result;
         }
 
-        public static bool PatchFilesPrefix(ModContentPack mod, string folderPath, List<string> foldersToLoadDebug, ref LoadableXmlAsset[] __result)
+        public static bool PatchFilesPrefix(
+            ModContentPack mod,
+            string folderPath,
+            List<string> foldersToLoadDebug,
+            ref LoadableXmlAsset[] __result
+        )
         {
             var reading = patchFiles;
-            if (readingAhead || !skipPatchCleanup || folderPath != "Patches/" || foldersToLoadDebug != null || reading == null)
+            if (
+                readingAhead
+                || !skipPatchCleanup
+                || folderPath != "Patches/"
+                || foldersToLoadDebug != null
+                || reading == null
+            )
             {
                 return true;
             }
@@ -360,7 +473,10 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             new Harmony(MissileGirlHarmonyId).UnpatchAll(MissileGirlHarmonyId);
-            RLOLog.Detail("XML cache: Missile Girl's XML caching stays off for this start, RimWorld Loading Optimizer's XML cache is used instead");
+            RLOLog.Detail(
+                "XML cache: Missile Girl's XML caching stays off for this start, RimWorld Loading Optimizer's "
+                    + "XML cache is used instead"
+            );
         }
 
         public static bool LoadModXmlPrefix(ref List<LoadableXmlAsset> __result)
@@ -438,7 +554,9 @@ namespace RimWorldLoadingOptimizer
             {
                 if (File.Exists(SkipPath) && File.ReadAllText(SkipPath) == fingerprint.Result)
                 {
-                    state = "miss; not cached, on this mod list patch operations run after the patching phase and the cache cannot repeat them";
+                    state =
+                        "miss; not cached, on this mod list patch operations run after the patching phase and the cache "
+                        + "cannot repeat them";
                     return;
                 }
                 Directory.CreateDirectory(Dir);
@@ -463,7 +581,14 @@ namespace RimWorldLoadingOptimizer
                     }
                     owners[i] = index;
                 }
-                var settings = new XmlWriterSettings { Indent = false, OmitXmlDeclaration = true, CheckCharacters = false, NewLineHandling = NewLineHandling.Entitize, Encoding = new UTF8Encoding(false) };
+                var settings = new XmlWriterSettings
+                {
+                    Indent = false,
+                    OmitXmlDeclaration = true,
+                    CheckCharacters = false,
+                    NewLineHandling = NewLineHandling.Entitize,
+                    Encoding = new UTF8Encoding(false),
+                };
                 var temp = XmlPath + ".tmp";
                 using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20))
                 using (var writer = XmlWriter.Create(stream, settings))
@@ -503,7 +628,8 @@ namespace RimWorldLoadingOptimizer
                 pendingOwners = null;
                 pendingAssets = null;
                 TryDelete();
-                state = $"miss; not cached, {operation.GetType().FullName} ran after the patching phase and the cache cannot repeat that";
+                state =
+                    $"miss; not cached, {operation.GetType().FullName} ran after the patching phase and the cache cannot repeat that";
                 RLOLog.Detail(Feature + ": " + state);
                 try
                 {
@@ -511,7 +637,9 @@ namespace RimWorldLoadingOptimizer
                 }
                 catch (Exception e)
                 {
-                    RLOLog.Warning($"{Feature}: could not record that this mod list is not cached, so the next start writes the cache again: {e.Message}");
+                    RLOLog.Warning(
+                        $"{Feature}: could not record that this mod list is not cached, so the next start writes the cache again: {e.Message}"
+                    );
                 }
             }
         }
@@ -530,9 +658,10 @@ namespace RimWorldLoadingOptimizer
             return false;
         }
 
-        private static Dictionary<string, int> Counts() => LoadedModManager.RunningModsListForReading
-            .GroupBy(m => m.PackageId)
-            .ToDictionary(g => g.Key, g => g.Sum(m => m.AllDefs.Count()));
+        private static Dictionary<string, int> Counts() =>
+            LoadedModManager
+                .RunningModsListForReading.GroupBy(m => m.PackageId)
+                .ToDictionary(g => g.Key, g => g.Sum(m => m.AllDefs.Count()));
 
         public static void ParseAndProcessXmlPostfix()
         {
@@ -541,10 +670,14 @@ namespace RimWorldLoadingOptimizer
                 active = false;
                 var counts = Counts();
                 var patched = LoadedModManager.PatchedDefsForReading.Count;
-                var wrong = counts.Where(c => !hit.Counts.TryGetValue(c.Key, out var expected) || expected != c.Value).Select(c => c.Key).ToList();
+                var wrong = counts
+                    .Where(c => !hit.Counts.TryGetValue(c.Key, out var expected) || expected != c.Value)
+                    .Select(c => c.Key)
+                    .ToList();
                 if (wrong.Count > 0 || counts.Count != hit.Counts.Count || patched != hit.Patched)
                 {
-                    state = $"hit, but the def counts differ ({string.Join(", ", wrong.Take(5))}{(patched != hit.Patched ? ", defs added by patches" : "")}); cache deleted, the next start loads normally";
+                    state =
+                        $"hit, but the def counts differ ({string.Join(", ", wrong.Take(5))}{(patched != hit.Patched ? ", defs added by patches" : "")}); cache deleted, the next start loads normally";
                     RLOLog.Warning(Feature + ": " + state);
                     TryDelete();
                 }
@@ -575,7 +708,9 @@ namespace RimWorldLoadingOptimizer
                 sb.Append("patched ").Append(LoadedModManager.PatchedDefsForReading.Count).Append('\n');
                 File.WriteAllText(MetaPath + ".tmp", sb.ToString());
                 File.Move(MetaPath + ".tmp", MetaPath, true);
-                state = state.StartsWith("miss") ? state + $"; new cache written in {writeSeconds:F2} s" : $"miss; new cache written in {writeSeconds:F2} s";
+                state = state.StartsWith("miss")
+                    ? state + $"; new cache written in {writeSeconds:F2} s"
+                    : $"miss; new cache written in {writeSeconds:F2} s";
             }
             catch (Exception e)
             {
@@ -593,9 +728,7 @@ namespace RimWorldLoadingOptimizer
                 File.Delete(MetaPath);
                 File.Delete(XmlPath);
             }
-            catch (Exception)
-            {
-            }
+            catch (Exception) { }
         }
 
         public static string Stats() =>

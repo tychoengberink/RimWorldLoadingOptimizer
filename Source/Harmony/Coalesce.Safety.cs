@@ -31,14 +31,25 @@ namespace RimWorldLoadingOptimizer
             {
                 return true;
             }
-            if (!TypeSafe(original.DeclaringType) || original is MethodInfo info && !TypeSafe(info.ReturnType) || original.GetParameters().Any(p => !TypeSafe(p.ParameterType)))
+            if (
+                !TypeSafe(original.DeclaringType)
+                || original is MethodInfo info && !TypeSafe(info.ReturnType)
+                || original.GetParameters().Any(p => !TypeSafe(p.ParameterType))
+            )
             {
                 return true;
             }
             foreach (var patch in arrays[0].Concat(arrays[1]).Concat(arrays[3]))
             {
                 var method = patch.PatchMethod;
-                if (method == null || (bool)isFactory(null, method) || !MethodSafe(method) || !TypeSafe(method.DeclaringType) || !TypeSafe(method.ReturnType) || method.GetParameters().Any(p => !TypeSafe(p.ParameterType)))
+                if (
+                    method == null
+                    || (bool)isFactory(null, method)
+                    || !MethodSafe(method)
+                    || !TypeSafe(method.DeclaringType)
+                    || !TypeSafe(method.ReturnType)
+                    || method.GetParameters().Any(p => !TypeSafe(p.ParameterType))
+                )
                 {
                     return true;
                 }
@@ -46,11 +57,21 @@ namespace RimWorldLoadingOptimizer
             return false;
         }
 
-        private static bool ClassSafe(Type type) => type.BaseType == typeof(object) && type.GetMethods(AccessTools.all).All(MethodSafe);
+        private static bool ClassSafe(Type type) =>
+            type.BaseType == typeof(object) && type.GetMethods(AccessTools.all).All(MethodSafe);
 
-        private static bool MethodSafe(MethodBase method) => Cached(method, () => AttributesSafe(method.GetCustomAttributesData())
-            && method.GetParameters().All(p => AttributesSafe(p.GetCustomAttributesData()))
-            && (!(method is MethodInfo info) || info.ReturnParameter == null || AttributesSafe(info.ReturnParameter.GetCustomAttributesData())));
+        private static bool MethodSafe(MethodBase method) =>
+            Cached(
+                method,
+                () =>
+                    AttributesSafe(method.GetCustomAttributesData())
+                    && method.GetParameters().All(p => AttributesSafe(p.GetCustomAttributesData()))
+                    && (
+                        !(method is MethodInfo info)
+                        || info.ReturnParameter == null
+                        || AttributesSafe(info.ReturnParameter.GetCustomAttributesData())
+                    )
+            );
 
         private static bool TypeSafe(Type type)
         {
@@ -63,17 +84,20 @@ namespace RimWorldLoadingOptimizer
                 return true;
             }
             var current = type;
-            return Cached(current, () =>
-            {
-                for (var t = current; t != null && !Trusted(t.Assembly); t = t.BaseType)
+            return Cached(
+                current,
+                () =>
                 {
-                    if (!AttributesSafe(t.GetCustomAttributesData()))
+                    for (var t = current; t != null && !Trusted(t.Assembly); t = t.BaseType)
                     {
-                        return false;
+                        if (!AttributesSafe(t.GetCustomAttributesData()))
+                        {
+                            return false;
+                        }
                     }
+                    return true;
                 }
-                return true;
-            });
+            );
         }
 
         private static bool AttributesSafe(IList<CustomAttributeData> attributes)
@@ -110,42 +134,58 @@ namespace RimWorldLoadingOptimizer
             {
                 return true;
             }
-            return Cached(method, () =>
-            {
-                for (var t = method.DeclaringType; t != null && !Trusted(t.Assembly); t = t.BaseType)
+            return Cached(
+                method,
+                () =>
                 {
-                    if (t.TypeInitializer != null)
+                    for (var t = method.DeclaringType; t != null && !Trusted(t.Assembly); t = t.BaseType)
+                    {
+                        if (t.TypeInitializer != null)
+                        {
+                            return false;
+                        }
+                    }
+                    if (method.GetMethodBody() == null)
                     {
                         return false;
                     }
+                    foreach (var instruction in PatchProcessor.ReadMethodBody(method))
+                    {
+                        var op = instruction.Key;
+                        if (
+                            op == OpCodes.Calli
+                            || op == OpCodes.Newobj
+                            || op == OpCodes.Ldsfld
+                            || op == OpCodes.Ldsflda
+                            || op == OpCodes.Stsfld
+                            || op == OpCodes.Jmp
+                            || op == OpCodes.Ldftn
+                            || op == OpCodes.Ldvirtftn
+                        )
+                        {
+                            return false;
+                        }
+                        if (op != OpCodes.Call && op != OpCodes.Callvirt)
+                        {
+                            continue;
+                        }
+                        var target = instruction.Value as MethodBase;
+                        if (target == getTypeFromHandle)
+                        {
+                            continue;
+                        }
+                        if (
+                            !(target is ConstructorInfo)
+                            || !target.DeclaringType.IsAssignableFrom(method.DeclaringType)
+                            || !CodeSafe(target)
+                        )
+                        {
+                            return false;
+                        }
+                    }
+                    return true;
                 }
-                if (method.GetMethodBody() == null)
-                {
-                    return false;
-                }
-                foreach (var instruction in PatchProcessor.ReadMethodBody(method))
-                {
-                    var op = instruction.Key;
-                    if (op == OpCodes.Calli || op == OpCodes.Newobj || op == OpCodes.Ldsfld || op == OpCodes.Ldsflda || op == OpCodes.Stsfld || op == OpCodes.Jmp || op == OpCodes.Ldftn || op == OpCodes.Ldvirtftn)
-                    {
-                        return false;
-                    }
-                    if (op != OpCodes.Call && op != OpCodes.Callvirt)
-                    {
-                        continue;
-                    }
-                    var target = instruction.Value as MethodBase;
-                    if (target == getTypeFromHandle)
-                    {
-                        continue;
-                    }
-                    if (!(target is ConstructorInfo) || !target.DeclaringType.IsAssignableFrom(method.DeclaringType) || !CodeSafe(target))
-                    {
-                        return false;
-                    }
-                }
-                return true;
-            });
+            );
         }
 
         private static bool Trusted(Assembly assembly)

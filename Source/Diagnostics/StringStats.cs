@@ -22,7 +22,10 @@ namespace RimWorldLoadingOptimizer
             var stack = new Stack<object>();
             foreach (var defType in GenDefDatabase.AllDefTypesWithDatabases())
             {
-                foreach (var def in (IEnumerable)GenGeneric.GetStaticPropertyOnGenericType(typeof(DefDatabase<>), defType, "AllDefs"))
+                foreach (
+                    var def in (IEnumerable)
+                        GenGeneric.GetStaticPropertyOnGenericType(typeof(DefDatabase<>), defType, "AllDefs")
+                )
                 {
                     stack.Push(def);
                 }
@@ -81,7 +84,9 @@ namespace RimWorldLoadingOptimizer
             }
             var total = Bytes(all);
             var distinct = Bytes(unique);
-            RLOLog.Detail($"def string stats: {all.Count} string objects ({total >> 20} MB), {unique.Count} distinct ({distinct >> 20} MB); dedup would save ~{(total - distinct) >> 20} MB; walked {visited.Count} objects");
+            RLOLog.Detail(
+                $"def string stats: {all.Count} string objects ({total >> 20} MB), {unique.Count} distinct ({distinct >> 20} MB); dedup would save ~{(total - distinct) >> 20} MB; walked {visited.Count} objects"
+            );
         }
 
         private static FieldInfo[] Fields(Type type)
@@ -91,9 +96,20 @@ namespace RimWorldLoadingOptimizer
                 var list = new List<FieldInfo>();
                 for (var t = type; t != null && t != typeof(object); t = t.BaseType)
                 {
-                    foreach (var f in t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                    foreach (
+                        var f in t.GetFields(
+                            BindingFlags.Instance
+                                | BindingFlags.Public
+                                | BindingFlags.NonPublic
+                                | BindingFlags.DeclaredOnly
+                        )
+                    )
                     {
-                        if ((!f.FieldType.IsValueType || f.FieldType == typeof(string)) && !f.FieldType.IsPointer && f.FieldType.FullName != "System.MonoFNPtrFakeClass")
+                        if (
+                            (!f.FieldType.IsValueType || f.FieldType == typeof(string))
+                            && !f.FieldType.IsPointer
+                            && f.FieldType.FullName != "System.MonoFNPtrFakeClass"
+                        )
                         {
                             list.Add(f);
                         }

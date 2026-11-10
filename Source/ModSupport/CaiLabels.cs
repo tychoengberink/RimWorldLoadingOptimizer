@@ -12,11 +12,31 @@ namespace RimWorldLoadingOptimizer
 {
     public static class CaiLabels
     {
-        private const BindingFlags Declared = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+        private const BindingFlags Declared =
+            BindingFlags.Instance
+            | BindingFlags.Static
+            | BindingFlags.Public
+            | BindingFlags.NonPublic
+            | BindingFlags.DeclaredOnly;
         private static readonly Dictionary<Type, bool> declares = new Dictionary<Type, bool>();
-        private static readonly MethodInfo harmonyPatch = AccessTools.Method(typeof(Harmony), nameof(Harmony.Patch), new[] { typeof(MethodBase), typeof(HarmonyMethod), typeof(HarmonyMethod), typeof(HarmonyMethod), typeof(HarmonyMethod) });
+        private static readonly MethodInfo harmonyPatch = AccessTools.Method(
+            typeof(Harmony),
+            nameof(Harmony.Patch),
+            new[]
+            {
+                typeof(MethodBase),
+                typeof(HarmonyMethod),
+                typeof(HarmonyMethod),
+                typeof(HarmonyMethod),
+                typeof(HarmonyMethod),
+            }
+        );
         private static bool filterMethods;
-        private static readonly MethodInfo getMethods = AccessTools.Method(typeof(Type), nameof(Type.GetMethods), new[] { typeof(BindingFlags) });
+        private static readonly MethodInfo getMethods = AccessTools.Method(
+            typeof(Type),
+            nameof(Type.GetMethods),
+            new[] { typeof(BindingFlags) }
+        );
         private static string[] names;
         private static bool installed;
         private static int replaced;
@@ -46,15 +66,32 @@ namespace RimWorldLoadingOptimizer
             }
             var patch = AccessTools.Method(type, "Patch");
             var candidateNames = AccessTools.Field(type, "CandidateNames");
-            if (candidateNames == null || candidateNames.FieldType != typeof(string[])
-                || !VersionCheck.Pattern("CombatAI label scan", patch, code => VersionCheck.Calls(code, harmonyPatch) == 1, "applies its label patches with one Harmony.Patch call"))
+            if (
+                candidateNames == null
+                || candidateNames.FieldType != typeof(string[])
+                || !VersionCheck.Pattern(
+                    "CombatAI label scan",
+                    patch,
+                    code => VersionCheck.Calls(code, harmonyPatch) == 1,
+                    "applies its label patches with one Harmony.Patch call"
+                )
+            )
             {
                 return;
             }
-            filterMethods = VersionCheck.Pattern("CombatAI label scan filter", patch, code => VersionCheck.Calls(code, getMethods) == 1 && code.Any(i => i.LoadsField(candidateNames)), "lists methods with one GetMethods call and matches them against CandidateNames");
+            filterMethods = VersionCheck.Pattern(
+                "CombatAI label scan filter",
+                patch,
+                code => VersionCheck.Calls(code, getMethods) == 1 && code.Any(i => i.LoadsField(candidateNames)),
+                "lists methods with one GetMethods call and matches them against CandidateNames"
+            );
             names = (string[])candidateNames.GetValue(null);
-            harmony.Patch(patch, prefix: new HarmonyMethod(typeof(CaiLabels), nameof(Start)), postfix: new HarmonyMethod(typeof(CaiLabels), nameof(Stop)),
-                transpiler: new HarmonyMethod(typeof(CaiLabels), nameof(Transpiler)));
+            harmony.Patch(
+                patch,
+                prefix: new HarmonyMethod(typeof(CaiLabels), nameof(Start)),
+                postfix: new HarmonyMethod(typeof(CaiLabels), nameof(Stop)),
+                transpiler: new HarmonyMethod(typeof(CaiLabels), nameof(Transpiler))
+            );
             installed = replaced == 1;
             if (!installed && filterMethods)
             {
@@ -62,7 +99,9 @@ namespace RimWorldLoadingOptimizer
             }
             if (patchCalls != 1)
             {
-                RLOLog.Warning($"CombatAI label scan: expected 1 Harmony.Patch call, found {patchCalls}; label patches are not moved to the main thread");
+                RLOLog.Warning(
+                    $"CombatAI label scan: expected 1 Harmony.Patch call, found {patchCalls}; label patches are not moved to the main thread"
+                );
             }
         }
 
@@ -88,7 +127,14 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static MethodInfo PatchOnMainThread(Harmony harmony, MethodBase original, HarmonyMethod prefix, HarmonyMethod postfix, HarmonyMethod transpiler, HarmonyMethod finalizer)
+        public static MethodInfo PatchOnMainThread(
+            Harmony harmony,
+            MethodBase original,
+            HarmonyMethod prefix,
+            HarmonyMethod postfix,
+            HarmonyMethod transpiler,
+            HarmonyMethod finalizer
+        )
         {
             if (UnityData.IsInMainThread || original.DeclaringType?.TypeInitializer == null)
             {
@@ -103,7 +149,9 @@ namespace RimWorldLoadingOptimizer
                 }
                 catch (Exception e)
                 {
-                    RLOLog.Warning($"CombatAI label scan: CombatAI could not patch {original.DeclaringType?.FullName}.{original.Name}: {e.Message}");
+                    RLOLog.Warning(
+                        $"CombatAI label scan: CombatAI could not patch {original.DeclaringType?.FullName}.{original.Name}: {e.Message}"
+                    );
                 }
             });
             return null;
@@ -198,7 +246,8 @@ namespace RimWorldLoadingOptimizer
         {
             try
             {
-                return !(member is MethodInfo m) || m.GetParameters().Any(p => typeof(Pawn).IsAssignableFrom(p.ParameterType));
+                return !(member is MethodInfo m)
+                    || m.GetParameters().Any(p => typeof(Pawn).IsAssignableFrom(p.ParameterType));
             }
             catch (Exception)
             {
@@ -206,6 +255,12 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static string Stats() => !installed ? "CombatAI label scan: not active" : types == 0 ? "CombatAI label scan: CombatAI's scan did not run after RimWorld Loading Optimizer was set up (it may be switched off in CombatAI, or CombatAI loads before RimWorld Loading Optimizer)" : $"CombatAI label scan: {StartupPhaseFixes.Seconds(ticks):F2} s, types {types}, skipped {skipped}, distinct types checked {checkedTypes + DeclaresCount()}, patches moved to the main thread {deferred}" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
+        public static string Stats() =>
+            !installed ? "CombatAI label scan: not active"
+            : types == 0
+                ? "CombatAI label scan: CombatAI's scan did not run after RimWorld Loading Optimizer was set up "
+                    + "(it may be switched off in CombatAI, or CombatAI loads before RimWorld Loading Optimizer)"
+            : $"CombatAI label scan: {StartupPhaseFixes.Seconds(ticks):F2} s, types {types}, skipped {skipped}, distinct types checked {checkedTypes + DeclaresCount()}, patches moved to the main thread {deferred}"
+                + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
     }
 }

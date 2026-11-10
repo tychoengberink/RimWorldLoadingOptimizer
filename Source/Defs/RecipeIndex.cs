@@ -10,8 +10,10 @@ namespace RimWorldLoadingOptimizer
 {
     public static class RecipeIndex
     {
-        private static readonly AccessTools.FieldRef<ThingDef, List<RecipeDef>> Cached =
-            AccessTools.FieldRefAccess<ThingDef, List<RecipeDef>>("allRecipesCached");
+        private static readonly AccessTools.FieldRef<ThingDef, List<RecipeDef>> Cached = AccessTools.FieldRefAccess<
+            ThingDef,
+            List<RecipeDef>
+        >("allRecipesCached");
 
         private static readonly object gate = new object();
         private static Dictionary<ThingDef, List<RecipeDef>> byUser;
@@ -29,7 +31,9 @@ namespace RimWorldLoadingOptimizer
         private static Fingerprint.Guard guard;
         private static SelfCheck check;
         private static SelfCheck warmCheck;
-        [ThreadStatic] private static bool bypass;
+
+        [ThreadStatic]
+        private static bool bypass;
 
         public static readonly MismatchLog Mismatches = new MismatchLog("recipe index");
         public static int Served;
@@ -46,8 +50,10 @@ namespace RimWorldLoadingOptimizer
             }
             check = new SelfCheck("Recipe index", VersionCheck.Code(getter));
             harmony.Patch(getter, prefix: new HarmonyMethod(typeof(RecipeIndex), nameof(Prefix)));
-            harmony.Patch(AccessTools.Method(typeof(PlayDataLoader), nameof(PlayDataLoader.ClearAllPlayData)),
-                postfix: new HarmonyMethod(typeof(RecipeIndex), nameof(Reset)));
+            harmony.Patch(
+                AccessTools.Method(typeof(PlayDataLoader), nameof(PlayDataLoader.ClearAllPlayData)),
+                postfix: new HarmonyMethod(typeof(RecipeIndex), nameof(Reset))
+            );
             if (RLOMod.Running("sarg.alphaimplants") != null)
             {
                 StaticConstructorTracker.InstallEarly(harmony);
@@ -63,7 +69,10 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             warm = false;
-            warmCheck ??= new SelfCheck("Recipe index (Alpha Implants warm-up)", VersionCheck.Code(type.TypeInitializer));
+            warmCheck ??= new SelfCheck(
+                "Recipe index (Alpha Implants warm-up)",
+                VersionCheck.Code(type.TypeInitializer)
+            );
             warmer = !warmCheck.IsOff && Fingerprint.OnlyOurs(getter) ? type : null;
         }
 
@@ -119,7 +128,11 @@ namespace RimWorldLoadingOptimizer
                     {
                         var current = Signature(recipes);
                         var now = Environment.TickCount;
-                        if (byUser != null && current == signature && (inWarmup || unchecked(now - identityCheckedAt) > 50))
+                        if (
+                            byUser != null
+                            && current == signature
+                            && (inWarmup || unchecked(now - identityCheckedAt) > 50)
+                        )
                         {
                             identityCheckedAt = now;
                             if (Identity(recipes) != identity)
@@ -156,7 +169,9 @@ namespace RimWorldLoadingOptimizer
                         check.Report(same, $"recipes of {__instance.defName}");
                         if (!same)
                         {
-                            Mismatches.Report($"recipes of {__instance.defName}: cached {cached.Count}, original {original.Count}");
+                            Mismatches.Report(
+                                $"recipes of {__instance.defName}: cached {cached.Count}, original {original.Count}"
+                            );
                             warm = false;
                             cached = original;
                         }

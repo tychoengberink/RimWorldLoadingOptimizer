@@ -15,7 +15,11 @@ namespace RimWorldLoadingOptimizer
         {
             tryInstall("assembly type cache", settings.startupPhases, () => TypesCache.Install(harmony));
             tryInstall("loading frame budget", settings.startupPhases, () => FrameBudget.Install(harmony));
-            tryInstall("fast content lookups", settings.startupPhases, () => FastContent.Install(harmony, settings.textureLookup));
+            tryInstall(
+                "fast content lookups",
+                settings.startupPhases,
+                () => FastContent.Install(harmony, settings.textureLookup)
+            );
             tryInstall(AppearanceFolders.Feature, settings.startupPhases, () => AppearanceFolders.Install(harmony));
             tryInstall("designator index", settings.startupPhases, () => DesignatorIndex.Install(harmony));
             tryInstall("CombatAI label scan", settings.Supports("combatai"), () => CaiLabels.Install(harmony));
@@ -29,17 +33,23 @@ namespace RimWorldLoadingOptimizer
             CaiLabels.Release();
         }
 
-        public static string Stats() => string.Join("\n", Reports.Select(r =>
-        {
-            try
-            {
-                return r();
-            }
-            catch (Exception e)
-            {
-                return e.Message;
-            }
-        }).Concat(new[] { CaiLabels.Stats(), CategorySet.Stats() }));
+        public static string Stats() =>
+            string.Join(
+                "\n",
+                Reports
+                    .Select(r =>
+                    {
+                        try
+                        {
+                            return r();
+                        }
+                        catch (Exception e)
+                        {
+                            return e.Message;
+                        }
+                    })
+                    .Concat(new[] { CaiLabels.Stats(), CategorySet.Stats() })
+            );
 
         public static double Seconds(long ticks) => ticks / (double)Stopwatch.Frequency;
     }

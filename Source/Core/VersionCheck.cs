@@ -19,12 +19,17 @@ namespace RimWorldLoadingOptimizer
         private static readonly object trustGate = new object();
         private static HashSet<string> trusted;
 
-        private static string TrustFile => Path.Combine(GenFilePaths.SaveDataFolderPath, "RimWorldLoadingOptimizer", "verified-code.txt");
+        private static string TrustFile =>
+            Path.Combine(GenFilePaths.SaveDataFolderPath, "RimWorldLoadingOptimizer", "verified-code.txt");
 
         public static string Code(params MethodBase[] methods) =>
-            methods.Any(m => m == null) ? null : string.Join(";", methods.Select(m => Fingerprint.Normalized(m) ?? Fingerprint.Of(m)));
+            methods.Any(m => m == null)
+                ? null
+                : string.Join(";", methods.Select(m => Fingerprint.Normalized(m) ?? Fingerprint.Of(m)));
 
-        private static readonly string OwnBuild = typeof(VersionCheck).Assembly.ManifestModule.ModuleVersionId.ToString("N");
+        private static readonly string OwnBuild = typeof(VersionCheck).Assembly.ManifestModule.ModuleVersionId.ToString(
+            "N"
+        );
 
         private static string TrustLine(string feature, string key) => feature + "\t" + key + "\t" + OwnBuild;
 
@@ -46,9 +51,7 @@ namespace RimWorldLoadingOptimizer
                             trusted.UnionWith(File.ReadAllLines(TrustFile));
                         }
                     }
-                    catch (Exception)
-                    {
-                    }
+                    catch (Exception) { }
                 }
                 return trusted.Contains(TrustLine(feature, key));
             }
@@ -72,13 +75,16 @@ namespace RimWorldLoadingOptimizer
                     Directory.CreateDirectory(Path.GetDirectoryName(TrustFile));
                     File.AppendAllText(TrustFile, line + Environment.NewLine);
                 }
-                catch (Exception)
-                {
-                }
+                catch (Exception) { }
             }
         }
 
-        public static bool Pattern(string feature, MethodBase method, Func<List<CodeInstruction>, bool> matches, string expectation)
+        public static bool Pattern(
+            string feature,
+            MethodBase method,
+            Func<List<CodeInstruction>, bool> matches,
+            string expectation
+        )
         {
             if (method == null)
             {
@@ -104,19 +110,29 @@ namespace RimWorldLoadingOptimizer
         }
 
         public static int Calls(List<CodeInstruction> code, MethodBase target) =>
-            code.Count(i => i.operand is MethodBase m && m == target && (i.opcode == OpCodes.Call || i.opcode == OpCodes.Callvirt));
+            code.Count(i =>
+                i.operand is MethodBase m && m == target && (i.opcode == OpCodes.Call || i.opcode == OpCodes.Callvirt)
+            );
 
         public static IEnumerable<MethodBase> Called(List<CodeInstruction> code) =>
-            code.Where(i => i.opcode == OpCodes.Call || i.opcode == OpCodes.Callvirt || i.opcode == OpCodes.Newobj).Select(i => i.operand as MethodBase);
+            code.Where(i => i.opcode == OpCodes.Call || i.opcode == OpCodes.Callvirt || i.opcode == OpCodes.Newobj)
+                .Select(i => i.operand as MethodBase);
 
         public static bool CallsExactly(List<CodeInstruction> code, params MethodBase[] expected) =>
-            expected.All(m => m != null) && Called(code).Select(Key).OrderBy(k => k, StringComparer.Ordinal).SequenceEqual(expected.Select(Key).OrderBy(k => k, StringComparer.Ordinal));
+            expected.All(m => m != null)
+            && Called(code)
+                .Select(Key)
+                .OrderBy(k => k, StringComparer.Ordinal)
+                .SequenceEqual(expected.Select(Key).OrderBy(k => k, StringComparer.Ordinal));
 
         public static bool CallsExactly(List<CodeInstruction> code, string expected) =>
-            Called(code).Select(m => m == null ? "?" : $"{m.DeclaringType?.Name}.{m.Name}").OrderBy(k => k, StringComparer.Ordinal)
+            Called(code)
+                .Select(m => m == null ? "?" : $"{m.DeclaringType?.Name}.{m.Name}")
+                .OrderBy(k => k, StringComparer.Ordinal)
                 .SequenceEqual(expected.Split(',').OrderBy(k => k, StringComparer.Ordinal));
 
-        private static string Key(MethodBase method) => method == null ? "?" : $"{method.DeclaringType?.FullName}::{method}";
+        private static string Key(MethodBase method) =>
+            method == null ? "?" : $"{method.DeclaringType?.FullName}::{method}";
 
         internal static void Register(SelfCheck check)
         {
@@ -135,7 +151,9 @@ namespace RimWorldLoadingOptimizer
                     Fingerprint.Changed.Add(feature);
                 }
             }
-            RLOLog.Detail($"{feature}: {reason}. This speedup is skipped and the original code runs; nothing is broken.");
+            RLOLog.Detail(
+                $"{feature}: {reason}. This speedup is skipped and the original code runs; nothing is broken."
+            );
         }
 
         internal static string Where(MethodBase method) => $"{method.DeclaringType?.FullName}.{method.Name}";
@@ -181,7 +199,9 @@ namespace RimWorldLoadingOptimizer
             if (state == Checking)
             {
                 VersionCheck.Register(this);
-                RLOLog.Detail($"{feature}: first start with this code; the first {needed} results are compared with the original code before the speedup takes over.");
+                RLOLog.Detail(
+                    $"{feature}: first start with this code; the first {needed} results are compared with the original code before the speedup takes over."
+                );
             }
         }
 
@@ -193,8 +213,11 @@ namespace RimWorldLoadingOptimizer
         {
             if (same)
             {
-                if (Volatile.Read(ref state) == Checking && Interlocked.Increment(ref matched) >= needed
-                    && Interlocked.CompareExchange(ref state, Trusted, Checking) == Checking)
+                if (
+                    Volatile.Read(ref state) == Checking
+                    && Interlocked.Increment(ref matched) >= needed
+                    && Interlocked.CompareExchange(ref state, Trusted, Checking) == Checking
+                )
                 {
                     VersionCheck.Remember(feature, key);
                 }
@@ -203,7 +226,10 @@ namespace RimWorldLoadingOptimizer
             if (Interlocked.Exchange(ref state, Off) != Off)
             {
                 difference = what;
-                VersionCheck.Skip(feature, $"a result differed from the original code{(what == null ? "" : $" ({what})")}");
+                VersionCheck.Skip(
+                    feature,
+                    $"a result differed from the original code{(what == null ? "" : $" ({what})")}"
+                );
             }
         }
 
@@ -218,7 +244,9 @@ namespace RimWorldLoadingOptimizer
                     case Off:
                         return $"{feature} switched off after {matched} matching results ({difference ?? "result differed"})";
                     default:
-                        return matched == 0 ? $"{feature} not used this start" : $"{feature} still checking ({matched} of {needed} results compared)";
+                        return matched == 0
+                            ? $"{feature} not used this start"
+                            : $"{feature} still checking ({matched} of {needed} results compared)";
                 }
             }
         }

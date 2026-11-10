@@ -12,16 +12,23 @@ namespace RimWorldLoadingOptimizer
         private static Type modCore;
         private static MethodInfo tryResolvePatches;
         private static Dictionary<string, ModContentPack> probablyAddedBy;
-        private static bool precomputed, skipping, consumed, lateInstalled;
+        private static bool precomputed,
+            skipping,
+            consumed,
+            lateInstalled;
         private static bool? verified;
-        private static int mismatches = -1, entries;
-        private static long precomputeTicks, verifyTicks;
+        private static int mismatches = -1,
+            entries;
+        private static long precomputeTicks,
+            verifyTicks;
         private static SelfCheck check;
 
         public static void InstallEarly(Harmony harmony)
         {
-            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ClearCachedPatches)),
-                prefix: new HarmonyMethod(typeof(WtmPatchScan), nameof(BeforeClearCachedPatches)));
+            harmony.Patch(
+                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ClearCachedPatches)),
+                prefix: new HarmonyMethod(typeof(WtmPatchScan), nameof(BeforeClearCachedPatches))
+            );
         }
 
         public static void InstallLate(Harmony harmony)
@@ -30,10 +37,15 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            harmony.Patch(tryResolvePatches, prefix: new HarmonyMethod(typeof(WtmPatchScan), nameof(TryResolvePatchesPrefix)));
-            harmony.Patch(AccessTools.Method(modCore, "DefWriter"),
+            harmony.Patch(
+                tryResolvePatches,
+                prefix: new HarmonyMethod(typeof(WtmPatchScan), nameof(TryResolvePatchesPrefix))
+            );
+            harmony.Patch(
+                AccessTools.Method(modCore, "DefWriter"),
                 prefix: new HarmonyMethod(typeof(WtmPatchScan), nameof(DefWriterPrefix)),
-                finalizer: new HarmonyMethod(typeof(WtmPatchScan), nameof(DefWriterFinalizer)));
+                finalizer: new HarmonyMethod(typeof(WtmPatchScan), nameof(DefWriterFinalizer))
+            );
             lateInstalled = true;
         }
 
@@ -49,10 +61,18 @@ namespace RimWorldLoadingOptimizer
                 return false;
             }
             tryResolvePatches = AccessTools.Method(modCore, "TryResolvePatches");
-            probablyAddedBy = AccessTools.Field(modCore, "probablyAddedBy")?.GetValue(null) as Dictionary<string, ModContentPack>;
-            if (tryResolvePatches == null || probablyAddedBy == null || AccessTools.Method(modCore, "DefWriter") == null)
+            probablyAddedBy =
+                AccessTools.Field(modCore, "probablyAddedBy")?.GetValue(null) as Dictionary<string, ModContentPack>;
+            if (
+                tryResolvePatches == null
+                || probablyAddedBy == null
+                || AccessTools.Method(modCore, "DefWriter") == null
+            )
             {
-                VersionCheck.Skip("What's That Mod patch scan", "ModCore.TryResolvePatches, DefWriter or probablyAddedBy no longer exists");
+                VersionCheck.Skip(
+                    "What's That Mod patch scan",
+                    "ModCore.TryResolvePatches, DefWriter or probablyAddedBy no longer exists"
+                );
                 modCore = null;
                 return false;
             }
@@ -66,9 +86,11 @@ namespace RimWorldLoadingOptimizer
                 verified = Resolve();
                 if (verified.Value)
                 {
-                    check = new SelfCheck("What's That Mod patch scan", VersionCheck.Code(
-                        AccessTools.Method(modCore, "DefWriter"),
-                        tryResolvePatches), 1);
+                    check = new SelfCheck(
+                        "What's That Mod patch scan",
+                        VersionCheck.Code(AccessTools.Method(modCore, "DefWriter"), tryResolvePatches),
+                        1
+                    );
                 }
             }
             return verified.Value;
@@ -82,7 +104,10 @@ namespace RimWorldLoadingOptimizer
             {
                 return false;
             }
-            var settings = AccessTools.Method(typeof(Mod), nameof(Mod.GetSettings)).MakeGenericMethod(settingsType).Invoke(instance, null);
+            var settings = AccessTools
+                .Method(typeof(Mod), nameof(Mod.GetSettings))
+                .MakeGenericMethod(settingsType)
+                .Invoke(instance, null);
             return Traverse.Create(settings).Field("DetectPatched").GetValue<bool>();
         }
 
@@ -96,7 +121,9 @@ namespace RimWorldLoadingOptimizer
                 }
                 catch (TargetInvocationException e)
                 {
-                    RLOLog.Error($"What's That Mod patch scan failed for {mod.PackageIdPlayerFacing}: {e.InnerException ?? e}");
+                    RLOLog.Error(
+                        $"What's That Mod patch scan failed for {mod.PackageIdPlayerFacing}: {e.InnerException ?? e}"
+                    );
                 }
             }
         }
@@ -147,7 +174,9 @@ namespace RimWorldLoadingOptimizer
                     {
                         if (++mismatches <= 10)
                         {
-                            RLOLog.Warning($"What's That Mod verify mismatch for '{pair.Key}': fast {mod?.PackageId ?? "none"}, original {pair.Value?.PackageId}");
+                            RLOLog.Warning(
+                                $"What's That Mod verify mismatch for '{pair.Key}': fast {mod?.PackageId ?? "none"}, original {pair.Value?.PackageId}"
+                            );
                         }
                     }
                 }

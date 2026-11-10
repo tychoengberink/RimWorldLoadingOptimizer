@@ -30,9 +30,11 @@ namespace RimWorldLoadingOptimizer
         private sealed class DefIndex
         {
             private readonly XmlDocument doc;
-            private readonly Dictionary<string, List<XmlElement>> byDefName = new Dictionary<string, List<XmlElement>>();
+            private readonly Dictionary<string, List<XmlElement>> byDefName =
+                new Dictionary<string, List<XmlElement>>();
             private readonly Dictionary<string, List<XmlElement>> byName = new Dictionary<string, List<XmlElement>>();
-            private readonly Dictionary<string, List<XmlElement>> byParentName = new Dictionary<string, List<XmlElement>>();
+            private readonly Dictionary<string, List<XmlElement>> byParentName =
+                new Dictionary<string, List<XmlElement>>();
             private readonly Dictionary<string, List<XmlElement>> byTag = new Dictionary<string, List<XmlElement>>();
             private bool tagsUnordered;
             private HashSet<string> nested;
@@ -41,7 +43,8 @@ namespace RimWorldLoadingOptimizer
             private bool dirty = true;
             private readonly Dictionary<XmlElement, string[]> keysOf = new Dictionary<XmlElement, string[]>();
             private readonly HashSet<XmlElement> stale = new HashSet<XmlElement>();
-            public static int Rebuilds, Reindexed;
+            public static int Rebuilds,
+                Reindexed;
 
             private readonly XmlNodeChangedEventHandler inserted;
             private readonly XmlNodeChangedEventHandler removing;
@@ -199,7 +202,10 @@ namespace RimWorldLoadingOptimizer
                 {
                     var key = keys[term];
                     var value = values[term];
-                    var map = key == "defName" ? byDefName : key == "@Name" ? byName : byParentName;
+                    var map =
+                        key == "defName" ? byDefName
+                        : key == "@Name" ? byName
+                        : byParentName;
                     if (!map.TryGetValue(value, out var candidates))
                     {
                         continue;
@@ -326,7 +332,10 @@ namespace RimWorldLoadingOptimizer
                 }
                 foreach (var key in keys)
                 {
-                    var map = key[0] == 'd' ? byDefName : key[0] == 'n' ? byName : byParentName;
+                    var map =
+                        key[0] == 'd' ? byDefName
+                        : key[0] == 'n' ? byName
+                        : byParentName;
                     if (map.TryGetValue(key.Substring(1), out var list))
                     {
                         list.Remove(element);
@@ -422,13 +431,21 @@ namespace RimWorldLoadingOptimizer
                 if (node is XmlAttribute attribute)
                 {
                     var owner = attribute.OwnerElement ?? parent as XmlElement;
-                    if ((attribute.Name == "Name" || attribute.Name == "ParentName") && owner != null && owner.ParentNode == root)
+                    if (
+                        (attribute.Name == "Name" || attribute.Name == "ParentName")
+                        && owner != null
+                        && owner.ParentNode == root
+                    )
                     {
                         stale.Add(owner);
                     }
                     return;
                 }
-                for (var current = node is XmlElement ? node : parent; current != null && current != root; current = current.ParentNode)
+                for (
+                    var current = node is XmlElement ? node : parent;
+                    current != null && current != root;
+                    current = current.ParentNode
+                )
                 {
                     if (current.LocalName == "defName" && current.ParentNode?.ParentNode == root)
                     {

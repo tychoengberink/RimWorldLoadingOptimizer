@@ -21,7 +21,12 @@ namespace RimWorldLoadingOptimizer
             }
             var visited = new HashSet<object>(ReferenceComparer<object>.Instance);
             var owners = new List<(string owner, long objects, long bytes)>();
-            var scanned = new HashSet<Assembly>(LoadedModManager.RunningModsListForReading.SelectMany(m => m.assemblies.loadedAssemblies)) { typeof(Def).Assembly };
+            var scanned = new HashSet<Assembly>(
+                LoadedModManager.RunningModsListForReading.SelectMany(m => m.assemblies.loadedAssemblies)
+            )
+            {
+                typeof(Def).Assembly,
+            };
             scanned.Remove(typeof(HeapStats).Assembly);
             foreach (var assembly in scanned.Where(a => !a.IsDynamic).OrderBy(a => a == typeof(Def).Assembly ? 0 : 1))
             {
@@ -34,7 +39,12 @@ namespace RimWorldLoadingOptimizer
                     FieldInfo[] fields;
                     try
                     {
-                        fields = type.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                        fields = type.GetFields(
+                            BindingFlags.Static
+                                | BindingFlags.Public
+                                | BindingFlags.NonPublic
+                                | BindingFlags.DeclaredOnly
+                        );
                     }
                     catch
                     {
@@ -43,7 +53,15 @@ namespace RimWorldLoadingOptimizer
                     foreach (var field in fields)
                     {
                         var fieldType = field.FieldType;
-                        if (field.IsLiteral || fieldType.FullName == null || !(fieldType.IsClass || fieldType.IsInterface || fieldType.IsArray) || fieldType.IsPointer || fieldType.IsByRef || fieldType.FullName == "System.MonoFNPtrFakeClass" || visited.Count >= Cap)
+                        if (
+                            field.IsLiteral
+                            || fieldType.FullName == null
+                            || !(fieldType.IsClass || fieldType.IsInterface || fieldType.IsArray)
+                            || fieldType.IsPointer
+                            || fieldType.IsByRef
+                            || fieldType.FullName == "System.MonoFNPtrFakeClass"
+                            || visited.Count >= Cap
+                        )
                         {
                             continue;
                         }
@@ -64,17 +82,20 @@ namespace RimWorldLoadingOptimizer
                     }
                 }
             }
-            var report = new StringBuilder($"[RLO] largest static owners of managed memory (walked {visited.Count} objects{(visited.Count >= Cap ? ", capped" : "")}):");
+            var report = new StringBuilder(
+                $"[RLO] largest static owners of managed memory (walked {visited.Count} objects{(visited.Count >= Cap ? ", capped" : "")}):"
+            );
             foreach (var owner in owners.OrderByDescending(o => o.bytes).Take(40))
             {
-                report.Append($"\n  {owner.bytes >> 20,7} MB  {owner.objects,10} objects  {owner.owner}");
+                report.Append($"\n  {owner.bytes >> 20, 7} MB  {owner.objects, 10} objects  {owner.owner}");
             }
             Log.Message(report.ToString());
         }
 
         private static (long, long) Walk(object root, HashSet<object> visited)
         {
-            long objects = 0, bytes = 0;
+            long objects = 0,
+                bytes = 0;
             var stack = new Stack<object>();
             stack.Push(root);
             while (stack.Count > 0 && visited.Count < Cap)
@@ -91,7 +112,14 @@ namespace RimWorldLoadingOptimizer
                     bytes += 20 + 2L * s.Length;
                     continue;
                 }
-                if (obj is UnityEngine.Object || obj is Type || obj is MemberInfo || obj is Assembly || obj is Delegate || obj is Module)
+                if (
+                    obj is UnityEngine.Object
+                    || obj is Type
+                    || obj is MemberInfo
+                    || obj is Assembly
+                    || obj is Delegate
+                    || obj is Module
+                )
                 {
                     bytes += 32;
                     continue;
@@ -163,10 +191,23 @@ namespace RimWorldLoadingOptimizer
                 var list = new List<FieldInfo>();
                 for (var t = type; t != null && t != typeof(object); t = t.BaseType)
                 {
-                    foreach (var field in t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                    foreach (
+                        var field in t.GetFields(
+                            BindingFlags.Instance
+                                | BindingFlags.Public
+                                | BindingFlags.NonPublic
+                                | BindingFlags.DeclaredOnly
+                        )
+                    )
                     {
                         var fieldType = field.FieldType;
-                        if (fieldType.FullName != null && (fieldType.IsClass || fieldType.IsInterface || fieldType.IsArray) && !fieldType.IsPointer && !fieldType.IsByRef && fieldType.FullName != "System.MonoFNPtrFakeClass")
+                        if (
+                            fieldType.FullName != null
+                            && (fieldType.IsClass || fieldType.IsInterface || fieldType.IsArray)
+                            && !fieldType.IsPointer
+                            && !fieldType.IsByRef
+                            && fieldType.FullName != "System.MonoFNPtrFakeClass"
+                        )
                         {
                             list.Add(field);
                         }

@@ -7,21 +7,46 @@ namespace RimWorldLoadingOptimizer
 {
     public static class ReflCache
     {
-        private static readonly ConcurrentDictionary<object, bool> containsGeneric = new ConcurrentDictionary<object, bool>(ReferenceComparer<object>.Instance);
-        private static readonly ConcurrentDictionary<object, Type[]> genericArgs = new ConcurrentDictionary<object, Type[]>(ReferenceComparer<object>.Instance);
-        private static long cgHits, gaHits;
+        private static readonly ConcurrentDictionary<object, bool> containsGeneric = new ConcurrentDictionary<
+            object,
+            bool
+        >(ReferenceComparer<object>.Instance);
+        private static readonly ConcurrentDictionary<object, Type[]> genericArgs = new ConcurrentDictionary<
+            object,
+            Type[]
+        >(ReferenceComparer<object>.Instance);
+        private static long cgHits,
+            gaHits;
         private static readonly MismatchLog mismatches = new MismatchLog("reflection cache");
 
         public static void Install(Harmony harmony)
         {
             var runtimeType = typeof(Type).Assembly.GetType("System.RuntimeType");
-            var containsGenericParameters = AccessTools.PropertyGetter(runtimeType, nameof(Type.ContainsGenericParameters));
-            var getGenericArguments = AccessTools.Method(runtimeType, nameof(Type.GetGenericArguments), Type.EmptyTypes);
-            harmony.Patch(containsGenericParameters, prefix: new HarmonyMethod(typeof(ReflCache), nameof(ContainsPrefix)), postfix: new HarmonyMethod(typeof(ReflCache), nameof(ContainsPostfix)));
-            harmony.Patch(getGenericArguments, prefix: new HarmonyMethod(typeof(ReflCache), nameof(ArgsPrefix)), postfix: new HarmonyMethod(typeof(ReflCache), nameof(ArgsPostfix)));
+            var containsGenericParameters = AccessTools.PropertyGetter(
+                runtimeType,
+                nameof(Type.ContainsGenericParameters)
+            );
+            var getGenericArguments = AccessTools.Method(
+                runtimeType,
+                nameof(Type.GetGenericArguments),
+                Type.EmptyTypes
+            );
+            harmony.Patch(
+                containsGenericParameters,
+                prefix: new HarmonyMethod(typeof(ReflCache), nameof(ContainsPrefix)),
+                postfix: new HarmonyMethod(typeof(ReflCache), nameof(ContainsPostfix))
+            );
+            harmony.Patch(
+                getGenericArguments,
+                prefix: new HarmonyMethod(typeof(ReflCache), nameof(ArgsPrefix)),
+                postfix: new HarmonyMethod(typeof(ReflCache), nameof(ArgsPostfix))
+            );
             MainMenu.UnpatchAfterStartup(containsGenericParameters);
             MainMenu.UnpatchAfterStartup(getGenericArguments);
-            StartupPhaseFixes.Reports.Add(() => $"reflection cache: ContainsGenericParameters {cgHits} hits / {containsGeneric.Count} types, GetGenericArguments {gaHits} hits / {genericArgs.Count} types" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : ""));
+            StartupPhaseFixes.Reports.Add(() =>
+                $"reflection cache: ContainsGenericParameters {cgHits} hits / {containsGeneric.Count} types, GetGenericArguments {gaHits} hits / {genericArgs.Count} types"
+                + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "")
+            );
         }
 
         public static bool ContainsPrefix(object __instance, ref bool __result)

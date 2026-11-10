@@ -17,7 +17,9 @@ namespace RimWorldLoadingOptimizer
         internal static readonly bool[] TwoKnown = new bool[256];
         private static readonly Dictionary<(Module, int), object> resolved = new Dictionary<(Module, int), object>();
         private static readonly object gate = new object();
-        private static int scans, positives, fallbacks;
+        private static int scans,
+            positives,
+            fallbacks;
         private static readonly MismatchLog mismatches = new MismatchLog("IL scan");
         private static long ticks;
 
@@ -52,15 +54,26 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static bool CallsAny(MethodInfo method, params MethodBase[] targets) => Decide(method, v => v is MethodBase m && targets.Contains(m));
+        public static bool CallsAny(MethodInfo method, params MethodBase[] targets) =>
+            Decide(method, v => v is MethodBase m && targets.Contains(m));
 
-        public static IEnumerable<CodeInstruction> Replace(IEnumerable<CodeInstruction> instructions, MethodBase from, MethodInfo to)
+        public static IEnumerable<CodeInstruction> Replace(
+            IEnumerable<CodeInstruction> instructions,
+            MethodBase from,
+            MethodInfo to
+        )
         {
             foreach (var instruction in instructions)
             {
-                if (instruction.operand is MethodBase m && m == from && (instruction.opcode == OpCodes.Call || instruction.opcode == OpCodes.Callvirt))
+                if (
+                    instruction.operand is MethodBase m
+                    && m == from
+                    && (instruction.opcode == OpCodes.Call || instruction.opcode == OpCodes.Callvirt)
+                )
                 {
-                    yield return new CodeInstruction(OpCodes.Call, to).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
+                    yield return new CodeInstruction(OpCodes.Call, to)
+                        .WithLabels(instruction.labels)
+                        .WithBlocks(instruction.blocks);
                 }
                 else
                 {
@@ -105,11 +118,19 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        private static object Resolve(Module module, int token, Type[] typeArguments, Type[] methodArguments, bool member)
+        private static object Resolve(
+            Module module,
+            int token,
+            Type[] typeArguments,
+            Type[] methodArguments,
+            bool member
+        )
         {
             if (typeArguments != null || methodArguments != null)
             {
-                return member ? module.ResolveMember(token, typeArguments, methodArguments) : module.ResolveMethod(token, typeArguments, methodArguments);
+                return member
+                    ? module.ResolveMember(token, typeArguments, methodArguments)
+                    : module.ResolveMethod(token, typeArguments, methodArguments);
             }
             var key = (module, member ? token : ~token);
             if (resolved.TryGetValue(key, out var value))
@@ -189,11 +210,15 @@ namespace RimWorldLoadingOptimizer
                             pos += 4 + 4 * BitConverter.ToInt32(il, pos);
                             break;
                         case OperandType.InlineMethod:
-                            result.Add(Resolve(module, BitConverter.ToInt32(il, pos), typeArguments, methodArguments, false));
+                            result.Add(
+                                Resolve(module, BitConverter.ToInt32(il, pos), typeArguments, methodArguments, false)
+                            );
                             pos += 4;
                             break;
                         case OperandType.InlineTok:
-                            result.Add(Resolve(module, BitConverter.ToInt32(il, pos), typeArguments, methodArguments, true));
+                            result.Add(
+                                Resolve(module, BitConverter.ToInt32(il, pos), typeArguments, methodArguments, true)
+                            );
                             pos += 4;
                             break;
                         default:
@@ -213,7 +238,8 @@ namespace RimWorldLoadingOptimizer
         {
             lock (gate)
             {
-                return $"IL scan: {scans} bodies in {ticks * 1000.0 / Stopwatch.Frequency:F0} ms, {positives} positives confirmed by Harmony's reader, {fallbacks} fallbacks, {resolved.Count} cached tokens" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
+                return $"IL scan: {scans} bodies in {ticks * 1000.0 / Stopwatch.Frequency:F0} ms, {positives} positives confirmed by Harmony's reader, {fallbacks} fallbacks, {resolved.Count} cached tokens"
+                    + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
             }
         }
     }

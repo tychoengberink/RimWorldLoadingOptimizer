@@ -61,8 +61,18 @@ namespace RimWorldLoadingOptimizer
 
         private static bool Identify(StringBuilder sb, Texture2D t)
         {
-            sb.Append(t.width).Append('x').Append(t.height).Append(' ').Append((int)t.graphicsFormat).Append(' ').Append(t.mipmapCount)
-                .Append(' ').Append((int)t.filterMode).Append(' ').Append((int)t.wrapMode).Append(' ');
+            sb.Append(t.width)
+                .Append('x')
+                .Append(t.height)
+                .Append(' ')
+                .Append((int)t.graphicsFormat)
+                .Append(' ')
+                .Append(t.mipmapCount)
+                .Append(' ')
+                .Append((int)t.filterMode)
+                .Append(' ')
+                .Append((int)t.wrapMode)
+                .Append(' ');
             if (!owners.TryGetValue(t, out var owner))
             {
                 string origin;
@@ -90,7 +100,12 @@ namespace RimWorldLoadingOptimizer
                 {
                     if (files.TryGetValue(file + ext, out var fi))
                     {
-                        sb.Append(' ').Append(folder.Length).Append(ext).Append(fi.Length).Append('@').Append(fi.LastWriteTimeUtc.Ticks);
+                        sb.Append(' ')
+                            .Append(folder.Length)
+                            .Append(ext)
+                            .Append(fi.Length)
+                            .Append('@')
+                            .Append(fi.LastWriteTimeUtc.Ticks);
                     }
                 }
             }
@@ -118,9 +133,23 @@ namespace RimWorldLoadingOptimizer
         private static string LightKey()
         {
             var sb = new StringBuilder();
-            sb.Append(Magic).Append('|').Append(VersionControl.CurrentVersionStringWithRev).Append('|').Append(Application.unityVersion)
-                .Append('|').Append(SystemInfo.graphicsDeviceType).Append('|').Append(SystemInfo.graphicsDeviceName).Append('|').Append(SystemInfo.graphicsDeviceVersion)
-                .Append('|').Append(UnityData.ComputeShadersSupported).Append('|').Append(Prefs.TextureCompression).Append('|').Append(typeof(AtlasCache).Assembly.ManifestModule.ModuleVersionId);
+            sb.Append(Magic)
+                .Append('|')
+                .Append(VersionControl.CurrentVersionStringWithRev)
+                .Append('|')
+                .Append(Application.unityVersion)
+                .Append('|')
+                .Append(SystemInfo.graphicsDeviceType)
+                .Append('|')
+                .Append(SystemInfo.graphicsDeviceName)
+                .Append('|')
+                .Append(SystemInfo.graphicsDeviceVersion)
+                .Append('|')
+                .Append(UnityData.ComputeShadersSupported)
+                .Append('|')
+                .Append(Prefs.TextureCompression)
+                .Append('|')
+                .Append(typeof(AtlasCache).Assembly.ManifestModule.ModuleVersionId);
             var fgl = AccessTools.TypeByName("FasterGameLoading.FasterGameLoadingSettings");
             foreach (var name in FasterGameLoadingAtlasSettings)
             {
@@ -137,9 +166,24 @@ namespace RimWorldLoadingOptimizer
         private static string GlobalKey()
         {
             var sb = new StringBuilder();
-            sb.Append(Magic).Append('|').Append(VersionControl.CurrentVersionStringWithRev).Append('|').Append(Application.unityVersion)
-                .Append('|').Append(SystemInfo.graphicsDeviceType).Append('|').Append(SystemInfo.graphicsDeviceName).Append('|').Append(SystemInfo.maxTextureSize)
-                .Append('|').Append(UnityData.ComputeShadersSupported).Append('|').Append(Prefs.TextureCompression).Append('|').Append(QualitySettings.activeColorSpace).Append('\n');
+            sb.Append(Magic)
+                .Append('|')
+                .Append(VersionControl.CurrentVersionStringWithRev)
+                .Append('|')
+                .Append(Application.unityVersion)
+                .Append('|')
+                .Append(SystemInfo.graphicsDeviceType)
+                .Append('|')
+                .Append(SystemInfo.graphicsDeviceName)
+                .Append('|')
+                .Append(SystemInfo.maxTextureSize)
+                .Append('|')
+                .Append(UnityData.ComputeShadersSupported)
+                .Append('|')
+                .Append(Prefs.TextureCompression)
+                .Append('|')
+                .Append(QualitySettings.activeColorSpace)
+                .Append('\n');
             var fgl = AccessTools.TypeByName("FasterGameLoading.FasterGameLoadingSettings");
             foreach (var name in FasterGameLoadingAtlasSettings)
             {
@@ -159,9 +203,17 @@ namespace RimWorldLoadingOptimizer
                         {
                             continue;
                         }
-                        foreach (var fi in di.GetFiles("*", SearchOption.AllDirectories).OrderBy(f => f.FullName, StringComparer.Ordinal))
+                        foreach (
+                            var fi in di.GetFiles("*", SearchOption.AllDirectories)
+                                .OrderBy(f => f.FullName, StringComparer.Ordinal)
+                        )
                         {
-                            sb.Append(' ').Append(fi.FullName.Substring(folder.Length)).Append(':').Append(fi.Length).Append('@').Append(fi.LastWriteTimeUtc.Ticks);
+                            sb.Append(' ')
+                                .Append(fi.FullName.Substring(folder.Length))
+                                .Append(':')
+                                .Append(fi.Length)
+                                .Append('@')
+                                .Append(fi.LastWriteTimeUtc.Ticks);
                         }
                     }
                 }

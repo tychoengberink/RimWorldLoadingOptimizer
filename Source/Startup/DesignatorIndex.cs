@@ -10,12 +10,20 @@ namespace RimWorldLoadingOptimizer
 {
     public static class DesignatorIndex
     {
-        private static readonly MethodInfo Where = AccessTools.FirstMethod(typeof(Enumerable), m => m.Name == nameof(Enumerable.Where) && m.GetParameters()[1].ParameterType.GetGenericArguments().Length == 2).MakeGenericMethod(typeof(BuildableDef));
+        private static readonly MethodInfo Where = AccessTools
+            .FirstMethod(
+                typeof(Enumerable),
+                m =>
+                    m.Name == nameof(Enumerable.Where)
+                    && m.GetParameters()[1].ParameterType.GetGenericArguments().Length == 2
+            )
+            .MakeGenericMethod(typeof(BuildableDef));
 
         private static BuildableDef[] defs;
         private static DesignationCategoryDef[] categories;
         private static Dictionary<DesignationCategoryDef, List<BuildableDef>> groups;
-        private static int calls, builds;
+        private static int calls,
+            builds;
         private static readonly MismatchLog mismatches = new MismatchLog("designator index");
         private static SelfCheck check;
 
@@ -24,13 +32,22 @@ namespace RimWorldLoadingOptimizer
             var target = AccessTools.Method(typeof(DesignationCategoryDef), "ResolveDesignators");
             var lambda = AccessTools.Method(typeof(DesignationCategoryDef), "<ResolveDesignators>b__24_0");
             var code = VersionCheck.Code(target, lambda);
-            if (!VersionCheck.Pattern("Designator index", target, code => VersionCheck.Calls(code, Where) == 1, "filters the buildable defs with one Enumerable.Where call"))
+            if (
+                !VersionCheck.Pattern(
+                    "Designator index",
+                    target,
+                    code => VersionCheck.Calls(code, Where) == 1,
+                    "filters the buildable defs with one Enumerable.Where call"
+                )
+            )
             {
                 return;
             }
             check = new SelfCheck("Designator index", code, 10);
             harmony.Patch(target, transpiler: new HarmonyMethod(typeof(DesignatorIndex), nameof(Transpiler)));
-            StartupPhaseFixes.Reports.Add(() => $"designator index: {calls} categories, {builds} index builds, {mismatches.Count} verify mismatches");
+            StartupPhaseFixes.Reports.Add(() =>
+                $"designator index: {calls} categories, {builds} index builds, {mismatches.Count} verify mismatches"
+            );
         }
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
@@ -41,7 +58,12 @@ namespace RimWorldLoadingOptimizer
                 if (instruction.Calls(Where))
                 {
                     replaced++;
-                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(DesignatorIndex), nameof(Matching))).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
+                    yield return new CodeInstruction(
+                        OpCodes.Call,
+                        AccessTools.Method(typeof(DesignatorIndex), nameof(Matching))
+                    )
+                        .WithLabels(instruction.labels)
+                        .WithBlocks(instruction.blocks);
                     continue;
                 }
                 yield return instruction;
@@ -52,7 +74,10 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static IEnumerable<BuildableDef> Matching(IEnumerable<BuildableDef> source, Func<BuildableDef, bool> predicate)
+        public static IEnumerable<BuildableDef> Matching(
+            IEnumerable<BuildableDef> source,
+            Func<BuildableDef, bool> predicate
+        )
         {
             if (!(predicate.Target is DesignationCategoryDef category) || check.IsOff || !UnityData.IsInMainThread)
             {
@@ -63,7 +88,9 @@ namespace RimWorldLoadingOptimizer
             {
                 Build();
             }
-            var result = (groups.TryGetValue(category, out var list) ? list : new List<BuildableDef>()).Where(predicate);
+            var result = (groups.TryGetValue(category, out var list) ? list : new List<BuildableDef>()).Where(
+                predicate
+            );
             if (DevSwitches.Verify || check.IsChecking)
             {
                 var same = result.SequenceEqual(source.Where(predicate));
@@ -112,7 +139,10 @@ namespace RimWorldLoadingOptimizer
         private static void Build()
         {
             builds++;
-            var all = DefDatabase<TerrainDef>.AllDefsListForReading.Cast<BuildableDef>().Concat(DefDatabase<ThingDef>.AllDefsListForReading).ToArray();
+            var all = DefDatabase<TerrainDef>
+                .AllDefsListForReading.Cast<BuildableDef>()
+                .Concat(DefDatabase<ThingDef>.AllDefsListForReading)
+                .ToArray();
             defs = all;
             categories = new DesignationCategoryDef[all.Length];
             groups = new Dictionary<DesignationCategoryDef, List<BuildableDef>>();
