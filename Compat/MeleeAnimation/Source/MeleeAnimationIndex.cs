@@ -16,7 +16,7 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
     {
         private const string TypeName = "AM.Retexture.RetextureUtility";
         private const string Feature = "Melee Animation retexture scan index";
-        private static readonly bool verify = RLOMod.Verify;
+        private static readonly bool verify = DevSwitches.Verify;
         private static readonly List<(ModContentPack, Texture2D, string)> none = new List<(ModContentPack, Texture2D, string)>();
         private static Func<IEnumerable<(ModContentPack, Texture2D, string)>> original;
         private static Dictionary<string, List<(ModContentPack, Texture2D, string)>> index;
@@ -40,7 +40,7 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
             }
             catch (Exception e)
             {
-                Log.Warning("[RLO] Melee Animation: not installed: " + e);
+                RLOLog.Warning("Melee Animation: not installed: " + e);
             }
         }
 
@@ -68,7 +68,7 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
                 harmony.Patch(report, prefix: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(ComparePrefix)), finalizer: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(CompareFinalizer)));
             }
             harmony.Patch(AccessTools.Method(type, nameof(RetextureUtility.PreCacheAllTextureReports)), postfix: new HarmonyMethod(typeof(MeleeAnimationIndex), nameof(PreCachePostfix)));
-            Log.Message("[RLO] Melee Animation: retexture scan index installed" + (verify ? " (verify mode)" : ""));
+            RLOLog.Detail("Melee Animation: retexture scan index installed" + (verify ? " (verify mode)" : ""));
         }
 
         private static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
@@ -80,7 +80,7 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
             var allAt = list.FindAll(i => i.Calls(all));
             if (resolveAt.Count != 1 || allAt.Count != 1)
             {
-                Log.Warning($"[RLO] Melee Animation: unexpected GetTextureReport IL ({resolveAt.Count} resolve, {allAt.Count} scan calls); left unchanged");
+                RLOLog.Warning($"Melee Animation: unexpected GetTextureReport IL ({resolveAt.Count} resolve, {allAt.Count} scan calls); left unchanged");
                 return list;
             }
             allAt[0].operand = AccessTools.Method(typeof(MeleeAnimationIndex), nameof(Lookup));
@@ -281,14 +281,14 @@ namespace RimWorldLoadingOptimizer.MeleeAnimation
             mismatches++;
             if (mismatches <= 20)
             {
-                Log.Warning("[RLO] Melee Animation: verify mismatch: " + message);
+                RLOLog.Warning("Melee Animation: verify mismatch: " + message);
             }
         }
 
         private static void Report(string when)
         {
             var verifyText = verify || reportChecks > 0 ? $"; verify: {callChecks} scans and {reportChecks} reports compared, {mismatches} mismatches" : "";
-            Log.Message($"[RLO] Melee Animation: {when}: {lookups} indexed scans, {builds} index builds ({entries} textures, {index?.Count ?? 0} paths, {buildMs:F0} ms){verifyText}");
+            RLOLog.Detail($"Melee Animation: {when}: {lookups} indexed scans, {builds} index builds ({entries} textures, {index?.Count ?? 0} paths, {buildMs:F0} ms){verifyText}");
         }
     }
 }

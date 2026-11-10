@@ -1,5 +1,47 @@
 # Changelog
 
+## 5.3
+
+### Changed
+- Loading screen: with Loading Progress, one line "RimWorld Loading Optimizer enabled" at the bottom of its window instead of the green bar; without it, a small panel in the game's window style.
+- The log only shows the load time and problems. The per-feature startup report is now the setting "Detailed startup report in log" (off by default).
+- Diagnostic environment variables start with `RLO_` (for example `RLO_ALL_OFF`, `RLO_VERIFY`, `RLO_PROFILE`); see the README.
+- Research tab layout: the node positions are relaxed per research tab instead of over all tabs at once.
+- Thing filters: the loops that remove disallowed things walk only the things still allowed instead of every thing. It steps aside when another mod patches thing filters.
+- Thing filters: allowing a whole category adds its things in one step from a set kept per category, instead of one call per thing (11 million calls on the Progression packs list, mostly from recipes whose default ingredient filter allows a top category). It follows the Category cache setting, compares its first 50 results with the game's own code, and leaves a call to the game when a thing was already allowed without its variants or when another mod patches `ThingFilter.SetAllow`.
+
+### Fixed
+- RimWorld Loading Optimizer starts its own background work (pre-compiling patched methods, the def XML cache key, the Missile Girl and DDS read-ahead) only after it has installed all its patches. Before, those threads could run a method at the moment it was being patched, which crashed the game in rare cases while the mods were starting.
+- When startup goes straight into a game instead of the main menu, the main menu steps now run once that game has loaded: startup-only patches are removed and (1.7) the GC latency mode is set back. Before, they stayed until the main menu was opened.
+- Self-checks run again after every RimWorld Loading Optimizer update, not only after a game or mod update. All self-checks run once on the first start with this version.
+- The category cache, recipe index, facility link lookup and thing filter loops also step aside when another mod patches the same method later during startup, not only when it was patched before their first use.
+- Reading textures ahead: when the self-check of the DDS buffers switches them off, the buffers already read are freed and the remaining files are read into the file cache. Before, read-ahead stopped and up to 768 MB stayed in use until the main menu.
+- Measurement: the "off" start no longer turns on the detailed startup report, so both starts log the same amount. A measurement start that goes straight into a game is cancelled instead of leaving every later start switched off.
+- The optimizer overlap check no longer removes its own hook while the game is loading; removing it while other threads ran the same method caused a rare crash just before the main menu (seen once on 1.7).
+
+### RimWorld 1.6
+- Releasing overridden textures no longer frees a texture when the mod that overrides it has no usable texture at that path.
+
+### RimWorld 1.7
+- Works with RimWorld 1.7.5000.
+- The patched def XML is cached. On a start with the same mods, files, mod settings and game version, mod XML files are not read and patches are not applied; the saved XML is read on a background thread while the mods start, and Missile Girl's own XML cache stays off on those starts. Patch files are read on background threads while the mods start. The def counts per mod are checked on every start that uses it. Building the cache on the first start cost nothing measurable on the Progression packs list.
+- Cached texture atlas pages that the last start used are read and unpacked on worker threads while the main thread prepares the atlases, a few pages ahead.
+- Texture atlas pages with DLC or mod textures from asset bundles are now saved in the game's atlas cache and loaded on the next start, instead of being baked again every start. The bundle textures get a cache key from their bundle file (path, size, date and their place in the bundle). On the Progression packs list all 22 pages load from the cache (was 15); peak memory 14.4 instead of 15.9 GB.
+- The def XML cache is rebuilt after any change to any mod's settings (all `Mod_*.xml` and HugsLib settings), not only those of mods with their own patch operations, so a changed mod option can never load defs patched with the old value.
+- Graphics with appearance variants look up each texture folder once per graphic instead of once per variant.
+- Folder lookups in asset bundles use an index of the folders in each bundle.
+- Decoding mod sounds ahead is off by default. 1.7.5000 streams .ogg sounds instead of decoding them, and on the Progression packs list starts were faster without it. It can still be switched on in Mod Settings.
+- 1.7.5000: Giddy-Up draw offsets work again (a game type moved).
+- 1.7.5000: skipping the forced memory clean-up at the end of loading finds the game's new clean-up call.
+- The game's built-in Prepatcher support counts as Prepatcher for the Yet another Optimizer check and the log hint about rewritten methods.
+- README: an optional Steam launch option for a larger GC budget while loading.
+- Melee Animation support is no longer listed, because it never loaded on 1.7.
+- Def XML cache: the cache is not kept on mod lists where patch operations run after the patching phase (XML Extensions' def database operations, PostInheritanceOperation), because a start from the cache could not repeat them. Such lists load the normal way on every start.
+- Def XML cache: only the first load of a session writes the cache. A reload after a mod error or a language change could store its result under the key of the original mod list.
+- Def XML cache: a mod's name is part of the cache key, and the cached document has the same first node as the original. Existing caches are rebuilt once.
+- A start that uses the def XML cache is recorded as a warm start in the measurement.
+- Decoding mod sounds ahead: a sound the game was waiting for is used instead of being opened a second time.
+
 ## 5.2
 
 ### Changed

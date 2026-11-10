@@ -36,10 +36,10 @@ Times are to the main menu. "–" means not measured. Details per version below.
 
 - Every start ran through the RimMods benchmark runner, one game at a time, with Steam closed. Each start loads to the main menu and closes the game.
 - Time is RimWorld Loading Optimizer's own log line `main menu reached at … s`, counted from process start.
-- "Off" is the same mod list with every speedup switched off (`LEANMEMORY_ALLOFF=1`), so only the speedups differ. The mod stays loaded for the measurement and the log reports, which run in both columns.
+- "Off" is the same mod list with every speedup switched off (`RLO_ALL_OFF=1`), so only the speedups differ. The mod stays loaded for the measurement and the log reports, which run in both columns.
 - Warm = Missile Girl's XML cache was used (a normal start). Cold = it was not (first start after a mod update or a mod list change); for a cold start Missile Girl's mod list file was removed first.
 - Loading Progress, Missile Girl and Performance Optimizer were active in every start. The numbers are measured **on top of** these.
-- Correctness: every speedup has a verification mode (`LEANMEMORY_VERIFY=1`) that recomputes the result the original way.
+- Correctness: every speedup has a verification mode (`RLO_VERIFY=1`) that recomputes the result the original way.
 
 ## RimWorld 1.6 (Mac, 2026-10-18)
 
