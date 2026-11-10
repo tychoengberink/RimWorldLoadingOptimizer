@@ -8,9 +8,7 @@ namespace RimWorldLoadingOptimizer
     public static class TypeIndex
     {
         private static readonly object gate = new object();
-        private static readonly Dictionary<string, Type> byFullName = new Dictionary<string, Type>(
-            StringComparer.Ordinal
-        );
+        private static readonly Dictionary<string, Type> byFullName = new Dictionary<string, Type>(StringComparer.Ordinal);
         private static readonly Dictionary<string, Type> byName = new Dictionary<string, Type>(StringComparer.Ordinal);
         private static readonly Dictionary<string, Type> found = new Dictionary<string, Type>(StringComparer.Ordinal);
         private static readonly HashSet<Assembly> indexed = new HashSet<Assembly>();
@@ -19,33 +17,20 @@ namespace RimWorldLoadingOptimizer
         public static int CachedHits;
         public static readonly MismatchLog Mismatches = new MismatchLog("type index");
         private static SelfCheck check;
-
-        [ThreadStatic]
-        private static bool bypass;
+        [ThreadStatic] private static bool bypass;
 
         public static void Install(Harmony harmony)
         {
-            check = new SelfCheck(
-                "TypeByName index",
-                VersionCheck.Code(
-                    AccessTools.Method(typeof(AccessTools), nameof(AccessTools.TypeByName)),
-                    AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllTypes)),
-                    AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllAssemblies))
-                ),
-                25
-            );
-            harmony.Patch(
+            check = new SelfCheck("TypeByName index", VersionCheck.Code(
                 AccessTools.Method(typeof(AccessTools), nameof(AccessTools.TypeByName)),
-                prefix: new HarmonyMethod(typeof(TypeIndex), nameof(Prefix)) { priority = Priority.Last }
-            );
+                AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllTypes)),
+                AccessTools.Method(typeof(AccessTools), nameof(AccessTools.AllAssemblies))), 25);
+            harmony.Patch(AccessTools.Method(typeof(AccessTools), nameof(AccessTools.TypeByName)), prefix: new HarmonyMethod(typeof(TypeIndex), nameof(Prefix)) { priority = Priority.Last });
         }
 
         private static void Add(Assembly assembly)
         {
-            if (
-                indexed.Contains(assembly)
-                || assembly.FullName.StartsWith("Microsoft.VisualStudio", StringComparison.Ordinal)
-            )
+            if (indexed.Contains(assembly) || assembly.FullName.StartsWith("Microsoft.VisualStudio", StringComparison.Ordinal))
             {
                 return;
             }
@@ -108,8 +93,7 @@ namespace RimWorldLoadingOptimizer
                     return false;
                 }
             }
-            var type =
-                typeof(AccessTools).Assembly.GetType(name, false) ?? typeof(object).Assembly.GetType(name, false);
+            var type = typeof(AccessTools).Assembly.GetType(name, false) ?? typeof(object).Assembly.GetType(name, false);
             if (type == null)
             {
                 foreach (var assembly in AccessTools.AllAssemblies())
@@ -164,7 +148,6 @@ namespace RimWorldLoadingOptimizer
             return original;
         }
 
-        public static string Stats() =>
-            $"type index: {Lookups} slow-path lookups, {CachedHits} cached hits, {byFullName.Count} types, {Mismatches.Count} verify mismatches";
+        public static string Stats() => $"type index: {Lookups} slow-path lookups, {CachedHits} cached hits, {byFullName.Count} types, {Mismatches.Count} verify mismatches";
     }
 }

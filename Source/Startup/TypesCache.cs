@@ -16,12 +16,8 @@ namespace RimWorldLoadingOptimizer
         private static readonly Dictionary<Assembly, Type[]> cache = new Dictionary<Assembly, Type[]>();
         private static readonly HashSet<Assembly> uncacheable = new HashSet<Assembly>();
         private static readonly object gate = new object();
-
-        [ThreadStatic]
-        private static bool inside;
-        private static int hits,
-            misses,
-            early;
+        [ThreadStatic] private static bool inside;
+        private static int hits, misses, early;
         private static readonly MismatchLog mismatches = new MismatchLog("assembly type cache");
         private static bool installed;
 
@@ -35,9 +31,7 @@ namespace RimWorldLoadingOptimizer
             var getTypes = AccessTools.Method(typeof(Assembly), nameof(Assembly.GetTypes), Type.EmptyTypes);
             harmony.Patch(getTypes, prefix: new HarmonyMethod(typeof(TypesCache), nameof(Prefix)));
             MainMenu.UnpatchAfterStartup(getTypes);
-            StartupPhaseFixes.Reports.Add(() =>
-                $"assembly type cache: {early} calls before the mod constructors, {hits} hits, {misses} assemblies read, {uncacheable.Count} uncacheable, {mismatches.Count} verify mismatches"
-            );
+            StartupPhaseFixes.Reports.Add(() => $"assembly type cache: {early} calls before the mod constructors, {hits} hits, {misses} assemblies read, {uncacheable.Count} uncacheable, {mismatches.Count} verify mismatches");
         }
 
         public static Type[] Get(Assembly assembly)
@@ -60,48 +54,26 @@ namespace RimWorldLoadingOptimizer
                 }
                 else
                 {
-                    var call = module
-                        .GetType()
-                        .Assembly.GetType("Mono.Cecil.Cil.OpCodes")
-                        .GetField("Call")
-                        .GetValue(null);
+                    var call = module.GetType().Assembly.GetType("Mono.Cecil.Cil.OpCodes").GetField("Call").GetValue(null);
                     var import = AccessTools.Method(module.GetType(), "ImportReference", new[] { typeof(MethodBase) });
                     var target = import.Invoke(module, new object[] { typeof(TypesCache).GetMethod(nameof(Get)) });
                     var getType = AccessTools.Method(module.GetType(), "GetType", new[] { typeof(string) });
                     var replaced = 0;
-                    foreach (
-                        var (typeName, methodName) in new[]
-                        {
-                            ("Verse.GenTypes", "get_AllTypes"),
-                            ("Verse.ModAssemblyHandler", "AssemblyIsUsable"),
-                        }
-                    )
+                    foreach (var (typeName, methodName) in new[] { ("Verse.GenTypes", "get_AllTypes"), ("Verse.ModAssemblyHandler", "AssemblyIsUsable") })
                     {
                         var type = getType.Invoke(module, new object[] { typeName });
-                        var method = ((IEnumerable)Traverse.Create(type).Property("Methods").GetValue())
-                            .Cast<object>()
-                            .First(m => Traverse.Create(m).Property("Name").GetValue<string>() == methodName);
-                        foreach (
-                            var instruction in (IEnumerable)
-                                Traverse.Create(method).Property("Body").Property("Instructions").GetValue()
-                        )
+                        var method = ((IEnumerable)Traverse.Create(type).Property("Methods").GetValue()).Cast<object>().First(m => Traverse.Create(m).Property("Name").GetValue<string>() == methodName);
+                        foreach (var instruction in (IEnumerable)Traverse.Create(method).Property("Body").Property("Instructions").GetValue())
                         {
                             var access = Traverse.Create(instruction);
                             var operand = access.Property("Operand").GetValue();
-                            if (
-                                operand == null
-                                || !operand.GetType().Name.StartsWith("Method", StringComparison.Ordinal)
-                            )
+                            if (operand == null || !operand.GetType().Name.StartsWith("Method", StringComparison.Ordinal))
                             {
                                 continue;
                             }
                             var reference = Traverse.Create(operand);
-                            if (
-                                reference.Property("Name").GetValue<string>() == "GetTypes"
-                                && reference.Property("DeclaringType").Property("FullName").GetValue<string>()
-                                    == "System.Reflection.Assembly"
-                                && ((IList)reference.Property("Parameters").GetValue()).Count == 0
-                            )
+                            if (reference.Property("Name").GetValue<string>() == "GetTypes" && reference.Property("DeclaringType").Property("FullName").GetValue<string>() == "System.Reflection.Assembly"
+                                && ((IList)reference.Property("Parameters").GetValue()).Count == 0)
                             {
                                 access.Property("OpCode").SetValue(call);
                                 access.Property("Operand").SetValue(target);

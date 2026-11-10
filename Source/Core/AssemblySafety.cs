@@ -12,9 +12,7 @@ namespace RimWorldLoadingOptimizer
 #if !RW17
         private static HashSet<string> loaded;
 #else
-        private static readonly Dictionary<string, bool> available = new Dictionary<string, bool>(
-            StringComparer.OrdinalIgnoreCase
-        );
+        private static readonly Dictionary<string, bool> available = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         private static List<(string pattern, string target)> redirects;
 #endif
 
@@ -31,10 +29,7 @@ namespace RimWorldLoadingOptimizer
 #if !RW17
                 if (loaded == null)
                 {
-                    loaded = new HashSet<string>(
-                        AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetName().Name),
-                        StringComparer.OrdinalIgnoreCase
-                    );
+                    loaded = new HashSet<string>(AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetName().Name), StringComparer.OrdinalIgnoreCase);
                 }
 #endif
                 string missing = null;
@@ -43,10 +38,7 @@ namespace RimWorldLoadingOptimizer
 #if RW17
                     missing = assembly.GetReferencedAssemblies().FirstOrDefault(r => !Available(r))?.Name;
 #else
-                    missing = assembly
-                        .GetReferencedAssemblies()
-                        .Select(r => r.Name)
-                        .FirstOrDefault(n => !loaded.Contains(n));
+                    missing = assembly.GetReferencedAssemblies().Select(r => r.Name).FirstOrDefault(n => !loaded.Contains(n));
 #endif
                 }
                 catch (Exception e)
@@ -69,11 +61,7 @@ namespace RimWorldLoadingOptimizer
             var name = Redirected(reference.Name);
             if (!available.TryGetValue(name, out var result))
             {
-                result =
-                    AppDomain
-                        .CurrentDomain.GetAssemblies()
-                        .Any(a => string.Equals(a.GetName().Name, name, StringComparison.OrdinalIgnoreCase))
-                    || CanLoad(reference);
+                result = AppDomain.CurrentDomain.GetAssemblies().Any(a => string.Equals(a.GetName().Name, name, StringComparison.OrdinalIgnoreCase)) || CanLoad(reference);
                 available[name] = result;
             }
             return result;
@@ -116,9 +104,6 @@ namespace RimWorldLoadingOptimizer
 
         public static bool CanScan(Type type) => type != null && CanScan(type.Assembly);
 
-        public static string Stats() =>
-            Skipped.Count == 0
-                ? "assemblies with missing references: none"
-                : $"assemblies not scanned because they reference an assembly that is not loaded: {string.Join(", ", Skipped)}";
+        public static string Stats() => Skipped.Count == 0 ? "assemblies with missing references: none" : $"assemblies not scanned because they reference an assembly that is not loaded: {string.Join(", ", Skipped)}";
     }
 }

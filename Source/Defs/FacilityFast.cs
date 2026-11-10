@@ -14,33 +14,21 @@ namespace RimWorldLoadingOptimizer
         private static MethodInfo getComp;
         private static Fingerprint.Guard guard;
         private static SelfCheck check;
-
-        [ThreadStatic]
-        private static bool bypass;
-        private static long calls,
-            ticks;
+        [ThreadStatic] private static bool bypass;
+        private static long calls, ticks;
         private static readonly MismatchLog mismatches = new MismatchLog("facility link lookup");
 
         public static void Install(Harmony harmony)
         {
-            target = AccessTools.Method(
-                typeof(CompProperties_Facility),
-                nameof(CompProperties_Facility.ResolveReferences)
-            );
+            target = AccessTools.Method(typeof(CompProperties_Facility), nameof(CompProperties_Facility.ResolveReferences));
             getComp = AccessTools.Method(typeof(ThingDef), nameof(ThingDef.GetCompProperties));
             if (target == null || getComp == null)
             {
-                VersionCheck.Skip(
-                    "Facility link lookup",
-                    "CompProperties_Facility.ResolveReferences or ThingDef.GetCompProperties no longer exists"
-                );
+                VersionCheck.Skip("Facility link lookup", "CompProperties_Facility.ResolveReferences or ThingDef.GetCompProperties no longer exists");
                 return;
             }
             check = new SelfCheck("Facility link lookup", VersionCheck.Code(target, getComp), 20);
-            harmony.Patch(
-                target,
-                prefix: new HarmonyMethod(typeof(FacilityFast), nameof(Prefix)) { priority = Priority.Low }
-            );
+            harmony.Patch(target, prefix: new HarmonyMethod(typeof(FacilityFast), nameof(Prefix)) { priority = Priority.Low });
             StartupPhaseFixes.Reports.Add(Stats);
         }
 
@@ -54,15 +42,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return true;
             }
-            if (
-                !(
-                    guard ??= new Fingerprint.Guard(
-                        target,
-                        getComp,
-                        getComp.MakeGenericMethod(typeof(CompProperties_AffectedByFacilities))
-                    )
-                ).Ours
-            )
+            if (!(guard ??= new Fingerprint.Guard(target, getComp, getComp.MakeGenericMethod(typeof(CompProperties_AffectedByFacilities)))).Ours)
             {
                 return true;
             }
@@ -115,9 +95,7 @@ namespace RimWorldLoadingOptimizer
                 check.Report(same, $"facility {parentDef?.defName}");
                 if (!same)
                 {
-                    mismatches.Report(
-                        $"facility {parentDef?.defName}: fast {result.Count} buildings, original {slow.Count}"
-                    );
+                    mismatches.Report($"facility {parentDef?.defName}: fast {result.Count} buildings, original {slow.Count}");
                     result = slow;
                 }
             }
@@ -126,9 +104,6 @@ namespace RimWorldLoadingOptimizer
             return false;
         }
 
-        public static string Stats() =>
-            $"facility link lookup: {calls} calls in {StartupPhaseFixes.Seconds(ticks):F2} s"
-            + (guard?.Blocked == true ? " (left to vanilla: other patches present)" : "")
-            + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
+        public static string Stats() => $"facility link lookup: {calls} calls in {StartupPhaseFixes.Seconds(ticks):F2} s" + (guard?.Blocked == true ? " (left to vanilla: other patches present)" : "") + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
     }
 }

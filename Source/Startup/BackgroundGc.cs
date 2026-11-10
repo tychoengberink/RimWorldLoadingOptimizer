@@ -10,57 +10,31 @@ namespace RimWorldLoadingOptimizer
 {
     public static class BackgroundGc
     {
-        private static readonly MethodInfo Blocking = AccessTools.Method(
-            typeof(GC),
-            nameof(GC.Collect),
-            new[] { typeof(int), typeof(GCCollectionMode) }
-        );
-        private static readonly MethodInfo Compacting = AccessTools.Method(
-            typeof(GC),
-            nameof(GC.Collect),
-            new[] { typeof(int), typeof(GCCollectionMode), typeof(bool), typeof(bool) }
-        );
+        private static readonly MethodInfo Blocking = AccessTools.Method(typeof(GC), nameof(GC.Collect), new[] { typeof(int), typeof(GCCollectionMode) });
+        private static readonly MethodInfo Compacting = AccessTools.Method(typeof(GC), nameof(GC.Collect), new[] { typeof(int), typeof(GCCollectionMode), typeof(bool), typeof(bool) });
 
         private static int redirected;
         private static long heapAtSkipMb;
 
         public static void Install(Harmony harmony)
         {
-            var targets = new[] { typeof(PlayDataLoader) }
-                .Concat(typeof(PlayDataLoader).GetNestedTypes(AccessTools.all))
+            var targets = new[] { typeof(PlayDataLoader) }.Concat(typeof(PlayDataLoader).GetNestedTypes(AccessTools.all))
                 .SelectMany(type => type.GetMethods(AccessTools.all | BindingFlags.DeclaredOnly))
-                .Where(method =>
-                    !method.IsAbstract
-                    && !method.ContainsGenericParameters
-                    && method.GetMethodBody() != null
-                    && IlScan.CallsAny(method, Blocking, Compacting)
-                )
+                .Where(method => !method.IsAbstract && !method.ContainsGenericParameters && method.GetMethodBody() != null && IlScan.CallsAny(method, Blocking, Compacting))
                 .ToList();
             if (targets.Count != 1)
             {
-                RLOLog.Detail(
-                    $"load-end memory clean-up: expected one forced collection in the loading code, found {targets.Count}; skipped"
-                );
+                RLOLog.Detail($"load-end memory clean-up: expected one forced collection in the loading code, found {targets.Count}; skipped");
                 return;
             }
             harmony.Patch(targets[0], transpiler: new HarmonyMethod(typeof(BackgroundGc), nameof(Transpiler)));
             if (RLOMod.Settings.Supports("loadingprogress"))
             {
-                LongEventHandler.ExecuteWhenFinished(() =>
-                    RLOMod.Try(
-                        "skip the load-end memory clean-up (Loading Progress)",
-                        true,
-                        () => PatchLoadingProgress(harmony)
-                    )
-                );
+                LongEventHandler.ExecuteWhenFinished(() => RLOMod.Try("skip the load-end memory clean-up (Loading Progress)", true, () => PatchLoadingProgress(harmony)));
             }
-            MainMenu.Then(() =>
-                RLOLog.Detail(
-                    redirected == 0
-                        ? "load-end memory clean-up: not reached before the main menu"
-                        : $"load-end memory clean-up: the forced full collection was skipped (managed heap {heapAtSkipMb} MB at that point, {GC.GetTotalMemory(false) >> 20} MB at the main menu); the runtime collects as usual"
-                )
-            );
+            MainMenu.Then(() => RLOLog.Detail(redirected == 0
+                ? "load-end memory clean-up: not reached before the main menu"
+                : $"load-end memory clean-up: the forced full collection was skipped (managed heap {heapAtSkipMb} MB at that point, {GC.GetTotalMemory(false) >> 20} MB at the main menu); the runtime collects as usual"));
         }
 
         private static void PatchLoadingProgress(Harmony harmony)
@@ -75,26 +49,10 @@ namespace RimWorldLoadingOptimizer
         }
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions) =>
-            IlScan.Replace(
-                IlScan.Replace(
-                    instructions,
-                    Blocking,
-                    AccessTools.Method(
-                        typeof(BackgroundGc),
-                        nameof(Collect),
-                        new[] { typeof(int), typeof(GCCollectionMode) }
-                    )
-                ),
-                Compacting,
-                AccessTools.Method(
-                    typeof(BackgroundGc),
-                    nameof(Collect),
-                    new[] { typeof(int), typeof(GCCollectionMode), typeof(bool), typeof(bool) }
-                )
-            );
+            IlScan.Replace(IlScan.Replace(instructions, Blocking, AccessTools.Method(typeof(BackgroundGc), nameof(Collect), new[] { typeof(int), typeof(GCCollectionMode) })),
+                Compacting, AccessTools.Method(typeof(BackgroundGc), nameof(Collect), new[] { typeof(int), typeof(GCCollectionMode), typeof(bool), typeof(bool) }));
 
-        public static void Collect(int generation, GCCollectionMode mode, bool blocking, bool compacting) =>
-            Collect(generation, mode);
+        public static void Collect(int generation, GCCollectionMode mode, bool blocking, bool compacting) => Collect(generation, mode);
 
         public static void Collect(int generation, GCCollectionMode mode)
         {

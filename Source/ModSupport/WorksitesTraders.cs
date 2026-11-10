@@ -16,21 +16,14 @@ namespace RimWorldLoadingOptimizer
     {
         public const string Feature = "Worksites Expanded trader count";
 
-        private static MethodInfo tradeabilityFor,
-            handlesThingDef;
-        private static int redirected,
-            shortcuts,
-            verified,
-            frame = -1;
+        private static MethodInfo tradeabilityFor, handlesThingDef;
+        private static int redirected, shortcuts, verified, frame = -1;
         private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static bool unpatched;
         private static long verifyTicks;
         private static SelfCheck check;
         private static Func<ThingDef, int> countOriginal;
-
-        [ThreadStatic]
-        private static bool bypass,
-            served;
+        [ThreadStatic] private static bool bypass, served;
 
         public static void Install(Harmony harmony)
         {
@@ -41,18 +34,9 @@ namespace RimWorldLoadingOptimizer
             }
             var count = AccessTools.Method(loot, "CountTradersStocking");
             tradeabilityFor = AccessTools.Method(typeof(StockGenerator), nameof(StockGenerator.TradeabilityFor));
-            handlesThingDef = AccessTools.Method(
-                typeof(StockGenerator_Tomes),
-                nameof(StockGenerator_Tomes.HandlesThingDef)
-            );
-            if (
-                tradeabilityFor == null
-                || handlesThingDef == null
-                || count?.ReturnType != typeof(int)
-                || !count.IsStatic
-                || count.GetParameters().Length != 1
-                || count.GetParameters()[0].ParameterType != typeof(ThingDef)
-            )
+            handlesThingDef = AccessTools.Method(typeof(StockGenerator_Tomes), nameof(StockGenerator_Tomes.HandlesThingDef));
+            if (tradeabilityFor == null || handlesThingDef == null || count?.ReturnType != typeof(int) || !count.IsStatic
+                || count.GetParameters().Length != 1 || count.GetParameters()[0].ParameterType != typeof(ThingDef))
             {
                 VersionCheck.Skip(Feature, "a method it needs no longer exists");
                 return;
@@ -63,27 +47,16 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             countOriginal = (Func<ThingDef, int>)count.CreateDelegate(typeof(Func<ThingDef, int>));
-            if (
-                AccessTools.Method(typeof(StockGenerator_Tomes), nameof(StockGenerator.TradeabilityFor)).DeclaringType
-                != typeof(StockGenerator)
-            )
+            if (AccessTools.Method(typeof(StockGenerator_Tomes), nameof(StockGenerator.TradeabilityFor)).DeclaringType != typeof(StockGenerator))
             {
-                RLOLog.Detail(
-                    $"{Feature}: the tome stock generator has its own tradeability check in this RimWorld version. This speedup is skipped and the original code runs; nothing is broken."
-                );
+                RLOLog.Detail($"{Feature}: the tome stock generator has its own tradeability check in this RimWorld version. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
-            harmony.Patch(
-                count,
-                transpiler: new HarmonyMethod(typeof(WorksitesTraders), nameof(Transpiler)),
-                postfix: new HarmonyMethod(typeof(WorksitesTraders), nameof(CountPostfix))
-            );
+            harmony.Patch(count, transpiler: new HarmonyMethod(typeof(WorksitesTraders), nameof(Transpiler)), postfix: new HarmonyMethod(typeof(WorksitesTraders), nameof(CountPostfix)));
             if (redirected != 1)
             {
                 harmony.Unpatch(count, HarmonyPatchType.All, harmony.Id);
-                RLOLog.Detail(
-                    $"{Feature}: the tradeability call was not found as expected ({redirected} found). This speedup is skipped and the original code runs; nothing is broken."
-                );
+                RLOLog.Detail($"{Feature}: the tradeability call was not found as expected ({redirected} found). This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             MainMenu.UnpatchAfterStartup(count);
@@ -93,10 +66,7 @@ namespace RimWorldLoadingOptimizer
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             var list = instructions.ToList();
-            var calls = list.Where(i =>
-                    i.opcode == OpCodes.Callvirt && i.operand is MethodInfo m && m == tradeabilityFor
-                )
-                .ToList();
+            var calls = list.Where(i => i.opcode == OpCodes.Callvirt && i.operand is MethodInfo m && m == tradeabilityFor).ToList();
             redirected = calls.Count;
             if (calls.Count != 1)
             {
@@ -109,15 +79,7 @@ namespace RimWorldLoadingOptimizer
 
         public static Tradeability TradeabilityFor(StockGenerator generator, ThingDef thingDef)
         {
-            if (
-                bypass
-                || check.IsOff
-                || generator == null
-                || generator.GetType() != typeof(StockGenerator_Tomes)
-                || !ModsConfig.AnomalyActive
-                || Current.Game != null
-                || !Unpatched()
-            )
+            if (bypass || check.IsOff || generator == null || generator.GetType() != typeof(StockGenerator_Tomes) || !ModsConfig.AnomalyActive || Current.Game != null || !Unpatched())
             {
                 return generator.TradeabilityFor(thingDef);
             }
@@ -191,8 +153,7 @@ namespace RimWorldLoadingOptimizer
             var text = $"{Feature}: {shortcuts:N0} tome-trader checks answered without an exception";
             if (DevSwitches.Verify)
             {
-                text +=
-                    $"; verify: {verified:N0} original checks threw as expected ({StartupPhaseFixes.Seconds(verifyTicks):F2} s spent on them), {mismatches.Count} mismatches";
+                text += $"; verify: {verified:N0} original checks threw as expected ({StartupPhaseFixes.Seconds(verifyTicks):F2} s spent on them), {mismatches.Count} mismatches";
             }
             return text;
         }

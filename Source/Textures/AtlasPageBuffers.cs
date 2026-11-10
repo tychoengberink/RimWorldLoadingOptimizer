@@ -19,53 +19,25 @@ namespace RimWorldLoadingOptimizer
         private static ArrayPool<byte> saved;
         private static LargeBufferPool pool;
         private static int bakes;
-        private static long largeRents,
-            largeBytes,
-            reusedBytes,
-            freshArrays;
+        private static long largeRents, largeBytes, reusedBytes, freshArrays;
 
         public static void Install(Harmony harmony)
         {
             var store = AccessTools.TypeByName("Waylith.Rendering.TextureCacheStore");
             var source = store == null ? null : AccessTools.Inner(store, "PackedTextureSource");
             buffers = store == null ? null : AccessTools.Field(store, "_buffers");
-            var bake = AccessTools.Method(
-                typeof(GlobalTextureAtlasManager),
-                nameof(GlobalTextureAtlasManager.BakeStaticAtlases)
-            );
-            if (
-                bake == null
-                || source == null
-                || buffers == null
-                || !buffers.IsStatic
-                || buffers.IsInitOnly
-                || buffers.FieldType != typeof(ArrayPool<byte>)
-            )
+            var bake = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases));
+            if (bake == null || source == null || buffers == null || !buffers.IsStatic || buffers.IsInitOnly || buffers.FieldType != typeof(ArrayPool<byte>))
             {
                 RLOLog.Detail("atlas page buffers: the game's texture cache buffer pool was not found; skipped");
                 return;
             }
-            var create = AccessTools.Method(
-                typeof(ArrayPool<byte>),
-                nameof(ArrayPool<byte>.Create),
-                new[] { typeof(int), typeof(int) }
-            );
-            if (
-                !VersionCheck.Pattern(
-                    "Atlas page buffers",
-                    AccessTools.Method(store, "NewBufferPool"),
-                    code => VersionCheck.Calls(code, create) == 1 && !code.Any(i => i.opcode == OpCodes.Newobj),
-                    "makes its buffer pool with ArrayPool.Create"
-                )
-            )
+            var create = AccessTools.Method(typeof(ArrayPool<byte>), nameof(ArrayPool<byte>.Create), new[] { typeof(int), typeof(int) });
+            if (!VersionCheck.Pattern("Atlas page buffers", AccessTools.Method(store, "NewBufferPool"), code => VersionCheck.Calls(code, create) == 1 && !code.Any(i => i.opcode == OpCodes.Newobj), "makes its buffer pool with ArrayPool.Create"))
             {
                 return;
             }
-            harmony.Patch(
-                bake,
-                prefix: new HarmonyMethod(typeof(AtlasPageBuffers), nameof(Prefix)),
-                finalizer: new HarmonyMethod(typeof(AtlasPageBuffers), nameof(Finalizer))
-            );
+            harmony.Patch(bake, prefix: new HarmonyMethod(typeof(AtlasPageBuffers), nameof(Prefix)), finalizer: new HarmonyMethod(typeof(AtlasPageBuffers), nameof(Finalizer)));
             MainMenu.UnpatchAfterStartup(bake);
             StartupPhaseFixes.Reports.Add(Stats);
         }
@@ -102,10 +74,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return "atlas page buffers: atlas baking not reached";
             }
-            var verify = DevSwitches.Verify
-                ? "; verify: buffers were filled with junk before every use, so a page that still loads from the "
-                    + "cache did not depend on fresh memory (compare the atlas cache hit count with a normal run)"
-                : "";
+            var verify = DevSwitches.Verify ? "; verify: buffers were filled with junk before every use, so a page that still loads from the cache did not depend on fresh memory (compare the atlas cache hit count with a normal run)" : "";
             return $"atlas page buffers: {Interlocked.Read(ref largeRents)} cache reads over {StockLimit >> 20} MB ({Interlocked.Read(ref largeBytes) >> 20} MB) reusing {Interlocked.Read(ref freshArrays)} buffer(s), {Interlocked.Read(ref reusedBytes) >> 20} MB of large allocations avoided{verify}";
         }
 

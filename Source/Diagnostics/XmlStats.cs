@@ -29,9 +29,7 @@ namespace RimWorldLoadingOptimizer
                 FieldInfo[] fields;
                 try
                 {
-                    fields = type.GetFields(
-                        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly
-                    );
+                    fields = type.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
                 }
                 catch
                 {
@@ -40,19 +38,8 @@ namespace RimWorldLoadingOptimizer
                 foreach (var field in fields)
                 {
                     var fieldType = field.FieldType;
-                    if (
-                        field.IsLiteral
-                        || fieldType.IsValueType
-                        || fieldType.IsPointer
-                        || fieldType.IsByRef
-                        || fieldType.FullName == "System.MonoFNPtrFakeClass"
-                        || !(
-                            fieldType == typeof(object)
-                            || typeof(XmlNode).IsAssignableFrom(fieldType)
-                            || typeof(IEnumerable).IsAssignableFrom(fieldType)
-                        )
-                        || fieldType == typeof(string)
-                    )
+                    if (field.IsLiteral || fieldType.IsValueType || fieldType.IsPointer || fieldType.IsByRef || fieldType.FullName == "System.MonoFNPtrFakeClass"
+                        || !(fieldType == typeof(object) || typeof(XmlNode).IsAssignableFrom(fieldType) || typeof(IEnumerable).IsAssignableFrom(fieldType)) || fieldType == typeof(string))
                     {
                         continue;
                     }
@@ -83,7 +70,7 @@ namespace RimWorldLoadingOptimizer
             var sb = new StringBuilder("[RLO] static fields holding XML after startup:");
             foreach (var hit in hits.OrderByDescending(h => h.nodes).Take(20))
             {
-                sb.Append($"\n  {hit.nodes, 10} nodes  {hit.field}");
+                sb.Append($"\n  {hit.nodes,10} nodes  {hit.field}");
             }
             Log.Message(sb.ToString());
         }
@@ -103,25 +90,25 @@ namespace RimWorldLoadingOptimizer
                 case string _:
                     return 0;
                 case IDictionary dict when depth < 2:
-                {
-                    long total = 0;
-                    var docs = new HashSet<XmlDocument>();
-                    foreach (DictionaryEntry entry in dict)
                     {
-                        total += Inner(entry.Key, depth, docs) + Inner(entry.Value, depth, docs);
+                        long total = 0;
+                        var docs = new HashSet<XmlDocument>();
+                        foreach (DictionaryEntry entry in dict)
+                        {
+                            total += Inner(entry.Key, depth, docs) + Inner(entry.Value, depth, docs);
+                        }
+                        return total;
                     }
-                    return total;
-                }
                 case IEnumerable list when depth < 2:
-                {
-                    long total = 0;
-                    var docs = new HashSet<XmlDocument>();
-                    foreach (var item in list)
                     {
-                        total += Inner(item, depth, docs);
+                        long total = 0;
+                        var docs = new HashSet<XmlDocument>();
+                        foreach (var item in list)
+                        {
+                            total += Inner(item, depth, docs);
+                        }
+                        return total;
                     }
-                    return total;
-                }
                 default:
                     return 0;
             }

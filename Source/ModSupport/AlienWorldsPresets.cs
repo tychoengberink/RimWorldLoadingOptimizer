@@ -21,15 +21,8 @@ namespace RimWorldLoadingOptimizer
         public const string Feature = "Alien Worlds preset images";
         private const string Magic = "rlo-aw-1";
 
-        private static readonly MethodInfo Get = AccessTools.Method(
-            typeof(ContentFinder<Texture2D>),
-            nameof(ContentFinder<Texture2D>.Get)
-        );
-        private static readonly MethodInfo Encode = AccessTools.Method(
-            typeof(ImageConversion),
-            nameof(ImageConversion.EncodeToPNG),
-            new[] { typeof(Texture2D) }
-        );
+        private static readonly MethodInfo Get = AccessTools.Method(typeof(ContentFinder<Texture2D>), nameof(ContentFinder<Texture2D>.Get));
+        private static readonly MethodInfo Encode = AccessTools.Method(typeof(ImageConversion), nameof(ImageConversion.EncodeToPNG), new[] { typeof(Texture2D) });
         private static readonly MethodInfo Png = AccessTools.Method(typeof(AlienWorldsPresets), nameof(EncodeOrReuse));
 
         private static MethodInfo duplicate;
@@ -48,12 +41,7 @@ namespace RimWorldLoadingOptimizer
         private static Dictionary<ModContentPack, Dictionary<string, FileInfo>> files;
         private static long start;
 
-        private static int replaced,
-            refreshes,
-            reused,
-            encoded,
-            uncacheable,
-            verified;
+        private static int replaced, refreshes, reused, encoded, uncacheable, verified;
         private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static long ticks;
 
@@ -76,37 +64,20 @@ namespace RimWorldLoadingOptimizer
             manager = AccessTools.Field(type, "WorldPresetManager");
             if (root == null || manager == null || Get == null || Encode == null)
             {
-                RLOLog.Detail(
-                    $"{Feature}: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken."
-                );
+                RLOLog.Detail($"{Feature}: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             duplicateTexture = AccessTools.MethodDelegate<Func<Texture2D, Texture2D>>(duplicate);
-            watched = PatchProcessor
-                .ReadMethodBody(duplicate)
-                .Select(p => p.Value)
-                .OfType<MethodBase>()
-                .Append(duplicate)
-                .Append(Encode)
-                .Distinct()
-                .ToList();
-            cachePath = Path.Combine(
-                GenFilePaths.SaveDataFolderPath,
-                "RimWorldLoadingOptimizer",
-                "alienworlds-presets.txt"
-            );
-            harmony.Patch(
-                refresh,
+            watched = PatchProcessor.ReadMethodBody(duplicate).Select(p => p.Value).OfType<MethodBase>().Append(duplicate).Append(Encode).Distinct().ToList();
+            cachePath = Path.Combine(GenFilePaths.SaveDataFolderPath, "RimWorldLoadingOptimizer", "alienworlds-presets.txt");
+            harmony.Patch(refresh,
                 prefix: new HarmonyMethod(typeof(AlienWorldsPresets), nameof(Before)),
                 finalizer: new HarmonyMethod(typeof(AlienWorldsPresets), nameof(After)),
-                transpiler: new HarmonyMethod(typeof(AlienWorldsPresets), nameof(Transpiler))
-            );
+                transpiler: new HarmonyMethod(typeof(AlienWorldsPresets), nameof(Transpiler)));
             active = replaced == 2;
             if (!active)
             {
-                RLOLog.Detail(
-                    $"{Feature}: expected 2 image exports, found {replaced}. This speedup is skipped and the original code runs; nothing is broken."
-                );
+                RLOLog.Detail($"{Feature}: expected 2 image exports, found {replaced}. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             StartupPhaseFixes.Reports.Add(Stats);
@@ -183,9 +154,7 @@ namespace RimWorldLoadingOptimizer
             catch (Exception e)
             {
                 previous.Clear();
-                RLOLog.Detail(
-                    $"{Feature}: could not read last start's images ({e.GetType().Name}: {e.Message}); all images are encoded as usual."
-                );
+                RLOLog.Detail($"{Feature}: could not read last start's images ({e.GetType().Name}: {e.Message}); all images are encoded as usual.");
             }
         }
 
@@ -205,12 +174,7 @@ namespace RimWorldLoadingOptimizer
             {
                 key = null;
             }
-            if (
-                key != null
-                && stored.TryGetValue(key, out var entry)
-                && previous.TryGetValue(entry.sha, out var cached)
-                && cached.Length == entry.length
-            )
+            if (key != null && stored.TryGetValue(key, out var entry) && previous.TryGetValue(entry.sha, out var cached) && cached.Length == entry.length)
             {
                 if (!DevSwitches.Verify && !check.IsChecking)
                 {
@@ -224,9 +188,7 @@ namespace RimWorldLoadingOptimizer
                 check.Report(same, $"image for '{itemPath}'");
                 if (!same && DevSwitches.Verify)
                 {
-                    mismatches.Report(
-                        $"image for '{itemPath}' differs from last start's ({original.Length} vs {cached.Length} bytes)"
-                    );
+                    mismatches.Report($"image for '{itemPath}' differs from last start's ({original.Length} vs {cached.Length} bytes)");
                 }
                 current[key] = (Sha(original), original.Length);
                 return original;
@@ -259,9 +221,7 @@ namespace RimWorldLoadingOptimizer
             }
             catch (Exception e)
             {
-                RLOLog.Detail(
-                    $"{Feature}: could not save the image list ({e.GetType().Name}: {e.Message}); the next start encodes all images again."
-                );
+                RLOLog.Detail($"{Feature}: could not save the image list ({e.GetType().Name}: {e.Message}); the next start encodes all images again.");
             }
             finally
             {
@@ -309,14 +269,9 @@ namespace RimWorldLoadingOptimizer
                 files[winner] = all;
             }
             var wanted = GenFilePaths.ContentPath<Texture2D>() + itemPath;
-            var sources = all.Select(p => (rel: p.Key.Replace('\\', '/'), info: p.Value))
-                .Where(p =>
-                    string.Equals(
-                        p.rel.Substring(0, p.rel.Length - Path.GetExtension(p.rel).Length),
-                        wanted,
-                        StringComparison.OrdinalIgnoreCase
-                    )
-                )
+            var sources = all
+                .Select(p => (rel: p.Key.Replace('\\', '/'), info: p.Value))
+                .Where(p => string.Equals(p.rel.Substring(0, p.rel.Length - Path.GetExtension(p.rel).Length), wanted, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(p => p.rel, StringComparer.Ordinal)
                 .ToList();
             if (sources.Count == 0)
@@ -324,29 +279,11 @@ namespace RimWorldLoadingOptimizer
                 return null;
             }
             var sb = new StringBuilder();
-            sb.Append(Engine())
-                .Append('\n')
-                .Append(itemPath)
-                .Append('|')
-                .Append(winner.PackageId)
-                .Append('|')
-                .Append(texture.width)
-                .Append('x')
-                .Append(texture.height)
-                .Append('|')
-                .Append(texture.format)
-                .Append('|')
-                .Append(texture.mipmapCount);
+            sb.Append(Engine()).Append('\n').Append(itemPath).Append('|').Append(winner.PackageId).Append('|')
+                .Append(texture.width).Append('x').Append(texture.height).Append('|').Append(texture.format).Append('|').Append(texture.mipmapCount);
             foreach (var (rel, info) in sources)
             {
-                sb.Append('\n')
-                    .Append(rel)
-                    .Append('|')
-                    .Append(info.FullName)
-                    .Append('|')
-                    .Append(info.Length)
-                    .Append('@')
-                    .Append(info.LastWriteTimeUtc.Ticks);
+                sb.Append('\n').Append(rel).Append('|').Append(info.FullName).Append('|').Append(info.Length).Append('@').Append(info.LastWriteTimeUtc.Ticks);
             }
             return Sha(Encoding.UTF8.GetBytes(sb.ToString()));
         }
@@ -358,41 +295,12 @@ namespace RimWorldLoadingOptimizer
                 return engine;
             }
             var sb = new StringBuilder();
-            sb.Append(Magic)
-                .Append('|')
-                .Append(VersionControl.CurrentVersionStringWithRev)
-                .Append('|')
-                .Append(RuntimeInformation.FrameworkDescription)
-                .Append('|')
-                .Append(RuntimeInformation.OSDescription)
-                .Append('|')
-                .Append(RuntimeInformation.ProcessArchitecture)
-                .Append('|')
-                .Append(SystemInfo.graphicsDeviceName)
-                .Append('|')
-                .Append(SystemInfo.graphicsDeviceVendorID)
-                .Append('|')
-                .Append(SystemInfo.graphicsDeviceVersion)
-                .Append('|')
-                .Append(UnityData.ComputeShadersSupported)
-                .Append('|')
-                .Append(Prefs.TextureCompression)
-                .Append('|')
-                .Append(QualitySettings.activeColorSpace);
-            var assemblies = new[]
-            {
-                duplicate.Module.Assembly,
-                typeof(ImageConversion).Assembly,
-                typeof(Graphics).Assembly,
-                typeof(Texture2D).Assembly,
-                typeof(object).Assembly,
-                typeof(System.IO.Compression.ZLibStream).Assembly,
-            }
-                .Concat(
-                    AppDomain
-                        .CurrentDomain.GetAssemblies()
-                        .Where(a => a.GetName().Name.StartsWith("Waylith", StringComparison.Ordinal))
-                )
+            sb.Append(Magic).Append('|').Append(VersionControl.CurrentVersionStringWithRev).Append('|').Append(RuntimeInformation.FrameworkDescription)
+                .Append('|').Append(RuntimeInformation.OSDescription).Append('|').Append(RuntimeInformation.ProcessArchitecture)
+                .Append('|').Append(SystemInfo.graphicsDeviceName).Append('|').Append(SystemInfo.graphicsDeviceVendorID).Append('|').Append(SystemInfo.graphicsDeviceVersion)
+                .Append('|').Append(UnityData.ComputeShadersSupported).Append('|').Append(Prefs.TextureCompression).Append('|').Append(QualitySettings.activeColorSpace);
+            var assemblies = new[] { duplicate.Module.Assembly, typeof(ImageConversion).Assembly, typeof(Graphics).Assembly, typeof(Texture2D).Assembly, typeof(object).Assembly, typeof(System.IO.Compression.ZLibStream).Assembly }
+                .Concat(AppDomain.CurrentDomain.GetAssemblies().Where(a => a.GetName().Name.StartsWith("Waylith", StringComparison.Ordinal)))
                 .Distinct()
                 .OrderBy(a => a.FullName, StringComparer.Ordinal);
             foreach (var assembly in assemblies)
@@ -425,12 +333,7 @@ namespace RimWorldLoadingOptimizer
         {
             Directory.CreateDirectory(Path.GetDirectoryName(cachePath));
             var temp = cachePath + ".tmp";
-            File.WriteAllLines(
-                temp,
-                entries
-                    .OrderBy(e => e.Key, StringComparer.Ordinal)
-                    .Select(e => $"{e.Key}\t{e.Value.sha}\t{e.Value.length}")
-            );
+            File.WriteAllLines(temp, entries.OrderBy(e => e.Key, StringComparer.Ordinal).Select(e => $"{e.Key}\t{e.Value.sha}\t{e.Value.length}"));
             File.Move(temp, cachePath, true);
         }
 
@@ -438,8 +341,7 @@ namespace RimWorldLoadingOptimizer
 
         public static string Stats()
         {
-            var text =
-                $"{Feature}: {reused} reused, {encoded} encoded ({uncacheable} not cacheable) in {refreshes} refreshes, {StartupPhaseFixes.Seconds(ticks) * 1000:F0} ms";
+            var text = $"{Feature}: {reused} reused, {encoded} encoded ({uncacheable} not cacheable) in {refreshes} refreshes, {StartupPhaseFixes.Seconds(ticks) * 1000:F0} ms";
             return DevSwitches.Verify ? text + $"; verify {verified} checked, {mismatches.Count} mismatches" : text;
         }
     }

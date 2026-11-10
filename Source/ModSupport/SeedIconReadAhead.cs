@@ -34,30 +34,18 @@ namespace RimWorldLoadingOptimizer
             public bool Decoded;
             public LoadedTextureData Texture;
 
-            public long Size =>
-                Bytes.LongLength
-                + (Decoded && Texture.Levels != null ? Texture.Levels.Sum(l => (long)(l?.Length ?? 0)) : 0);
+            public long Size => Bytes.LongLength + (Decoded && Texture.Levels != null ? Texture.Levels.Sum(l => (long)(l?.Length ?? 0)) : 0);
         }
 
-        private static MethodInfo readAllBytes,
-            tryLoad,
-            decodeMethod,
-            cacheDir;
-        private static FieldInfo bundlesField,
-            cropField;
+        private static MethodInfo readAllBytes, tryLoad, decodeMethod, cacheDir;
+        private static FieldInfo bundlesField, cropField;
         private static Type unlockType;
         private static volatile OrderedReadAhead<Entry> queue;
         private static volatile bool done;
         private static byte[] handedBytes;
         private static LoadedTextureData handedTexture;
-        private static int started,
-            finished,
-            readRedirected,
-            decodeRedirected;
-        private static int handed,
-            ownReads,
-            otherPaths,
-            compared;
+        private static int started, finished, readRedirected, decodeRedirected;
+        private static int handed, ownReads, otherPaths, compared;
         private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static long ownTicks;
         private static SelfCheck check;
@@ -69,9 +57,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            var patchType = AccessTools.TypeByName(
-                "ProgressionAgriculture.DefGenerator_GenerateImpliedDefs_PreResolve_Patch"
-            );
+            var patchType = AccessTools.TypeByName("ProgressionAgriculture.DefGenerator_GenerateImpliedDefs_PreResolve_Patch");
             unlockType = AccessTools.TypeByName("ProgressionAgriculture.CompProperties_UnlockCrop");
             tryLoad = AccessTools.Method(generator, "TryLoadFromCache");
             var applyAll = AccessTools.Method(generator, "ApplyAll");
@@ -79,28 +65,12 @@ namespace RimWorldLoadingOptimizer
             bundlesField = patchType == null ? null : AccessTools.Field(patchType, "generatedBundles");
             cropField = unlockType == null ? null : AccessTools.Field(unlockType, "cropDef");
             readAllBytes = AccessTools.Method(typeof(File), nameof(File.ReadAllBytes), new[] { typeof(string) });
-            decodeMethod = AccessTools.Method(
-                typeof(GpuTextureService),
-                nameof(GpuTextureService.TryLoadTextureFromMemory)
-            );
-            var engineLoad = AccessTools.Method(
-                typeof(Waylith.Rendering.Texture2D),
-                nameof(Waylith.Rendering.Texture2D.LoadEncodedImage)
-            );
-            var preResolve = AccessTools.Method(
-                typeof(DefGenerator),
-                nameof(DefGenerator.GenerateImpliedDefs_PreResolve)
-            );
-            if (
-                bundlesField == null
-                || cropField?.FieldType != typeof(ThingDef)
-                || cacheDir?.ReturnType != typeof(string)
-                || !typeof(IEnumerable).IsAssignableFrom(bundlesField.FieldType)
-            )
+            decodeMethod = AccessTools.Method(typeof(GpuTextureService), nameof(GpuTextureService.TryLoadTextureFromMemory));
+            var engineLoad = AccessTools.Method(typeof(Waylith.Rendering.Texture2D), nameof(Waylith.Rendering.Texture2D.LoadEncodedImage));
+            var preResolve = AccessTools.Method(typeof(DefGenerator), nameof(DefGenerator.GenerateImpliedDefs_PreResolve));
+            if (bundlesField == null || cropField?.FieldType != typeof(ThingDef) || cacheDir?.ReturnType != typeof(string) || !typeof(IEnumerable).IsAssignableFrom(bundlesField.FieldType))
             {
-                RLOLog.Detail(
-                    $"{Feature}: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken."
-                );
+                RLOLog.Detail($"{Feature}: a member it needs is missing. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             if (tryLoad == null || applyAll == null || engineLoad == null || decodeMethod == null || preResolve == null)
@@ -114,23 +84,15 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             harmony.Patch(tryLoad, transpiler: new HarmonyMethod(typeof(SeedIconReadAhead), nameof(ReadTranspiler)));
-            harmony.Patch(
-                engineLoad,
-                transpiler: new HarmonyMethod(typeof(SeedIconReadAhead), nameof(DecodeTranspiler))
-            );
+            harmony.Patch(engineLoad, transpiler: new HarmonyMethod(typeof(SeedIconReadAhead), nameof(DecodeTranspiler)));
             if (readRedirected != 1 || decodeRedirected != 1)
             {
                 harmony.Unpatch(tryLoad, HarmonyPatchType.Transpiler, harmony.Id);
                 harmony.Unpatch(engineLoad, HarmonyPatchType.Transpiler, harmony.Id);
-                RLOLog.Detail(
-                    $"{Feature}: the file read and decode calls were not found as expected ({readRedirected} and {decodeRedirected} of 1). This speedup is skipped and the original code runs; nothing is broken."
-                );
+                RLOLog.Detail($"{Feature}: the file read and decode calls were not found as expected ({readRedirected} and {decodeRedirected} of 1). This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
-            harmony.Patch(
-                preResolve,
-                postfix: new HarmonyMethod(typeof(SeedIconReadAhead), nameof(Begin)) { priority = Priority.Last }
-            );
+            harmony.Patch(preResolve, postfix: new HarmonyMethod(typeof(SeedIconReadAhead), nameof(Begin)) { priority = Priority.Last });
             harmony.Patch(applyAll, postfix: new HarmonyMethod(typeof(SeedIconReadAhead), nameof(Finish)));
             MainMenu.UnpatchAfterStartup(preResolve);
             MainMenu.UnpatchAfterStartup(tryLoad);
@@ -140,28 +102,17 @@ namespace RimWorldLoadingOptimizer
             StartupPhaseFixes.Reports.Add(Stats);
         }
 
-        private static IEnumerable<CodeInstruction> Redirect(
-            IEnumerable<CodeInstruction> instructions,
-            MethodInfo from,
-            string to,
-            out int count
-        )
+        private static IEnumerable<CodeInstruction> Redirect(IEnumerable<CodeInstruction> instructions, MethodInfo from, string to, out int count)
         {
             var list = instructions.ToList();
-            count = list.Count(i =>
-                (i.opcode == OpCodes.Call || i.opcode == OpCodes.Callvirt) && i.operand is MethodInfo m && m == from
-            );
+            count = list.Count(i => (i.opcode == OpCodes.Call || i.opcode == OpCodes.Callvirt) && i.operand is MethodInfo m && m == from);
             if (count != 1)
             {
                 return list;
             }
             foreach (var instruction in list)
             {
-                if (
-                    (instruction.opcode == OpCodes.Call || instruction.opcode == OpCodes.Callvirt)
-                    && instruction.operand is MethodInfo m
-                    && m == from
-                )
+                if ((instruction.opcode == OpCodes.Call || instruction.opcode == OpCodes.Callvirt) && instruction.operand is MethodInfo m && m == from)
                 {
                     instruction.opcode = OpCodes.Call;
                     instruction.operand = AccessTools.Method(typeof(SeedIconReadAhead), to);
@@ -198,10 +149,7 @@ namespace RimWorldLoadingOptimizer
                 dir = (string)cacheDir.Invoke(null, null);
                 foreach (var bundle in (IEnumerable)bundlesField.GetValue(null) ?? Array.Empty<object>())
                 {
-                    var crop = (bundle as ThingDef)?.comps?.FirstOrDefault(c => unlockType.IsInstanceOfType(c))
-                        is CompProperties comp
-                        ? cropField.GetValue(comp) as ThingDef
-                        : null;
+                    var crop = (bundle as ThingDef)?.comps?.FirstOrDefault(c => unlockType.IsInstanceOfType(c)) is CompProperties comp ? cropField.GetValue(comp) as ThingDef : null;
                     if (crop?.defName != null)
                     {
                         files.Add(Path.Combine(dir, crop.defName + ".png"));
@@ -294,14 +242,8 @@ namespace RimWorldLoadingOptimizer
         public static bool Decode(ReadOnlySpan<byte> bytes, out LoadedTextureData loadedTexture)
         {
             var mine = handedBytes;
-            if (
-                mine == null
-                || mine.Length == 0
-                || bytes.Length != mine.Length
-                || !UnityData.IsInMainThread
-                || check.IsOff
-                || !Unsafe.AreSame(ref MemoryMarshal.GetReference(bytes), ref MemoryMarshal.GetArrayDataReference(mine))
-            )
+            if (mine == null || mine.Length == 0 || bytes.Length != mine.Length || !UnityData.IsInMainThread || check.IsOff
+                || !Unsafe.AreSame(ref MemoryMarshal.GetReference(bytes), ref MemoryMarshal.GetArrayDataReference(mine)))
             {
                 return GpuTextureService.TryLoadTextureFromMemory(bytes, out loadedTexture);
             }
@@ -326,15 +268,7 @@ namespace RimWorldLoadingOptimizer
 
         private static string Difference(in LoadedTextureData a, in LoadedTextureData b)
         {
-            if (
-                a.Width != b.Width
-                || a.Height != b.Height
-                || a.MipCount != b.MipCount
-                || a.Format != b.Format
-                || a.Opaque != b.Opaque
-                || a.SourceStamp != b.SourceStamp
-                || !a.Swizzle.Equals(b.Swizzle)
-            )
+            if (a.Width != b.Width || a.Height != b.Height || a.MipCount != b.MipCount || a.Format != b.Format || a.Opaque != b.Opaque || a.SourceStamp != b.SourceStamp || !a.Swizzle.Equals(b.Swizzle))
             {
                 return $"{a.Width}x{a.Height} {a.Format} mips {a.MipCount} opaque {a.Opaque} vs {b.Width}x{b.Height} {b.Format} mips {b.MipCount} opaque {b.Opaque}";
             }
@@ -375,8 +309,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return $"{Feature}: {(started == 0 ? "off" : "nothing read ahead")}";
             }
-            var text =
-                $"{Feature}: {q.Summary("cached seed icons")}; {handed} decodes handed over, {ownReads} listed files read by the main thread itself in {StartupPhaseFixes.Seconds(ownTicks):F2} s, {otherPaths} files outside the list";
+            var text = $"{Feature}: {q.Summary("cached seed icons")}; {handed} decodes handed over, {ownReads} listed files read by the main thread itself in {StartupPhaseFixes.Seconds(ownTicks):F2} s, {otherPaths} files outside the list";
             if (DevSwitches.Verify)
             {
                 text += $"; verify: {compared} compared, {mismatches.Count} mismatches";

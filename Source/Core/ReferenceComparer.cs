@@ -3,8 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace RimWorldLoadingOptimizer
 {
-    public sealed class ReferenceComparer<T> : IEqualityComparer<T>
-        where T : class
+    public sealed class ReferenceComparer<T> : IEqualityComparer<T> where T : class
     {
         public static readonly ReferenceComparer<T> Instance = new ReferenceComparer<T>();
 

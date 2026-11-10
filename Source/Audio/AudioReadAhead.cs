@@ -21,10 +21,7 @@ namespace RimWorldLoadingOptimizer
     {
         private const string Feature = "sound read-ahead";
         private const long CapBytes = 256L << 20;
-        private const int Untouched = 0,
-            Opening = 1,
-            Ready = 2,
-            Gone = 3;
+        private const int Untouched = 0, Opening = 1, Ready = 2, Gone = 3;
 
         private static readonly object gate = new object();
         private static Func<string, IPrefetchedAsset> original;
@@ -34,33 +31,15 @@ namespace RimWorldLoadingOptimizer
         private static int[] state;
         private static IPrefetchedAsset[] results;
         private static long[] openTicks;
-        private static int floor,
-            releaseCursor,
-            finished;
-        private static long held,
-            maxHeld;
+        private static int floor, releaseCursor, finished;
+        private static long held, maxHeld;
         private static bool stop;
         private static Thread thread;
-        private static long installedAt,
-            workerDoneAt,
-            firstMainAt;
-        private static int opened,
-            failed,
-            takenReady,
-            takenWaited,
-            ownOpens,
-            released,
-            leftovers,
-            otherPaths;
-        private static int workerTakenReady,
-            workerTakenWaited,
-            workerOwnOpens;
+        private static long installedAt, workerDoneAt, firstMainAt;
+        private static int opened, failed, takenReady, takenWaited, ownOpens, released, leftovers, otherPaths;
+        private static int workerTakenReady, workerTakenWaited, workerOwnOpens;
         private static long workerSavedTicks;
-        private static long workerTicks,
-            savedTicks,
-            waitTicks,
-            ownTicks,
-            decodedBytes;
+        private static long workerTicks, savedTicks, waitTicks, ownTicks, decodedBytes;
         private static int compared;
         private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static PropertyInfo[] openedFlags;
@@ -79,12 +58,7 @@ namespace RimWorldLoadingOptimizer
             }
             var openForPrefetch = AccessTools.Method(typeof(AudioClip), "OpenForPrefetch");
             var current = AssetPrefetcher.AudioLoader;
-            if (
-                current == null
-                || openForPrefetch == null
-                || current.Method != openForPrefetch
-                || current.Target != null
-            )
+            if (current == null || openForPrefetch == null || current.Method != openForPrefetch || current.Target != null)
             {
                 RLOLog.Detail($"{Feature}: the game's sound loader was replaced by other code; skipped");
                 return;
@@ -97,16 +71,8 @@ namespace RimWorldLoadingOptimizer
             var kindField = slotType == null ? null : AccessTools.Field(slotType, "Kind");
             var stateField = slotType == null ? null : AccessTools.Field(slotType, "State");
             var openedType = AccessTools.Inner(typeof(AudioClip), "Opened");
-            if (
-                gateObject == null
-                || ordered == null
-                || pathField?.FieldType != typeof(string)
-                || kindField?.FieldType.IsEnum != true
-                || stateField?.FieldType.IsEnum != true
-                || !Enum.IsDefined(kindField.FieldType, "Audio")
-                || !Enum.IsDefined(stateField.FieldType, "Queued")
-                || openedType == null
-            )
+            if (gateObject == null || ordered == null || pathField?.FieldType != typeof(string) || kindField?.FieldType.IsEnum != true || stateField?.FieldType.IsEnum != true
+                || !Enum.IsDefined(kindField.FieldType, "Audio") || !Enum.IsDefined(stateField.FieldType, "Queued") || openedType == null)
             {
                 RLOLog.Detail($"{Feature}: the game's asset prefetcher no longer has the members it needs; skipped");
                 return;
@@ -166,26 +132,14 @@ namespace RimWorldLoadingOptimizer
         private static bool LoaderContractHolds(Type prefetcher, Type slotType, FieldInfo pathField)
         {
             var loader = AccessTools.PropertyGetter(prefetcher, nameof(AssetPrefetcher.AudioLoader));
-            var invoke = AccessTools.Method(
-                typeof(Func<string, IPrefetchedAsset>),
-                nameof(Func<string, IPrefetchedAsset>.Invoke)
-            );
+            var invoke = AccessTools.Method(typeof(Func<string, IPrefetchedAsset>), nameof(Func<string, IPrefetchedAsset>.Invoke));
             var release = AccessTools.Method(typeof(IPrefetchedAsset), nameof(IPrefetchedAsset.Release));
-            return VersionCheck.Pattern(
-                    "Sound read-ahead",
-                    AccessTools.Method(prefetcher, "Process"),
-                    code =>
-                        VersionCheck.Calls(code, loader) == 1
-                        && VersionCheck.Calls(code, invoke) == 1
-                        && code.Any(i => i.LoadsField(pathField)),
-                    "opens a queued sound by its path with the game's sound loader"
-                )
-                && VersionCheck.Pattern(
-                    "Sound read-ahead",
-                    AccessTools.Method(slotType, "ReleaseResult"),
+            return VersionCheck.Pattern("Sound read-ahead", AccessTools.Method(prefetcher, "Process"),
+                    code => VersionCheck.Calls(code, loader) == 1 && VersionCheck.Calls(code, invoke) == 1 && code.Any(i => i.LoadsField(pathField)),
+                    "opens a queued sound by its path with the game's sound loader")
+                && VersionCheck.Pattern("Sound read-ahead", AccessTools.Method(slotType, "ReleaseResult"),
                     code => VersionCheck.Calls(code, release) == 1,
-                    "releases a sound nobody took"
-                );
+                    "releases a sound nobody took");
         }
 
         private static void Run()
@@ -420,9 +374,7 @@ namespace RimWorldLoadingOptimizer
             }
             else
             {
-                RLOLog.Detail(
-                    $"{Feature}: other code replaced the game's sound loader during loading; it was left as it is"
-                );
+                RLOLog.Detail($"{Feature}: other code replaced the game's sound loader during loading; it was left as it is");
             }
             if (DevSwitches.Verify)
             {
@@ -469,9 +421,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             openedSound = AccessTools.Property(openedType, "Sound");
-            openedFlags = new[] { "Streamed", "Packed", "BakedMono", "ForceToMono", "Bytes" }
-                .Select(name => AccessTools.Property(openedType, name))
-                .ToArray();
+            openedFlags = new[] { "Streamed", "Packed", "BakedMono", "ForceToMono", "Bytes" }.Select(name => AccessTools.Property(openedType, name)).ToArray();
         }
 
         internal static string Difference(IPrefetchedAsset a, IPrefetchedAsset b)
@@ -493,12 +443,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return "no sound object";
             }
-            if (
-                sa.LengthFrames != sb.LengthFrames
-                || sa.Channels != sb.Channels
-                || sa.Frequency != sb.Frequency
-                || sa.IsStream != sb.IsStream
-            )
+            if (sa.LengthFrames != sb.LengthFrames || sa.Channels != sb.Channels || sa.Frequency != sb.Frequency || sa.IsStream != sb.IsStream)
             {
                 return $"sound {sa.LengthFrames}x{sa.Channels}@{sa.Frequency} stream {sa.IsStream} vs {sb.LengthFrames}x{sb.Channels}@{sb.Frequency} stream {sb.IsStream}";
             }
@@ -546,24 +491,14 @@ namespace RimWorldLoadingOptimizer
                         text.Append("null\n");
                         continue;
                     }
-                    text.Append(clip.name)
-                        .Append('|')
-                        .Append(clip.length.ToString("R", CultureInfo.InvariantCulture))
-                        .Append('|')
-                        .Append(clip.channels)
-                        .Append('|')
-                        .Append(clip.frequency)
-                        .Append('|')
-                        .Append(streamed?.GetValue(clip))
-                        .Append('\n');
+                    text.Append(clip.name).Append('|').Append(clip.length.ToString("R", CultureInfo.InvariantCulture)).Append('|')
+                        .Append(clip.channels).Append('|').Append(clip.frequency).Append('|').Append(streamed?.GetValue(clip)).Append('\n');
                 }
             }
             string hash;
             using (var sha = SHA256.Create())
             {
-                hash = BitConverter
-                    .ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(text.ToString())), 0, 8)
-                    .Replace("-", "");
+                hash = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(text.ToString())), 0, 8).Replace("-", "");
             }
             RLOLog.Detail($"{Feature} verify: mod sound list hash {hash} ({clips} sounds in {mods} mods)");
         }

@@ -11,10 +11,7 @@ namespace RimWorldLoadingOptimizer
 
         public static void Install(Harmony harmony)
         {
-            harmony.Patch(
-                AccessTools.Method(typeof(StaticTextureAtlas), nameof(StaticTextureAtlas.Bake)),
-                postfix: new HarmonyMethod(typeof(AtlasFlush), nameof(Postfix))
-            );
+            harmony.Patch(AccessTools.Method(typeof(StaticTextureAtlas), nameof(StaticTextureAtlas.Bake)), postfix: new HarmonyMethod(typeof(AtlasFlush), nameof(Postfix)));
         }
 
         public static void Postfix()

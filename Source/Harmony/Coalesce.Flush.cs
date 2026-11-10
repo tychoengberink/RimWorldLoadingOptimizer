@@ -16,10 +16,7 @@ namespace RimWorldLoadingOptimizer
         {
             if (!Monitor.TryEnter(locker, 10000))
             {
-                RLOLog.Warning(
-                    "Harmony rebuild coalescing: another thread read patch state while a merged rebuild was pending "
-                        + "and the patch lock stayed busy; it reads the stored state as is."
-                );
+                RLOLog.Warning("Harmony rebuild coalescing: another thread read patch state while a merged rebuild was pending and the patch lock stayed busy; it reads the stored state as is.");
                 return;
             }
             try
@@ -148,10 +145,7 @@ namespace RimWorldLoadingOptimizer
                 }
                 if (replacement == null)
                 {
-                    return Wrap(
-                        new MissingMethodException("Cannot create replacement for " + original.FullDescription()),
-                        original
-                    );
+                    return Wrap(new MissingMethodException("Cannot create replacement for " + original.FullDescription()), original);
                 }
                 step.Built = replacement;
             }
@@ -174,13 +168,7 @@ namespace RimWorldLoadingOptimizer
             return null;
         }
 
-        private static Exception Wrap(Exception e, MethodBase original) =>
-            e is HarmonyException
-                ? e
-                : (Exception)
-                    wrapException.Invoke(
-                        new object[] { "Patching exception in method " + original.FullDescription(), e }
-                    );
+        private static Exception Wrap(Exception e, MethodBase original) => e is HarmonyException ? e : (Exception)wrapException.Invoke(new object[] { "Patching exception in method " + original.FullDescription(), e });
 
         private static void Restore(Chain chain)
         {
@@ -225,9 +213,7 @@ namespace RimWorldLoadingOptimizer
             }
             catch (Exception e)
             {
-                RLOLog.Warning(
-                    $"Harmony rebuild coalescing: could not restore {chain.Original.FullDescription()} before replaying a failed patch: {e.Message}"
-                );
+                RLOLog.Warning($"Harmony rebuild coalescing: could not restore {chain.Original.FullDescription()} before replaying a failed patch: {e.Message}");
             }
         }
 
@@ -242,9 +228,7 @@ namespace RimWorldLoadingOptimizer
                 }
                 if (current != chain.Steps[chain.Steps.Count - 1].Bytes)
                 {
-                    mismatches.Report(
-                        $"stored patch state of {chain.Original.FullDescription()} is not the last sequential state"
-                    );
+                    mismatches.Report($"stored patch state of {chain.Original.FullDescription()} is not the last sequential state");
                 }
                 for (var i = 0; i < chain.Steps.Count - 1; i++)
                 {
@@ -254,9 +238,7 @@ namespace RimWorldLoadingOptimizer
                         var replacement = (MethodInfo)generate(chain.Steps[i].Config, false);
                         if (replacement == null)
                         {
-                            mismatches.Report(
-                                $"intermediate rebuild {i + 1}/{chain.Steps.Count} of {chain.Original.FullDescription()} returned no method"
-                            );
+                            mismatches.Report($"intermediate rebuild {i + 1}/{chain.Steps.Count} of {chain.Original.FullDescription()} returned no method");
                         }
                         else if (platform != null && compile != null)
                         {
@@ -265,9 +247,7 @@ namespace RimWorldLoadingOptimizer
                     }
                     catch (Exception e)
                     {
-                        mismatches.Report(
-                            $"intermediate rebuild {i + 1}/{chain.Steps.Count} of {chain.Original.FullDescription()} fails although the merged one works: {(e as TargetInvocationException)?.InnerException?.Message ?? e.Message}"
-                        );
+                        mismatches.Report($"intermediate rebuild {i + 1}/{chain.Steps.Count} of {chain.Original.FullDescription()} fails although the merged one works: {(e as TargetInvocationException)?.InnerException?.Message ?? e.Message}");
                     }
                 }
             }

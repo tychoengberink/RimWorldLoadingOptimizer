@@ -12,18 +12,14 @@ namespace RimWorldLoadingOptimizer
         public static readonly bool On = DevSwitches.ConstructorTiming;
         private static readonly string[] Types =
         {
-            "TD_Find_Lib.ModStartup",
-            "AV_MechanoidSkins.OnStartUp",
-            "LinkableGroups.LinkableGroupsLoader",
-            "KCSG.StartupActions",
-            "MiningOutpost.KcsgSymbolBootstrap",
-            "Vehicles.VehicleHarmony",
+            "TD_Find_Lib.ModStartup", "AV_MechanoidSkins.OnStartUp", "LinkableGroups.LinkableGroupsLoader", "KCSG.StartupActions",
+            "MiningOutpost.KcsgSymbolBootstrap", "Vehicles.VehicleHarmony"
         };
         private static readonly string[][] Methods =
         {
             new[] { "LunarFramework.Patching.PatchGroup", "CheckForConflicts" },
             new[] { "VanillaTradingExpanded.Utils", "Initialize" },
-            new[] { "LunarFramework.Bootstrap.Entrypoint", "OnPlayDataLoadFinished" },
+            new[] { "LunarFramework.Bootstrap.Entrypoint", "OnPlayDataLoadFinished" }
         };
         private static readonly Dictionary<string, double> totals = new Dictionary<string, double>();
         private static readonly Dictionary<Type, long> started = new Dictionary<Type, long>();
@@ -36,11 +32,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var types = new HashSet<string>(Types);
-            StaticConstructorTracker.Started += t =>
-            {
-                if (types.Contains(t.FullName))
-                    started[t] = Stopwatch.GetTimestamp();
-            };
+            StaticConstructorTracker.Started += t => { if (types.Contains(t.FullName)) started[t] = Stopwatch.GetTimestamp(); };
             StaticConstructorTracker.Ended += t =>
             {
                 if (started.TryGetValue(t, out var begin))
@@ -65,24 +57,10 @@ namespace RimWorldLoadingOptimizer
                 {
                     continue;
                 }
-                foreach (
-                    var method in AccessTools
-                        .GetDeclaredMethods(type)
-                        .Where(m => m.Name == pair[1] && !m.ContainsGenericParameters)
-                )
+                foreach (var method in AccessTools.GetDeclaredMethods(type).Where(m => m.Name == pair[1] && !m.ContainsGenericParameters))
                 {
                     names[method] = $"{pair[0]}.{pair[1]}({method.GetParameters().Length})";
-                    harmony.Patch(
-                        method,
-                        prefix: new HarmonyMethod(typeof(StaticConstructorTiming), nameof(Begin))
-                        {
-                            priority = Priority.First,
-                        },
-                        finalizer: new HarmonyMethod(typeof(StaticConstructorTiming), nameof(End))
-                        {
-                            priority = Priority.Last,
-                        }
-                    );
+                    harmony.Patch(method, prefix: new HarmonyMethod(typeof(StaticConstructorTiming), nameof(Begin)) { priority = Priority.First }, finalizer: new HarmonyMethod(typeof(StaticConstructorTiming), nameof(End)) { priority = Priority.Last });
                 }
             }
         }
@@ -103,7 +81,6 @@ namespace RimWorldLoadingOptimizer
             totals[name] = total + ticks * 1000.0 / Stopwatch.Frequency;
         }
 
-        public static string Stats() =>
-            "timing (ms): " + string.Join(", ", totals.OrderBy(p => p.Key).Select(p => $"{p.Key} {p.Value:F0}"));
+        public static string Stats() => "timing (ms): " + string.Join(", ", totals.OrderBy(p => p.Key).Select(p => $"{p.Key} {p.Value:F0}"));
     }
 }

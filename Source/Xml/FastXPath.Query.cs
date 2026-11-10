@@ -16,25 +16,17 @@ namespace RimWorldLoadingOptimizer
         private static bool TryFast(XmlNode context, string xpath, out XmlNodeList result)
         {
             result = null;
-            if (
-                !patching
-                || !(context is XmlDocument doc)
-                || xpath == null
-                || Thread.CurrentThread.ManagedThreadId != patchingThread
-            )
+            if (!patching || !(context is XmlDocument doc) || xpath == null || Thread.CurrentThread.ManagedThreadId != patchingThread)
             {
                 return false;
             }
             xpath = xpath.Trim();
-            var index = Indexes.GetValue(
-                doc,
-                d =>
-                {
-                    var created = new DefIndex(d);
-                    Attached.Add(created);
-                    return created;
-                }
-            );
+            var index = Indexes.GetValue(doc, d =>
+            {
+                var created = new DefIndex(d);
+                Attached.Add(created);
+                return created;
+            });
             if (RootPath.IsMatch(xpath))
             {
                 var root = doc.DocumentElement;
@@ -71,11 +63,7 @@ namespace RimWorldLoadingOptimizer
                 return TryByTag(index, xpath, original, out result);
             }
             var keys = match.Groups["k"].Captures.Cast<Capture>().Select(c => c.Value).ToList();
-            var values = match
-                .Groups["v"]
-                .Captures.Cast<Capture>()
-                .Select(c => c.Value.Substring(1, c.Value.Length - 2))
-                .ToList();
+            var values = match.Groups["v"].Captures.Cast<Capture>().Select(c => c.Value.Substring(1, c.Value.Length - 2)).ToList();
             var defs = index.Find(match.Groups["tag"].Value, keys, values);
             if (defs == null)
             {
@@ -83,10 +71,7 @@ namespace RimWorldLoadingOptimizer
                 return false;
             }
             var n = 0;
-            if (
-                position.Success
-                && !int.TryParse(position.Groups["n"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out n)
-            )
+            if (position.Success && !int.TryParse(position.Groups["n"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out n))
             {
                 Fallback("(position out of range) " + xpath);
                 return false;

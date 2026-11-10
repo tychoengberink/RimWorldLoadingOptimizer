@@ -27,14 +27,8 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             StartupPhaseFixes.Reports.Add(Stats);
-            var folder = Path.Combine(
-                Directory.GetParent(GenFilePaths.ConfigFolderPath).FullName,
-                "MissileGirl",
-                "Cache"
-            );
-            var paths = new[] { "AssetsHash.xml", "AssetsHashInt.xml", "Unified.xml" }
-                .Select(name => Path.Combine(folder, name))
-                .ToArray();
+            var folder = Path.Combine(Directory.GetParent(GenFilePaths.ConfigFolderPath).FullName, "MissileGirl", "Cache");
+            var paths = new[] { "AssetsHash.xml", "AssetsHashInt.xml", "Unified.xml" }.Select(name => Path.Combine(folder, name)).ToArray();
             if (!paths.All(File.Exists))
             {
                 state = "skipped, Missile Girl has no cache yet";
@@ -46,16 +40,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             state = "running";
-            RLOMod.StartAfterPatching(
-                "Missile Girl cache read-ahead",
-                () =>
-                    new Thread(() => Read(paths))
-                    {
-                        IsBackground = true,
-                        Name = "RLO cache read-ahead",
-                        Priority = ThreadPriority.BelowNormal,
-                    }.Start()
-            );
+            RLOMod.StartAfterPatching("Missile Girl cache read-ahead", () => new Thread(() => Read(paths)) { IsBackground = true, Name = "RLO cache read-ahead", Priority = ThreadPriority.BelowNormal }.Start());
         }
 
         private static bool SameModList(string path)
@@ -63,17 +48,7 @@ namespace RimWorldLoadingOptimizer
             try
             {
                 var saved = new List<string>();
-                using (
-                    var reader = XmlReader.Create(
-                        path,
-                        new XmlReaderSettings
-                        {
-                            IgnoreComments = true,
-                            IgnoreWhitespace = true,
-                            CheckCharacters = false,
-                        }
-                    )
-                )
+                using (var reader = XmlReader.Create(path, new XmlReaderSettings { IgnoreComments = true, IgnoreWhitespace = true, CheckCharacters = false }))
                 {
                     while (reader.Read())
                     {
@@ -118,16 +93,7 @@ namespace RimWorldLoadingOptimizer
             while (true)
             {
                 int read;
-                using (
-                    var stream = new FileStream(
-                        path,
-                        FileMode.Open,
-                        FileAccess.Read,
-                        FileShare.ReadWrite | FileShare.Delete,
-                        1,
-                        FileOptions.SequentialScan
-                    )
-                )
+                using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1, FileOptions.SequentialScan))
                 {
                     if (offset >= stream.Length)
                     {
@@ -144,10 +110,9 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static string Stats() =>
-            state == "running" || state == "done" || state.StartsWith("stopped")
-                ? $"Missile Girl cache read ahead into the file cache: {state}, {files} files, {bytes >> 20} MB in {seconds:F2} s, finished {finishedAt:F1} s after start"
-                : $"Missile Girl cache read ahead: {state}";
+        public static string Stats() => state == "running" || state == "done" || state.StartsWith("stopped")
+            ? $"Missile Girl cache read ahead into the file cache: {state}, {files} files, {bytes >> 20} MB in {seconds:F2} s, finished {finishedAt:F1} s after start"
+            : $"Missile Girl cache read ahead: {state}";
     }
 }
 #endif

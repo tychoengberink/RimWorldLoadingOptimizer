@@ -13,17 +13,13 @@ namespace RimWorldLoadingOptimizer
         private static readonly Dictionary<string, Module> modules = new Dictionary<string, Module>();
 #if RW17
         private static readonly HashSet<string> ambiguous = new HashSet<string>();
-
         // Every module of the assemblies scanned so far, by MVID, with how many plain assemblies carry it. An assembly is scanned once:
         // a lookup only scans the ones loaded since. MVIDs seen in dynamic, collectible or Visual Studio assemblies are left to Harmony,
         // since those can gain a module, unload, or sit outside AllAssemblies.
-        private static readonly Dictionary<Guid, (Module module, int count)> index =
-            new Dictionary<Guid, (Module, int)>();
+        private static readonly Dictionary<Guid, (Module module, int count)> index = new Dictionary<Guid, (Module, int)>();
         private static readonly HashSet<Guid> uncertain = new HashSet<Guid>();
         private static readonly HashSet<Assembly> scanned = new HashSet<Assembly>(ReferenceComparer<Assembly>.Instance);
-        private static readonly ConditionalWeakTable<Assembly, object> scannedCollectible =
-            new ConditionalWeakTable<Assembly, object>();
-
+        private static readonly ConditionalWeakTable<Assembly, object> scannedCollectible = new ConditionalWeakTable<Assembly, object>();
         // The last GetAssemblies() result, kept only while it holds no collectible assembly: new assemblies are appended, so when it is
         // still a prefix of the current list only the tail needs looking at.
         private static Assembly[] lastList = Array.Empty<Assembly>();
@@ -32,11 +28,8 @@ namespace RimWorldLoadingOptimizer
 #endif
         private static bool installed;
         private static SelfCheck check;
-
-        [ThreadStatic]
-        private static bool bypass;
-        private static long hits,
-            misses;
+        [ThreadStatic] private static bool bypass;
+        private static long hits, misses;
         private static readonly MismatchLog mismatches = new MismatchLog("harmony module cache");
 
         public static void Install(Harmony harmony)
@@ -69,11 +62,7 @@ namespace RimWorldLoadingOptimizer
                 lock (modules)
                 {
                     // Only the canonical form can equal a ModuleVersionId.ToString(); anything else is left to Harmony.
-                    if (
-                        ambiguous.Contains(moduleGUID)
-                        || !Guid.TryParse(moduleGUID, out var guid)
-                        || guid.ToString() != moduleGUID
-                    )
+                    if (ambiguous.Contains(moduleGUID) || !Guid.TryParse(moduleGUID, out var guid) || guid.ToString() != moduleGUID)
                     {
                         return true;
                     }
@@ -90,10 +79,7 @@ namespace RimWorldLoadingOptimizer
                     module = entry.module;
                 }
 #else
-                module = AccessTools
-                    .AllAssemblies()
-                    .SelectMany(a => a.GetLoadedModules())
-                    .FirstOrDefault(m => m.ModuleVersionId.ToString() == moduleGUID);
+                module = AccessTools.AllAssemblies().SelectMany(a => a.GetLoadedModules()).FirstOrDefault(m => m.ModuleVersionId.ToString() == moduleGUID);
                 if (module == null)
                 {
                     return true;
@@ -212,9 +198,7 @@ namespace RimWorldLoadingOptimizer
             catch (Exception e)
             {
                 broken = true;
-                RLOLog.Warning(
-                    $"Harmony module cache: indexing the loaded assemblies failed ({e.GetType().Name}: {e.Message}). This speedup is skipped and the original code runs; nothing is broken."
-                );
+                RLOLog.Warning($"Harmony module cache: indexing the loaded assemblies failed ({e.GetType().Name}: {e.Message}). This speedup is skipped and the original code runs; nothing is broken.");
             }
         }
 #endif
@@ -224,13 +208,9 @@ namespace RimWorldLoadingOptimizer
             lock (modules)
             {
 #if RW17
-                return installed
-                    ? $"harmony module cache: {hits} hits, {misses} misses, {modules.Count} modules, {mismatches.Count} verify mismatches, {ambiguous.Count} loaded twice (left to Harmony), {index.Count} modules indexed in {rescans} scans{(broken ? ", index off" : "")}"
-                    : "harmony module cache: off";
+                return installed ? $"harmony module cache: {hits} hits, {misses} misses, {modules.Count} modules, {mismatches.Count} verify mismatches, {ambiguous.Count} loaded twice (left to Harmony), {index.Count} modules indexed in {rescans} scans{(broken ? ", index off" : "")}" : "harmony module cache: off";
 #else
-                return installed
-                    ? $"harmony module cache: {hits} hits, {misses} misses, {modules.Count} modules, {mismatches.Count} verify mismatches"
-                    : "harmony module cache: off";
+                return installed ? $"harmony module cache: {hits} hits, {misses} misses, {modules.Count} modules, {mismatches.Count} verify mismatches" : "harmony module cache: off";
 #endif
             }
         }

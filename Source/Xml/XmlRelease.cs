@@ -10,13 +10,8 @@ namespace RimWorldLoadingOptimizer
 {
     public static class XmlRelease
     {
-        private static readonly PropertyInfo HardcodedMapping = AccessTools.Property(
-            typeof(TKeySystem),
-            "ShouldUseHardcodedMapping"
-        );
-        private static readonly AccessTools.FieldRef<HashSet<XmlNode>> TreatAsList = AccessTools.StaticFieldRefAccess<
-            HashSet<XmlNode>
-        >(AccessTools.Field(typeof(TKeySystem), "treatAsList"));
+        private static readonly PropertyInfo HardcodedMapping = AccessTools.Property(typeof(TKeySystem), "ShouldUseHardcodedMapping");
+        private static readonly AccessTools.FieldRef<HashSet<XmlNode>> TreatAsList = AccessTools.StaticFieldRefAccess<HashSet<XmlNode>>(AccessTools.Field(typeof(TKeySystem), "treatAsList"));
 
         public static int Skipped;
         public static bool ReleasedXmlExtensionsDocument;
@@ -29,26 +24,16 @@ namespace RimWorldLoadingOptimizer
                 RLOLog.Warning("TKeySystem layout changed; def XML release skipped");
                 return;
             }
-            harmony.Patch(
-                AccessTools.Method(typeof(TKeySystem), nameof(TKeySystem.MarkTreatAsList)),
-                prefix: new HarmonyMethod(typeof(XmlRelease), nameof(SkipWhenUnused))
-            );
-            harmony.Patch(
-                AccessTools.Method(typeof(TKeySystem), nameof(TKeySystem.BuildMappings)),
-                postfix: new HarmonyMethod(typeof(XmlRelease), nameof(ReleaseAfterMappings))
-            );
+            harmony.Patch(AccessTools.Method(typeof(TKeySystem), nameof(TKeySystem.MarkTreatAsList)),
+                prefix: new HarmonyMethod(typeof(XmlRelease), nameof(SkipWhenUnused)));
+            harmony.Patch(AccessTools.Method(typeof(TKeySystem), nameof(TKeySystem.BuildMappings)),
+                postfix: new HarmonyMethod(typeof(XmlRelease), nameof(ReleaseAfterMappings)));
             installed = true;
 #if RW17
-            var bake = AccessTools.Method(
-                typeof(GlobalTextureAtlasManager),
-                nameof(GlobalTextureAtlasManager.BakeStaticAtlases)
-            );
+            var bake = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases));
             if (bake != null)
             {
-                harmony.Patch(
-                    bake,
-                    prefix: new HarmonyMethod(typeof(XmlRelease), nameof(ReleaseXmlExtensionsDocument))
-                );
+                harmony.Patch(bake, prefix: new HarmonyMethod(typeof(XmlRelease), nameof(ReleaseXmlExtensionsDocument)));
             }
 #endif
         }
@@ -72,9 +57,7 @@ namespace RimWorldLoadingOptimizer
         {
             try
             {
-                var manager = AccessTools
-                    .Field(AccessTools.TypeByName("XmlExtensions.PatchManager"), "XmlDocs")
-                    ?.GetValue(null);
+                var manager = AccessTools.Field(AccessTools.TypeByName("XmlExtensions.PatchManager"), "XmlDocs")?.GetValue(null);
                 var main = manager == null ? null : AccessTools.Property(manager.GetType(), "MainDocument");
                 if (main == null || main.GetValue(manager) == null || SettingsReadDocument(manager.GetType().Assembly))
                 {
@@ -135,8 +118,7 @@ namespace RimWorldLoadingOptimizer
 
         private static bool? usesHardcodedMapping;
 
-        private static bool UsesHardcodedMapping =>
-            usesHardcodedMapping ?? (usesHardcodedMapping = (bool)HardcodedMapping.GetValue(null)).Value;
+        private static bool UsesHardcodedMapping => usesHardcodedMapping ?? (usesHardcodedMapping = (bool)HardcodedMapping.GetValue(null)).Value;
 
         public static bool SkipWhenUnused()
         {

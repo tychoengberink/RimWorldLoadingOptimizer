@@ -22,29 +22,20 @@ namespace RimWorldLoadingOptimizer
     public static class GagarinParallelRead
     {
         public static int ChunkBytes = 4 << 20;
-        private static readonly byte[] Declaration = Encoding.ASCII.GetBytes(
-            "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
-        );
+        private static readonly byte[] Declaration = Encoding.ASCII.GetBytes("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
         private static readonly byte[] RootStart = Encoding.ASCII.GetBytes("<DefXmlStorage>");
         private static readonly byte[] RootEnd = Encoding.ASCII.GetBytes("</DefXmlStorage>");
         private static readonly byte[] Cut = Encoding.ASCII.GetBytes("\n  <Item");
 
-        private static Func<XmlDocument, string, string, string, object> addXmlName,
-            addAttrXmlName;
+        private static Func<XmlDocument, string, string, string, object> addXmlName, addAttrXmlName;
         private static Func<object, bool, XmlDocument, XmlElement> newElement;
         private static Func<object, XmlDocument, XmlAttribute> newAttribute;
         private static Func<XmlNode, XmlNode, XmlDocument, XmlNode> appendForLoad;
-        private static FieldInfo inserting,
-            inserted,
-            idAttributes,
-            childKeyIndex;
-        private static PropertyInfo isLoading,
-            dtdSchemaInfo;
+        private static FieldInfo inserting, inserted, idAttributes, childKeyIndex;
+        private static PropertyInfo isLoading, dtdSchemaInfo;
 
         public static bool Premark = true;
-        public static int Threads,
-            Chunks,
-            Nodes;
+        public static int Threads, Chunks, Nodes;
         public static string LastFallback = "";
 
         // The internal members of System.Xml the reader builds nodes with; null when all are there.
@@ -53,63 +44,24 @@ namespace RimWorldLoadingOptimizer
             var doc = typeof(XmlDocument);
             var xmlName = doc.Assembly.GetType("System.Xml.XmlName");
             const BindingFlags All = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            var add = doc.GetMethod(
-                "AddXmlName",
-                All,
-                null,
-                new[] { typeof(string), typeof(string), typeof(string), typeof(System.Xml.Schema.IXmlSchemaInfo) },
-                null
-            );
-            var addAttr = doc.GetMethod(
-                "AddAttrXmlName",
-                All,
-                null,
-                new[] { typeof(string), typeof(string), typeof(string), typeof(System.Xml.Schema.IXmlSchemaInfo) },
-                null
-            );
-            var element =
-                xmlName == null
-                    ? null
-                    : typeof(XmlElement).GetConstructor(All, null, new[] { xmlName, typeof(bool), doc }, null);
-            var attribute =
-                xmlName == null ? null : typeof(XmlAttribute).GetConstructor(All, null, new[] { xmlName, doc }, null);
-            var append = typeof(XmlNode).GetMethod(
-                "AppendChildForLoad",
-                All,
-                null,
-                new[] { typeof(XmlNode), doc },
-                null
-            );
+            var add = doc.GetMethod("AddXmlName", All, null, new[] { typeof(string), typeof(string), typeof(string), typeof(System.Xml.Schema.IXmlSchemaInfo) }, null);
+            var addAttr = doc.GetMethod("AddAttrXmlName", All, null, new[] { typeof(string), typeof(string), typeof(string), typeof(System.Xml.Schema.IXmlSchemaInfo) }, null);
+            var element = xmlName == null ? null : typeof(XmlElement).GetConstructor(All, null, new[] { xmlName, typeof(bool), doc }, null);
+            var attribute = xmlName == null ? null : typeof(XmlAttribute).GetConstructor(All, null, new[] { xmlName, doc }, null);
+            var append = typeof(XmlNode).GetMethod("AppendChildForLoad", All, null, new[] { typeof(XmlNode), doc }, null);
             inserting = doc.GetField("_onNodeInsertingDelegate", All);
             inserted = doc.GetField("_onNodeInsertedDelegate", All);
             idAttributes = doc.GetField("_htElementIDAttrDecl", All);
             childKeyIndex = doc.GetField("ChildKeyIndex", All);
             isLoading = doc.GetProperty("IsLoading", All);
             dtdSchemaInfo = doc.GetProperty("DtdSchemaInfo", All);
-            if (
-                add == null
-                || addAttr == null
-                || element == null
-                || attribute == null
-                || append == null
-                || inserting == null
-                || inserted == null
-                || idAttributes == null
-                || isLoading == null
-                || dtdSchemaInfo == null
-            )
+            if (add == null || addAttr == null || element == null || attribute == null || append == null || inserting == null || inserted == null || idAttributes == null || isLoading == null || dtdSchemaInfo == null)
             {
                 return "System.Xml members changed";
             }
             addXmlName = NameAdder(add);
             addAttrXmlName = NameAdder(addAttr);
-            var m = new DynamicMethod(
-                "RLO_NewElement",
-                typeof(XmlElement),
-                new[] { typeof(object), typeof(bool), doc },
-                doc.Module,
-                true
-            );
+            var m = new DynamicMethod("RLO_NewElement", typeof(XmlElement), new[] { typeof(object), typeof(bool), doc }, doc.Module, true);
             var il = m.GetILGenerator();
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Castclass, xmlName);
@@ -117,53 +69,29 @@ namespace RimWorldLoadingOptimizer
             il.Emit(OpCodes.Ldarg_2);
             il.Emit(OpCodes.Newobj, element);
             il.Emit(OpCodes.Ret);
-            newElement =
-                (Func<object, bool, XmlDocument, XmlElement>)
-                    m.CreateDelegate(typeof(Func<object, bool, XmlDocument, XmlElement>));
-            m = new DynamicMethod(
-                "RLO_NewAttribute",
-                typeof(XmlAttribute),
-                new[] { typeof(object), doc },
-                doc.Module,
-                true
-            );
+            newElement = (Func<object, bool, XmlDocument, XmlElement>)m.CreateDelegate(typeof(Func<object, bool, XmlDocument, XmlElement>));
+            m = new DynamicMethod("RLO_NewAttribute", typeof(XmlAttribute), new[] { typeof(object), doc }, doc.Module, true);
             il = m.GetILGenerator();
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Castclass, xmlName);
             il.Emit(OpCodes.Ldarg_1);
             il.Emit(OpCodes.Newobj, attribute);
             il.Emit(OpCodes.Ret);
-            newAttribute =
-                (Func<object, XmlDocument, XmlAttribute>)
-                    m.CreateDelegate(typeof(Func<object, XmlDocument, XmlAttribute>));
-            m = new DynamicMethod(
-                "RLO_AppendChildForLoad",
-                typeof(XmlNode),
-                new[] { typeof(XmlNode), typeof(XmlNode), doc },
-                doc.Module,
-                true
-            );
+            newAttribute = (Func<object, XmlDocument, XmlAttribute>)m.CreateDelegate(typeof(Func<object, XmlDocument, XmlAttribute>));
+            m = new DynamicMethod("RLO_AppendChildForLoad", typeof(XmlNode), new[] { typeof(XmlNode), typeof(XmlNode), doc }, doc.Module, true);
             il = m.GetILGenerator();
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Ldarg_1);
             il.Emit(OpCodes.Ldarg_2);
             il.Emit(OpCodes.Callvirt, append);
             il.Emit(OpCodes.Ret);
-            appendForLoad =
-                (Func<XmlNode, XmlNode, XmlDocument, XmlNode>)
-                    m.CreateDelegate(typeof(Func<XmlNode, XmlNode, XmlDocument, XmlNode>));
+            appendForLoad = (Func<XmlNode, XmlNode, XmlDocument, XmlNode>)m.CreateDelegate(typeof(Func<XmlNode, XmlNode, XmlDocument, XmlNode>));
             return null;
         }
 
         private static Func<XmlDocument, string, string, string, object> NameAdder(MethodInfo method)
         {
-            var m = new DynamicMethod(
-                "RLO_" + method.Name,
-                typeof(object),
-                new[] { typeof(XmlDocument), typeof(string), typeof(string), typeof(string) },
-                typeof(XmlDocument).Module,
-                true
-            );
+            var m = new DynamicMethod("RLO_" + method.Name, typeof(object), new[] { typeof(XmlDocument), typeof(string), typeof(string), typeof(string) }, typeof(XmlDocument).Module, true);
             var il = m.GetILGenerator();
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Ldarg_1);
@@ -172,8 +100,7 @@ namespace RimWorldLoadingOptimizer
             il.Emit(OpCodes.Ldnull);
             il.Emit(OpCodes.Call, method);
             il.Emit(OpCodes.Ret);
-            return (Func<XmlDocument, string, string, string, object>)
-                m.CreateDelegate(typeof(Func<XmlDocument, string, string, string, object>));
+            return (Func<XmlDocument, string, string, string, object>)m.CreateDelegate(typeof(Func<XmlDocument, string, string, string, object>));
         }
 
         // The root element as XmlDocument.ReadNode would return it after MoveToContent, or null (with
@@ -187,38 +114,19 @@ namespace RimWorldLoadingOptimizer
                     LastFallback = "not initialized";
                     return null;
                 }
-                if (
-                    (bool)isLoading.GetValue(target)
-                    || inserting.GetValue(target) != null
-                    || inserted.GetValue(target) != null
-                    || idAttributes.GetValue(target) != null
-                    || dtdSchemaInfo.GetValue(target) != null
-                    || (childKeyIndex != null && childKeyIndex.GetValue(target) != null)
-                )
+                if ((bool)isLoading.GetValue(target) || inserting.GetValue(target) != null || inserted.GetValue(target) != null || idAttributes.GetValue(target) != null
+                    || dtdSchemaInfo.GetValue(target) != null || (childKeyIndex != null && childKeyIndex.GetValue(target) != null))
                 {
                     LastFallback = "the def document is not plain";
                     return null;
                 }
-                if (
-                    settings == null
-                    || settings.ConformanceLevel != ConformanceLevel.Document
-                    || settings.DtdProcessing == DtdProcessing.Parse
-                    || settings.ValidationType != ValidationType.None
-                    || settings.NameTable != null
-                )
+                if (settings == null || settings.ConformanceLevel != ConformanceLevel.Document || settings.DtdProcessing == DtdProcessing.Parse || settings.ValidationType != ValidationType.None
+                    || settings.NameTable != null)
                 {
                     LastFallback = "Missile Girl reads its cache with other settings";
                     return null;
                 }
-                using (
-                    var handle = File.OpenHandle(
-                        path,
-                        FileMode.Open,
-                        FileAccess.Read,
-                        FileShare.ReadWrite | FileShare.Delete,
-                        FileOptions.None
-                    )
-                )
+                using (var handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, FileOptions.None))
                 {
                     var bounds = Bounds(handle);
                     if (bounds == null)
@@ -240,10 +148,7 @@ namespace RimWorldLoadingOptimizer
                         {
                             var builder = new Builder(target, names);
                             int i;
-                            while (
-                                (i = Interlocked.Increment(ref next)) < results.Length
-                                && Volatile.Read(ref failure) == null
-                            )
+                            while ((i = Interlocked.Increment(ref next)) < results.Length && Volatile.Read(ref failure) == null)
                             {
                                 results[i] = builder.ReadChunk(handle, bounds[i], bounds[i + 1], chunkSettings);
                             }
@@ -262,11 +167,7 @@ namespace RimWorldLoadingOptimizer
                     {
                         for (; started < workers.Length; started++)
                         {
-                            workers[started] = new Thread(Work, 1 << 20)
-                            {
-                                IsBackground = true,
-                                Name = "RLO cache reader " + (started + 1),
-                            };
+                            workers[started] = new Thread(Work, 1 << 20) { IsBackground = true, Name = "RLO cache reader " + (started + 1) };
                             workers[started].Start();
                         }
                     }
@@ -366,11 +267,7 @@ namespace RimWorldLoadingOptimizer
                 var found = -1L;
                 while (found < 0 && from < bodyEnd)
                 {
-                    var read = RandomAccess.Read(
-                        handle,
-                        window.AsSpan(0, (int)Math.Min(window.Length, bodyEnd - from)),
-                        from
-                    );
+                    var read = RandomAccess.Read(handle, window.AsSpan(0, (int)Math.Min(window.Length, bodyEnd - from)), from);
                     if (read <= 0)
                     {
                         return null;
@@ -432,8 +329,7 @@ namespace RimWorldLoadingOptimizer
             return Premark && root != null && item != null && item.ParentNode == root && item.FirstChild == node;
         }
 
-        private static bool At(byte[] buffer, int at, byte[] what) =>
-            at >= 0 && at + what.Length <= buffer.Length && buffer.AsSpan(at, what.Length).SequenceEqual(what);
+        private static bool At(byte[] buffer, int at, byte[] what) => at >= 0 && at + what.Length <= buffer.Length && buffer.AsSpan(at, what.Length).SequenceEqual(what);
 
         private static bool IsSpace(byte b) => b == (byte)' ' || b == (byte)'\t' || b == (byte)'\r' || b == (byte)'\n';
 
@@ -496,7 +392,8 @@ namespace RimWorldLoadingOptimizer
                                 do
                                 {
                                     attributes.Append(LoadAttribute(reader));
-                                } while (reader.MoveToNextAttribute());
+                                }
+                                while (reader.MoveToNextAttribute());
                                 reader.MoveToElement();
                             }
                             if (!empty)
@@ -559,7 +456,8 @@ namespace RimWorldLoadingOptimizer
                     }
                     reader.Read();
                     return node;
-                } while (reader.Read());
+                }
+                while (reader.Read());
                 throw new XmlException("unexpected end of a cached def");
             }
 
@@ -585,11 +483,7 @@ namespace RimWorldLoadingOptimizer
                 return attribute;
             }
 
-            private object Name(
-                Dictionary<NameKey, object> cache,
-                Func<XmlDocument, string, string, string, object> add,
-                XmlReader reader
-            )
+            private object Name(Dictionary<NameKey, object> cache, Func<XmlDocument, string, string, string, object> add, XmlReader reader)
             {
                 var key = new NameKey(reader.Prefix, reader.LocalName, reader.NamespaceURI);
                 if (!cache.TryGetValue(key, out var name))
@@ -607,9 +501,7 @@ namespace RimWorldLoadingOptimizer
         // Names of one reader come from its own name table, so the same name is the same string object.
         private readonly struct NameKey : IEquatable<NameKey>
         {
-            public readonly string Prefix,
-                LocalName,
-                Namespace;
+            public readonly string Prefix, LocalName, Namespace;
 
             public NameKey(string prefix, string localName, string ns)
             {
@@ -618,17 +510,11 @@ namespace RimWorldLoadingOptimizer
                 Namespace = ns;
             }
 
-            public bool Equals(NameKey other) =>
-                (object)Prefix == other.Prefix
-                && (object)LocalName == other.LocalName
-                && (object)Namespace == other.Namespace;
+            public bool Equals(NameKey other) => (object)Prefix == other.Prefix && (object)LocalName == other.LocalName && (object)Namespace == other.Namespace;
 
             public override bool Equals(object obj) => obj is NameKey other && Equals(other);
 
-            public override int GetHashCode() =>
-                RuntimeHelpers.GetHashCode(LocalName)
-                ^ (RuntimeHelpers.GetHashCode(Prefix) * 31)
-                ^ (RuntimeHelpers.GetHashCode(Namespace) * 17);
+            public override int GetHashCode() => RuntimeHelpers.GetHashCode(LocalName) ^ (RuntimeHelpers.GetHashCode(Prefix) * 31) ^ (RuntimeHelpers.GetHashCode(Namespace) * 17);
         }
 
         private sealed class SliceStream : Stream
@@ -666,18 +552,10 @@ namespace RimWorldLoadingOptimizer
             public override bool CanSeek => false;
             public override bool CanWrite => false;
             public override long Length => throw new NotSupportedException();
-            public override long Position
-            {
-                get => throw new NotSupportedException();
-                set => throw new NotSupportedException();
-            }
-
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
             public override void Flush() { }
-
             public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-
             public override void SetLength(long value) => throw new NotSupportedException();
-
             public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
         }
     }

@@ -21,15 +21,9 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             installed = true;
-            harmony.Patch(
-                AccessTools.Method(
-                    typeof(RuntimeHelpers),
-                    nameof(RuntimeHelpers.RunClassConstructor),
-                    new[] { typeof(RuntimeTypeHandle) }
-                ),
+            harmony.Patch(AccessTools.Method(typeof(RuntimeHelpers), nameof(RuntimeHelpers.RunClassConstructor), new[] { typeof(RuntimeTypeHandle) }),
                 prefix: new HarmonyMethod(typeof(StaticConstructorTracker), nameof(Start)),
-                finalizer: new HarmonyMethod(typeof(StaticConstructorTracker), nameof(End))
-            );
+                finalizer: new HarmonyMethod(typeof(StaticConstructorTracker), nameof(End)));
         }
 
         public static bool Inside(Type type) => type != null && UnityData.IsInMainThread && stack.Contains(type);

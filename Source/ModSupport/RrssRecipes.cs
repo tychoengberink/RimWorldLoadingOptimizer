@@ -10,84 +10,49 @@ namespace RimWorldLoadingOptimizer
 {
     public static class RrssRecipes
     {
-        private static readonly MethodInfo AllRecipeUsers = AccessTools.PropertyGetter(
-            typeof(RecipeDef),
-            nameof(RecipeDef.AllRecipeUsers)
-        );
-        private static readonly MethodInfo IsSurgeryGetter = AccessTools.PropertyGetter(
-            typeof(RecipeDef),
-            nameof(RecipeDef.IsSurgery)
-        );
-        private static readonly AccessTools.FieldRef<RecipeDef, bool?> SurgeryCached = AccessTools.FieldRefAccess<
-            RecipeDef,
-            bool?
-        >("isSurgeryCached");
+        private static readonly MethodInfo AllRecipeUsers = AccessTools.PropertyGetter(typeof(RecipeDef), nameof(RecipeDef.AllRecipeUsers));
+        private static readonly MethodInfo IsSurgeryGetter = AccessTools.PropertyGetter(typeof(RecipeDef), nameof(RecipeDef.IsSurgery));
+        private static readonly AccessTools.FieldRef<RecipeDef, bool?> SurgeryCached = AccessTools.FieldRefAccess<RecipeDef, bool?>("isSurgeryCached");
         private static readonly List<ThingDef> NoUsers = new List<ThingDef>();
 
         private static Dictionary<RecipeDef, List<ThingDef>> users;
-        private static int installed,
-            patchedMethods,
-            served,
-            surgeries;
+        private static int installed, patchedMethods, served, surgeries;
         private static readonly MismatchLog mismatches = new MismatchLog("Research Reinvented: Stepping Stones");
         private static SelfCheck check;
 
         public static void Install(Harmony harmony)
         {
-            var rebuilder = ModTypes.Find(
-                "PeteTimesSix.ResearchReinvented_SteppingStones.PreregRebuilders.PreregRebuilder"
-            );
+            var rebuilder = ModTypes.Find("PeteTimesSix.ResearchReinvented_SteppingStones.PreregRebuilders.PreregRebuilder");
             if (rebuilder == null)
             {
                 return;
             }
-            var extensions = ModTypes.Find(
-                "PeteTimesSix.ResearchReinvented_SteppingStones.Extensions.RecipeDefExtensions"
-            );
+            var extensions = ModTypes.Find("PeteTimesSix.ResearchReinvented_SteppingStones.Extensions.RecipeDefExtensions");
             var entry = AccessTools.Method(rebuilder, "SetPrerequisitesOnOrphans");
             if (entry == null || extensions == null || AllRecipeUsers == null || IsSurgeryGetter == null)
             {
-                VersionCheck.Skip(
-                    "Research Reinvented: Stepping Stones recipe users",
-                    "PreregRebuilder.SetPrerequisitesOnOrphans, RecipeDefExtensions or a RecipeDef getter no longer "
-                        + "exists"
-                );
+                VersionCheck.Skip("Research Reinvented: Stepping Stones recipe users", "PreregRebuilder.SetPrerequisitesOnOrphans, RecipeDefExtensions or a RecipeDef getter no longer exists");
                 return;
             }
-            check = new SelfCheck(
-                "Research Reinvented: Stepping Stones recipe users",
-                VersionCheck.Code(
-                    entry,
-                    AllRecipeUsers,
-                    AccessTools.EnumeratorMoveNext(AllRecipeUsers),
-                    IsSurgeryGetter
-                )
-            );
+            check = new SelfCheck("Research Reinvented: Stepping Stones recipe users", VersionCheck.Code(
+                entry,
+                AllRecipeUsers,
+                AccessTools.EnumeratorMoveNext(AllRecipeUsers),
+                IsSurgeryGetter));
             var transpiler = new HarmonyMethod(typeof(RrssRecipes), nameof(Transpiler));
-            foreach (
-                var method in AccessTools
-                    .GetDeclaredMethods(rebuilder)
-                    .Concat(AccessTools.GetDeclaredMethods(extensions))
-            )
+            foreach (var method in AccessTools.GetDeclaredMethods(rebuilder).Concat(AccessTools.GetDeclaredMethods(extensions)))
             {
-                if (
-                    method.IsAbstract
-                    || method.ContainsGenericParameters
-                    || !IlScan.CallsAny(method, AllRecipeUsers, IsSurgeryGetter)
-                )
+                if (method.IsAbstract || method.ContainsGenericParameters || !IlScan.CallsAny(method, AllRecipeUsers, IsSurgeryGetter))
                 {
                     continue;
                 }
                 harmony.Patch(method, transpiler: transpiler);
                 patchedMethods++;
             }
-            harmony.Patch(
-                entry,
-                prefix: new HarmonyMethod(typeof(RrssRecipes), nameof(Begin)),
-                finalizer: new HarmonyMethod(typeof(RrssRecipes), nameof(End))
-            );
+            harmony.Patch(entry, prefix: new HarmonyMethod(typeof(RrssRecipes), nameof(Begin)), finalizer: new HarmonyMethod(typeof(RrssRecipes), nameof(End)));
             installed = 1;
         }
+
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
@@ -95,21 +60,11 @@ namespace RimWorldLoadingOptimizer
             {
                 if (instruction.Calls(AllRecipeUsers))
                 {
-                    yield return new CodeInstruction(
-                        OpCodes.Call,
-                        AccessTools.Method(typeof(RrssRecipes), nameof(Users))
-                    )
-                        .WithLabels(instruction.labels)
-                        .WithBlocks(instruction.blocks);
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(RrssRecipes), nameof(Users))).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
                 }
                 else if (instruction.Calls(IsSurgeryGetter))
                 {
-                    yield return new CodeInstruction(
-                        OpCodes.Call,
-                        AccessTools.Method(typeof(RrssRecipes), nameof(IsSurgery))
-                    )
-                        .WithLabels(instruction.labels)
-                        .WithBlocks(instruction.blocks);
+                    yield return new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(RrssRecipes), nameof(IsSurgery))).WithLabels(instruction.labels).WithBlocks(instruction.blocks);
                 }
                 else
                 {
@@ -227,9 +182,7 @@ namespace RimWorldLoadingOptimizer
 
         public static string Stats()
         {
-            return installed == 0
-                ? "Research Reinvented: Stepping Stones recipe users: off"
-                : $"Research Reinvented: Stepping Stones recipe users: {patchedMethods} methods redirected, {served} recipe-user lookups served from the index, {surgeries} IsSurgery values computed; {mismatches.Count} verify mismatches";
+            return installed == 0 ? "Research Reinvented: Stepping Stones recipe users: off" : $"Research Reinvented: Stepping Stones recipe users: {patchedMethods} methods redirected, {served} recipe-user lookups served from the index, {surgeries} IsSurgery values computed; {mismatches.Count} verify mismatches";
         }
     }
 }

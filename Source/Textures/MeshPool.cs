@@ -36,24 +36,16 @@ namespace RimWorldLoadingOptimizer
         private static int measured;
         private static long measuredTicks;
         private static long beforeSlow;
-
-        [ThreadStatic]
-        private static long engineStart;
+        [ThreadStatic] private static long engineStart;
         private static readonly object gate = new object();
-        private static readonly Dictionary<nint, BufferAllocationInfo> live =
-            new Dictionary<nint, BufferAllocationInfo>();
+        private static readonly Dictionary<nint, BufferAllocationInfo> live = new Dictionary<nint, BufferAllocationInfo>();
         private static AccessTools.FieldRef<MeshUploader, VmaAllocator> allocatorOf;
-        private static AccessTools.FieldRef<MeshUploader, long> renderFrameSerialOf,
-            hostFallbackUntilFrameOf;
+        private static AccessTools.FieldRef<MeshUploader, long> renderFrameSerialOf, hostFallbackUntilFrameOf;
         private static VmaPool pool;
         private static VmaAllocator poolAllocator;
         private static bool failed;
         private static bool fallbackSeen;
-        private static long pooled,
-            refused,
-            freed,
-            peak,
-            leftAtShutdown;
+        private static long pooled, refused, freed, peak, leftAtShutdown;
         private static SelfCheck check;
 
         public static void Install(Harmony harmony)
@@ -61,42 +53,16 @@ namespace RimWorldLoadingOptimizer
             var type = typeof(MeshUploader);
             var allocate = AccessTools.Method(type, "AllocateMeshBuffer");
             var shutdown = AccessTools.Method(type, nameof(MeshUploader.Shutdown));
-            var free = AccessTools.Method(
-                typeof(VmaAllocator),
-                nameof(VmaAllocator.FreeAllocation),
-                new[] { typeof(BufferAllocationInfo).MakeByRefType() }
-            );
+            var free = AccessTools.Method(typeof(VmaAllocator), nameof(VmaAllocator.FreeAllocation), new[] { typeof(BufferAllocationInfo).MakeByRefType() });
             if (allocate == null || shutdown == null || free == null)
             {
-                RLOLog.Detail(
-                    $"{Feature}: the engine's mesh uploader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken."
-                );
+                RLOLog.Detail($"{Feature}: the engine's mesh uploader does not have the expected shape. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
-            var release = AccessTools.Method(
-                typeof(GpuMeshBuffer),
-                nameof(GpuMeshBuffer.Release),
-                new[] { typeof(IBufferAllocator) }
-            );
-            var freeInterface = AccessTools.Method(
-                typeof(IBufferAllocator),
-                nameof(IBufferAllocator.FreeAllocation),
-                new[] { typeof(BufferAllocationInfo).MakeByRefType() }
-            );
-            if (
-                !VersionCheck.Pattern(
-                    Feature,
-                    shutdown,
-                    code => VersionCheck.Calls(code, release) > 0,
-                    "releases the mesh buffers"
-                )
-                || !VersionCheck.Pattern(
-                    Feature,
-                    release,
-                    code => VersionCheck.Calls(code, freeInterface) > 0 && FreesThrough(freeInterface, free),
-                    "frees through the allocator"
-                )
-            )
+            var release = AccessTools.Method(typeof(GpuMeshBuffer), nameof(GpuMeshBuffer.Release), new[] { typeof(IBufferAllocator) });
+            var freeInterface = AccessTools.Method(typeof(IBufferAllocator), nameof(IBufferAllocator.FreeAllocation), new[] { typeof(BufferAllocationInfo).MakeByRefType() });
+            if (!VersionCheck.Pattern(Feature, shutdown, code => VersionCheck.Calls(code, release) > 0, "releases the mesh buffers")
+                || !VersionCheck.Pattern(Feature, release, code => VersionCheck.Calls(code, freeInterface) > 0 && FreesThrough(freeInterface, free), "frees through the allocator"))
             {
                 return;
             }
@@ -108,11 +74,7 @@ namespace RimWorldLoadingOptimizer
             allocatorOf = AccessTools.FieldRefAccess<MeshUploader, VmaAllocator>("allocator");
             renderFrameSerialOf = AccessTools.FieldRefAccess<MeshUploader, long>("renderFrameSerial");
             hostFallbackUntilFrameOf = AccessTools.FieldRefAccess<MeshUploader, long>("hostFallbackUntilFrame");
-            harmony.Patch(
-                allocate,
-                prefix: new HarmonyMethod(typeof(MeshPool), nameof(AllocatePrefix)) { priority = Priority.Last },
-                postfix: new HarmonyMethod(typeof(MeshPool), nameof(AllocatePostfix))
-            );
+            harmony.Patch(allocate, prefix: new HarmonyMethod(typeof(MeshPool), nameof(AllocatePrefix)) { priority = Priority.Last }, postfix: new HarmonyMethod(typeof(MeshPool), nameof(AllocatePostfix)));
             harmony.Patch(free, prefix: new HarmonyMethod(typeof(MeshPool), nameof(FreePrefix)));
             harmony.Patch(shutdown, postfix: new HarmonyMethod(typeof(MeshPool), nameof(ShutdownPostfix)));
             StartupPhaseFixes.Reports.Add(Stats);
@@ -136,28 +98,20 @@ namespace RimWorldLoadingOptimizer
             return target == free || VersionCheck.Calls(PatchProcessor.GetOriginalInstructions(target), free) > 0;
         }
 
-        private static VmaAllocationCreateInfo Request() =>
-            new VmaAllocationCreateInfo
-            {
-                Usage = VmaMemoryUsage.AutoPreferDevice,
-                RequiredFlags = VkMemoryPropertyFlags.DeviceLocalBit,
-                PreferredFlags = VkMemoryPropertyFlags.DeviceLocalBit,
-                Flags = VmaAllocationCreateFlags.None,
-                Priority = 1f,
-                MemoryTypeBits = 0u,
-            };
+        private static VmaAllocationCreateInfo Request() => new VmaAllocationCreateInfo
+        {
+            Usage = VmaMemoryUsage.AutoPreferDevice,
+            RequiredFlags = VkMemoryPropertyFlags.DeviceLocalBit,
+            PreferredFlags = VkMemoryPropertyFlags.DeviceLocalBit,
+            Flags = VmaAllocationCreateFlags.None,
+            Priority = 1f,
+            MemoryTypeBits = 0u
+        };
 
         private static uint TypeFor(VmaAllocator allocator, VkBufferUsageFlags usage)
         {
-            var info = new VkBufferCreateInfo
-            {
-                Size = ByteSize.Of(65536),
-                Usage = usage | VkBufferUsageFlags.TransferDstBit,
-                SharingMode = VkSharingMode.Exclusive,
-            };
-            return allocator.FindMemoryTypeIndexForBufferInfo(info, Request(), out var index) == VkResult.Success
-                ? index
-                : uint.MaxValue;
+            var info = new VkBufferCreateInfo { Size = ByteSize.Of(65536), Usage = usage | VkBufferUsageFlags.TransferDstBit, SharingMode = VkSharingMode.Exclusive };
+            return allocator.FindMemoryTypeIndexForBufferInfo(info, Request(), out var index) == VkResult.Success ? index : uint.MaxValue;
         }
 
         private static bool EnsurePool(VmaAllocator allocator)
@@ -175,17 +129,10 @@ namespace RimWorldLoadingOptimizer
             if (vertex == uint.MaxValue || vertex != index)
             {
                 failed = true;
-                RLOLog.Detail(
-                    $"{Feature}: vertex and index buffers use different memory types ({vertex}, {index}); mesh buffers keep the engine's allocation."
-                );
+                RLOLog.Detail($"{Feature}: vertex and index buffers use different memory types ({vertex}, {index}); mesh buffers keep the engine's allocation.");
                 return false;
             }
-            var create = new VmaPoolCreateInfo
-            {
-                MemoryTypeIndex = vertex,
-                BlockSize = ByteSize.Of(BlockBytes),
-                Priority = 1f,
-            };
+            var create = new VmaPoolCreateInfo { MemoryTypeIndex = vertex, BlockSize = ByteSize.Of(BlockBytes), Priority = 1f };
             if (allocator.CreatePool(create, out pool) != VkResult.Success)
             {
                 failed = true;
@@ -198,25 +145,13 @@ namespace RimWorldLoadingOptimizer
 
         // Runs under MeshUploader's own lock. Only plain device-local requests that the engine would send to VMA unchanged
         // are taken: no host fallback window, never a fallback before (so DeviceLocalHasRoom is not consulted either).
-        public static bool AllocatePrefix(
-            MeshUploader __instance,
-            long bytes,
-            VkBufferUsageFlags usage,
-            ref bool hostResident,
-            ref BufferAllocationInfo __result
-        )
+        public static bool AllocatePrefix(MeshUploader __instance, long bytes, VkBufferUsageFlags usage, ref bool hostResident, ref BufferAllocationInfo __result)
         {
             if (hostFallbackUntilFrameOf(__instance) >= 0)
             {
                 fallbackSeen = true;
             }
-            if (
-                check.IsOff
-                || fallbackSeen
-                || bytes <= 0
-                || bytes > MaxPooledBytes
-                || renderFrameSerialOf(__instance) < hostFallbackUntilFrameOf(__instance)
-            )
+            if (check.IsOff || fallbackSeen || bytes <= 0 || bytes > MaxPooledBytes || renderFrameSerialOf(__instance) < hostFallbackUntilFrameOf(__instance))
             {
                 return true;
             }
@@ -232,9 +167,7 @@ namespace RimWorldLoadingOptimizer
                     if (!pool.IsNull() && allocator != poolAllocator)
                     {
                         failed = true;
-                        RLOLog.Warning(
-                            $"{Feature}: the engine created a new allocator; new mesh buffers keep the engine's allocation."
-                        );
+                        RLOLog.Warning($"{Feature}: the engine created a new allocator; new mesh buffers keep the engine's allocation.");
                         return true;
                     }
                     if (!slowSeen || check.IsChecking)
@@ -247,42 +180,23 @@ namespace RimWorldLoadingOptimizer
                     {
                         return true;
                     }
-                    var info = new VkBufferCreateInfo
-                    {
-                        Size = ByteSize.Of(bytes),
-                        Usage = usage | VkBufferUsageFlags.TransferDstBit,
-                        SharingMode = VkSharingMode.Exclusive,
-                    };
+                    var info = new VkBufferCreateInfo { Size = ByteSize.Of(bytes), Usage = usage | VkBufferUsageFlags.TransferDstBit, SharingMode = VkSharingMode.Exclusive };
                     var request = Request();
                     request.Pool = pool;
-                    if (
-                        allocator.CreateBuffer(
-                            info,
-                            request,
-                            out var vkBuffer,
-                            out var allocation,
-                            out var allocationInfo
-                        ) != VkResult.Success
-                    )
+                    if (allocator.CreateBuffer(info, request, out var vkBuffer, out var allocation, out var allocationInfo) != VkResult.Success)
                     {
                         refused++;
                         return true;
                     }
-                    var result = new BufferAllocationInfo(
-                        vkBuffer,
-                        default,
-                        info.Size,
-                        info.Usage,
-                        new AllocationInfo
-                        {
-                            Allocator = allocator,
-                            Memory = allocationInfo.DeviceMemory,
-                            MemoryTypeIndex = (int)allocationInfo.MemoryType,
-                            AllocOffset = allocationInfo.Offset,
-                            AllocSize = allocationInfo.Size,
-                            AllocHandle = allocation.VkHandle,
-                        }
-                    );
+                    var result = new BufferAllocationInfo(vkBuffer, default, info.Size, info.Usage, new AllocationInfo
+                    {
+                        Allocator = allocator,
+                        Memory = allocationInfo.DeviceMemory,
+                        MemoryTypeIndex = (int)allocationInfo.MemoryType,
+                        AllocOffset = allocationInfo.Offset,
+                        AllocSize = allocationInfo.Size,
+                        AllocHandle = allocation.VkHandle
+                    });
                     live[allocation.VkHandle] = result;
                     pooled++;
                     peak = Math.Max(peak, live.Count);
@@ -294,22 +208,14 @@ namespace RimWorldLoadingOptimizer
             catch (Exception e)
             {
                 failed = true;
-                RLOLog.Warning(
-                    $"{Feature}: switched off after an error ({e.GetType().Name}: {e.Message}); mesh buffers keep the engine's allocation."
-                );
+                RLOLog.Warning($"{Feature}: switched off after an error ({e.GetType().Name}: {e.Message}); mesh buffers keep the engine's allocation.");
                 return true;
             }
         }
 
         // Times the engine's own small mesh allocations; when 16 in a row average more than 100 us, the pool takes the
         // following ones.
-        public static void AllocatePostfix(
-            MeshUploader __instance,
-            long bytes,
-            VkBufferUsageFlags usage,
-            ref bool hostResident,
-            BufferAllocationInfo __result
-        )
+        public static void AllocatePostfix(MeshUploader __instance, long bytes, VkBufferUsageFlags usage, ref bool hostResident, BufferAllocationInfo __result)
         {
             var start = engineStart;
             if (start == 0)
@@ -334,12 +240,7 @@ namespace RimWorldLoadingOptimizer
             measuredTicks = 0;
         }
 
-        private static void Compare(
-            MeshUploader uploader,
-            long bytes,
-            VkBufferUsageFlags usage,
-            BufferAllocationInfo result
-        )
+        private static void Compare(MeshUploader uploader, long bytes, VkBufferUsageFlags usage, BufferAllocationInfo result)
         {
             try
             {
@@ -350,14 +251,8 @@ namespace RimWorldLoadingOptimizer
                 }
                 var type = TypeFor(allocator, usage);
                 var expected = usage | VkBufferUsageFlags.TransferDstBit;
-                var same =
-                    (long)result.BufferSize.Value == bytes
-                    && result.Usage == expected
-                    && result.AllocationInfo.MemoryTypeIndex == (int)type;
-                check.Report(
-                    same,
-                    $"{bytes} bytes usage {usage}: engine gave {(long)result.BufferSize.Value} bytes usage {result.Usage} memory type {result.AllocationInfo.MemoryTypeIndex}, pool would use memory type {type}"
-                );
+                var same = (long)result.BufferSize.Value == bytes && result.Usage == expected && result.AllocationInfo.MemoryTypeIndex == (int)type;
+                check.Report(same, $"{bytes} bytes usage {usage}: engine gave {(long)result.BufferSize.Value} bytes usage {result.Usage} memory type {result.AllocationInfo.MemoryTypeIndex}, pool would use memory type {type}");
             }
             catch (Exception e)
             {
@@ -395,9 +290,7 @@ namespace RimWorldLoadingOptimizer
                     poolAllocator.GetPoolStatistics(pool, out var statistics);
                     if (statistics.AllocationCount != live.Count)
                     {
-                        RLOLog.Warning(
-                            $"{Feature}: the pool holds {statistics.AllocationCount} buffers but {live.Count} are known to be live; the pool is left as it is."
-                        );
+                        RLOLog.Warning($"{Feature}: the pool holds {statistics.AllocationCount} buffers but {live.Count} are known to be live; the pool is left as it is.");
                         return;
                     }
                     leftAtShutdown = live.Count;

@@ -49,46 +49,20 @@ namespace RimWorldLoadingOptimizer
             IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         }
 
-        private static readonly MethodInfo Original = AccessTools.Method(
-            typeof(ContentFinder<Texture2D>),
-            nameof(ContentFinder<Texture2D>.GetAllInFolder)
-        );
-        private static readonly MethodInfo Fast = AccessTools.Method(
-            typeof(FastContent),
-            nameof(FastContent.GetAllInFolder)
-        );
+        private static readonly MethodInfo Original = AccessTools.Method(typeof(ContentFinder<Texture2D>), nameof(ContentFinder<Texture2D>.GetAllInFolder));
+        private static readonly MethodInfo Fast = AccessTools.Method(typeof(FastContent), nameof(FastContent.GetAllInFolder));
         private static readonly Dictionary<string, Replay> Folders = new Dictionary<string, Replay>();
-        private static int lookups,
-            reused,
-            replayed,
-            graphics;
+        private static int lookups, reused, replayed, graphics;
 
         public static void Install(Harmony harmony)
         {
-            var init = AccessTools.DeclaredMethod(
-                typeof(Graphic_Appearances),
-                nameof(Graphic_Appearances.Init),
-                new[] { typeof(GraphicRequest) }
-            );
-            if (
-                init == null
-                || Original == null
-                || Fast == null
-                || PatchProcessor.GetOriginalInstructions(init).Count(i => i.Calls(Original)) != 1
-            )
+            var init = AccessTools.DeclaredMethod(typeof(Graphic_Appearances), nameof(Graphic_Appearances.Init), new[] { typeof(GraphicRequest) });
+            if (init == null || Original == null || Fast == null || PatchProcessor.GetOriginalInstructions(init).Count(i => i.Calls(Original)) != 1)
             {
-                VersionCheck.Skip(
-                    Feature,
-                    "Graphic_Appearances.Init no longer makes the one folder lookup this was written for"
-                );
+                VersionCheck.Skip(Feature, "Graphic_Appearances.Init no longer makes the one folder lookup this was written for");
                 return;
             }
-            harmony.Patch(
-                init,
-                prefix: new HarmonyMethod(typeof(AppearanceFolders), nameof(Clear)),
-                finalizer: new HarmonyMethod(typeof(AppearanceFolders), nameof(ClearAfter)),
-                transpiler: new HarmonyMethod(typeof(AppearanceFolders), nameof(Transpiler))
-            );
+            harmony.Patch(init, prefix: new HarmonyMethod(typeof(AppearanceFolders), nameof(Clear)), finalizer: new HarmonyMethod(typeof(AppearanceFolders), nameof(ClearAfter)), transpiler: new HarmonyMethod(typeof(AppearanceFolders), nameof(Transpiler)));
             StartupPhaseFixes.Reports.Add(Stats);
         }
 
@@ -127,7 +101,6 @@ namespace RimWorldLoadingOptimizer
             return replay;
         }
 
-        public static string Stats() =>
-            $"stuff appearance folder lookups: {graphics} graphics, {lookups} folder lookups, {reused} answered from the same graphic's earlier lookup ({replayed} items replayed)";
+        public static string Stats() => $"stuff appearance folder lookups: {graphics} graphics, {lookups} folder lookups, {reused} answered from the same graphic's earlier lookup ({replayed} items replayed)";
     }
 }

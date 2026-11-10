@@ -41,31 +41,15 @@ namespace RimWorldLoadingOptimizer
                 {
                     return null;
                 }
-                var typeArgs =
-                    method.DeclaringType != null && method.DeclaringType.IsGenericType
-                        ? method.DeclaringType.GetGenericArguments()
-                        : null;
+                var typeArgs = method.DeclaringType != null && method.DeclaringType.IsGenericType ? method.DeclaringType.GetGenericArguments() : null;
                 var methodArgs = method.IsGenericMethod ? method.GetGenericArguments() : null;
-                var clauses = body.ExceptionHandlingClauses.Select(c =>
-                    (
-                        (int)c.Flags,
-                        c.TryOffset,
-                        c.TryLength,
-                        c.HandlerOffset,
-                        c.HandlerLength,
-                        c.Flags == ExceptionHandlingClauseOptions.Filter ? c.FilterOffset : 0,
-                        c.Flags == ExceptionHandlingClauseOptions.Clause ? TypeName(c.CatchType) : null
-                    )
-                );
+                var clauses = body.ExceptionHandlingClauses.Select(c => ((int)c.Flags, c.TryOffset, c.TryLength, c.HandlerOffset, c.HandlerLength,
+                    c.Flags == ExceptionHandlingClauseOptions.Filter ? c.FilterOffset : 0,
+                    c.Flags == ExceptionHandlingClauseOptions.Clause ? TypeName(c.CatchType) : null));
                 var module = method.Module;
-                return Normalized(
-                    il,
-                    clauses,
-                    token =>
-                        (uint)token >> 24 == 0x70 ? module.ResolveString(token)
-                        : (uint)token >> 24 == 0x11 ? "sig"
-                        : MemberName(module.ResolveMember(token, typeArgs, methodArgs))
-                );
+                return Normalized(il, clauses, token => (uint)token >> 24 == 0x70 ? module.ResolveString(token)
+                    : (uint)token >> 24 == 0x11 ? "sig"
+                    : MemberName(module.ResolveMember(token, typeArgs, methodArgs)));
             }
             catch (Exception)
             {
@@ -73,19 +57,7 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static string Normalized(
-            byte[] il,
-            IEnumerable<(
-                int kind,
-                int tryOffset,
-                int tryLength,
-                int handlerOffset,
-                int handlerLength,
-                int filterOffset,
-                string catchType
-            )> clauses,
-            Func<int, string> resolve
-        )
+        public static string Normalized(byte[] il, IEnumerable<(int kind, int tryOffset, int tryLength, int handlerOffset, int handlerLength, int filterOffset, string catchType)> clauses, Func<int, string> resolve)
         {
             var offsets = new List<int>();
             var ops = new List<(OpCode op, int operand, long wide, int next, int[] targets)>();
@@ -93,15 +65,9 @@ namespace RimWorldLoadingOptimizer
             while (pos < il.Length)
             {
                 offsets.Add(pos);
-                var op =
-                    il[pos] == 0xFE
-                        ? (
-                            pos + 1 < il.Length && IlScan.TwoKnown[il[pos + 1]]
-                                ? IlScan.TwoByte[il[pos + 1]]
-                                : (OpCode?)null
-                        )
-                    : IlScan.OneKnown[il[pos]] ? IlScan.OneByte[il[pos]]
-                    : (OpCode?)null;
+                var op = il[pos] == 0xFE
+                    ? (pos + 1 < il.Length && IlScan.TwoKnown[il[pos + 1]] ? IlScan.TwoByte[il[pos + 1]] : (OpCode?)null)
+                    : IlScan.OneKnown[il[pos]] ? IlScan.OneByte[il[pos]] : (OpCode?)null;
                 if (op == null)
                 {
                     return null;
@@ -159,10 +125,7 @@ namespace RimWorldLoadingOptimizer
                 index[offsets[i]] = i;
             }
             index[il.Length] = offsets.Count;
-            string At(int offset) =>
-                index.TryGetValue(offset, out var i)
-                    ? i.ToString(CultureInfo.InvariantCulture)
-                    : "?" + offset.ToString(CultureInfo.InvariantCulture);
+            string At(int offset) => index.TryGetValue(offset, out var i) ? i.ToString(CultureInfo.InvariantCulture) : "?" + offset.ToString(CultureInfo.InvariantCulture);
             var text = new StringBuilder();
             foreach (var (op, operand, wide, _, targets) in ops)
             {
@@ -188,16 +151,10 @@ namespace RimWorldLoadingOptimizer
                         text.Append(' ').Append(wide.ToString(CultureInfo.InvariantCulture));
                         break;
                     case OperandType.ShortInlineR:
-                        text.Append(' ')
-                            .Append(
-                                BitConverter
-                                    .ToSingle(BitConverter.GetBytes(operand), 0)
-                                    .ToString("R", CultureInfo.InvariantCulture)
-                            );
+                        text.Append(' ').Append(BitConverter.ToSingle(BitConverter.GetBytes(operand), 0).ToString("R", CultureInfo.InvariantCulture));
                         break;
                     case OperandType.InlineR:
-                        text.Append(' ')
-                            .Append(BitConverter.Int64BitsToDouble(wide).ToString("R", CultureInfo.InvariantCulture));
+                        text.Append(' ').Append(BitConverter.Int64BitsToDouble(wide).ToString("R", CultureInfo.InvariantCulture));
                         break;
                     case OperandType.InlineString:
                         text.Append(" \"").Append(resolve(operand)).Append('"');
@@ -210,19 +167,9 @@ namespace RimWorldLoadingOptimizer
             }
             foreach (var c in clauses)
             {
-                text.Append(".try ")
-                    .Append(c.kind)
-                    .Append(' ')
-                    .Append(At(c.tryOffset))
-                    .Append(' ')
-                    .Append(At(c.tryOffset + c.tryLength))
-                    .Append(' ')
-                    .Append(At(c.handlerOffset))
-                    .Append(' ')
-                    .Append(At(c.handlerOffset + c.handlerLength))
-                    .Append(' ')
-                    .Append(c.kind == 1 ? At(c.filterOffset) : c.catchType ?? "")
-                    .Append('\n');
+                text.Append(".try ").Append(c.kind).Append(' ').Append(At(c.tryOffset)).Append(' ').Append(At(c.tryOffset + c.tryLength))
+                    .Append(' ').Append(At(c.handlerOffset)).Append(' ').Append(At(c.handlerOffset + c.handlerLength))
+                    .Append(' ').Append(c.kind == 1 ? At(c.filterOffset) : c.catchType ?? "").Append('\n');
             }
             return Hash(Encoding.UTF8.GetBytes(text.ToString()));
         }
@@ -238,27 +185,12 @@ namespace RimWorldLoadingOptimizer
                 case MethodBase method:
                     var open = method;
                     var declaring = method.DeclaringType;
-                    if (
-                        declaring != null
-                        && !declaring.IsArray
-                        && (
-                            declaring.IsGenericType && !declaring.IsGenericTypeDefinition
-                            || method.IsGenericMethod && !method.IsGenericMethodDefinition
-                        )
-                    )
+                    if (declaring != null && !declaring.IsArray && (declaring.IsGenericType && !declaring.IsGenericTypeDefinition || method.IsGenericMethod && !method.IsGenericMethodDefinition))
                     {
                         open = method.Module.ResolveMethod(method.MetadataToken);
                     }
-                    var generic = method.IsGenericMethod
-                        ? "<" + string.Join(",", method.GetGenericArguments().Select(TypeName)) + ">"
-                        : "";
-                    return TypeName(declaring)
-                        + "::"
-                        + method.Name
-                        + generic
-                        + "("
-                        + string.Join(",", open.GetParameters().Select(p => TypeName(p.ParameterType)))
-                        + ")";
+                    var generic = method.IsGenericMethod ? "<" + string.Join(",", method.GetGenericArguments().Select(TypeName)) + ">" : "";
+                    return TypeName(declaring) + "::" + method.Name + generic + "(" + string.Join(",", open.GetParameters().Select(p => TypeName(p.ParameterType))) + ")";
                 default:
                     return member?.ToString();
             }
@@ -272,8 +204,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (type.IsGenericParameter)
             {
-                return (type.DeclaringMethod != null ? "!!" : "!")
-                    + type.GenericParameterPosition.ToString(CultureInfo.InvariantCulture);
+                return (type.DeclaringMethod != null ? "!!" : "!") + type.GenericParameterPosition.ToString(CultureInfo.InvariantCulture);
             }
             if (type.IsArray)
             {
@@ -290,10 +221,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (type.IsGenericType)
             {
-                return DefinitionName(type.GetGenericTypeDefinition())
-                    + "<"
-                    + string.Join(",", type.GetGenericArguments().Select(TypeName))
-                    + ">";
+                return DefinitionName(type.GetGenericTypeDefinition()) + "<" + string.Join(",", type.GetGenericArguments().Select(TypeName)) + ">";
             }
             return DefinitionName(type);
         }
@@ -336,15 +264,10 @@ namespace RimWorldLoadingOptimizer
                 var where = $"{method.DeclaringType?.FullName}.{method.Name}";
                 if (ignore)
                 {
-                    RLOLog.Warning(
-                        $"{feature}: {where} changed (il {hash}, normalized {normalized}), used anyway because RLO_IGNORE_FINGERPRINTS=1"
-                    );
+                    RLOLog.Warning($"{feature}: {where} changed (il {hash}, normalized {normalized}), used anyway because RLO_IGNORE_FINGERPRINTS=1");
                     continue;
                 }
-                Skip(
-                    feature,
-                    $"{where} is not the version RimWorld Loading Optimizer was checked against ({LikelyCause(method)}; il {hash}, normalized {normalized})"
-                );
+                Skip(feature, $"{where} is not the version RimWorld Loading Optimizer was checked against ({LikelyCause(method)}; il {hash}, normalized {normalized})");
                 return false;
             }
             return true;
@@ -356,18 +279,13 @@ namespace RimWorldLoadingOptimizer
             {
                 Changed.Add(feature);
             }
-            RLOLog.Detail(
-                $"{feature}: {reason}. This speedup is skipped and the original code runs; nothing is broken."
-            );
+            RLOLog.Detail($"{feature}: {reason}. This speedup is skipped and the original code runs; nothing is broken.");
         }
 
         private static string LikelyCause(MethodBase method)
         {
             var assembly = method.DeclaringType?.Assembly;
-            var owner =
-                assembly == typeof(Def).Assembly ? "another RimWorld version"
-                : assembly == typeof(Harmony).Assembly ? "another Harmony version"
-                : "another version of that mod";
+            var owner = assembly == typeof(Def).Assembly ? "another RimWorld version" : assembly == typeof(Harmony).Assembly ? "another Harmony version" : "another version of that mod";
             bool prepatcher;
             try
             {
@@ -429,9 +347,7 @@ namespace RimWorldLoadingOptimizer
         {
             lock (Changed)
             {
-                return Changed.Count == 0
-                    ? "code checks: all passed"
-                    : $"code checks: skipped because the code they need is missing or changed: {string.Join(", ", Changed)}";
+                return Changed.Count == 0 ? "code checks: all passed" : $"code checks: skipped because the code they need is missing or changed: {string.Join(", ", Changed)}";
             }
         }
     }

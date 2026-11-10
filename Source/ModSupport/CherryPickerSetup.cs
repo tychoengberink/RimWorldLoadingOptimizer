@@ -37,22 +37,13 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip(Feature, "a method it needs no longer exists");
                 return;
             }
-            if (
-                !VersionCheck.Pattern(
-                    Feature,
-                    cctor,
-                    code => TailMovable(code, setup),
-                    "ends with a timed Setup call that can run after the class is initialized"
-                )
-            )
+            if (!VersionCheck.Pattern(Feature, cctor, code => TailMovable(code, setup), "ends with a timed Setup call that can run after the class is initialized"))
             {
                 return;
             }
             if (!Fingerprint.OnlyOurs(cctor))
             {
-                RLOLog.Detail(
-                    $"{Feature}: another mod patches Cherry Picker's static constructor. This speedup is skipped and the original code runs; nothing is broken."
-                );
+                RLOLog.Detail($"{Feature}: another mod patches Cherry Picker's static constructor. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             var stub = AccessTools.Method(typeof(CherryPickerSetup), nameof(Tail));
@@ -66,9 +57,7 @@ namespace RimWorldLoadingOptimizer
             };
             if (!CctorDeferral.Register(harmony, entry, out var problem))
             {
-                RLOLog.Detail(
-                    $"{Feature}: {problem}. This speedup is skipped and the original code runs; nothing is broken."
-                );
+                RLOLog.Detail($"{Feature}: {problem}. This speedup is skipped and the original code runs; nothing is broken.");
                 entry = null;
                 return;
             }
@@ -78,9 +67,7 @@ namespace RimWorldLoadingOptimizer
                 if (verifyResult != null)
                 {
                     entry.Problem = verifyResult;
-                    RLOLog.Warning(
-                        $"{Feature}: verify: the moved code differs from Cherry Picker's original ({verifyResult}); the original runs instead."
-                    );
+                    RLOLog.Warning($"{Feature}: verify: the moved code differs from Cherry Picker's original ({verifyResult}); the original runs instead.");
                 }
             }
             StartupPhaseFixes.Reports.Add(Stats);
@@ -89,9 +76,7 @@ namespace RimWorldLoadingOptimizer
         private static bool TailMovable(List<CodeInstruction> list, MethodInfo setup)
         {
             var start = FindTail(list, setup);
-            return start >= 0
-                && !list.Skip(start)
-                    .Any(i => i.opcode == OpCodes.Stsfld && i.operand is FieldInfo field && field.IsInitOnly);
+            return start >= 0 && !list.Skip(start).Any(i => i.opcode == OpCodes.Stsfld && i.operand is FieldInfo field && field.IsInitOnly);
         }
 
         // newobj Stopwatch::.ctor; dup; callvirt Stopwatch::Start; ldc.i4.0; call Setup(bool) ... ret
@@ -109,22 +94,11 @@ namespace RimWorldLoadingOptimizer
                     found = i;
                 }
             }
-            if (
-                found < 4
-                || !(
-                    list[found - 4].opcode == OpCodes.Newobj
-                    && list[found - 4].operand is ConstructorInfo ctor
-                    && ctor.DeclaringType == typeof(Stopwatch)
-                )
+            if (found < 4
+                || !(list[found - 4].opcode == OpCodes.Newobj && list[found - 4].operand is ConstructorInfo ctor && ctor.DeclaringType == typeof(Stopwatch))
                 || list[found - 3].opcode != OpCodes.Dup
-                || !(
-                    list[found - 2].opcode == OpCodes.Callvirt
-                    && list[found - 2].operand is MethodInfo start
-                    && start.DeclaringType == typeof(Stopwatch)
-                    && start.Name == nameof(Stopwatch.Start)
-                )
-                || list[found - 1].opcode != OpCodes.Ldc_I4_0
-            )
+                || !(list[found - 2].opcode == OpCodes.Callvirt && list[found - 2].operand is MethodInfo start && start.DeclaringType == typeof(Stopwatch) && start.Name == nameof(Stopwatch.Start))
+                || list[found - 1].opcode != OpCodes.Ldc_I4_0)
             {
                 return -1;
             }
@@ -144,18 +118,16 @@ namespace RimWorldLoadingOptimizer
             {
                 return $"{Feature}: off";
             }
-            var text =
-                entry.Deferred > 0
-                    ? $"{Feature}: ran after the class was initialized in {StartupPhaseFixes.Seconds(entry.Ticks):F2} s"
-                    : $"{Feature}: not used this start (the class was first used outside its startup constructor call: {entry.Inline}x)";
+            var text = entry.Deferred > 0
+                ? $"{Feature}: ran after the class was initialized in {StartupPhaseFixes.Seconds(entry.Ticks):F2} s"
+                : $"{Feature}: not used this start (the class was first used outside its startup constructor call: {entry.Inline}x)";
             if (entry.Failed > 0)
             {
                 text += $", {entry.Failed} failed and were reported as a static constructor error";
             }
             if (DevSwitches.Verify)
             {
-                text +=
-                    $"; verify: moved code {(verifyResult == null ? "identical to the original" : "differs: " + verifyResult)}";
+                text += $"; verify: moved code {(verifyResult == null ? "identical to the original" : "differs: " + verifyResult)}";
             }
             return text;
         }

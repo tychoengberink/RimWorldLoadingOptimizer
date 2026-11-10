@@ -9,42 +9,26 @@ namespace RimWorldLoadingOptimizer
     {
         private static AccessTools.FieldRef<ResearchProjectDef, List<Def>> UnlockedCache;
         private static AccessTools.FieldRef<RecipeDef, bool?> SurgeryCache;
-        private static int builds,
-            filled;
+        private static int builds, filled;
         private static readonly MismatchLog mismatches = new MismatchLog("surgery index");
         private static long ticks;
         private static SelfCheck check;
 
         public static void Install(Harmony harmony)
         {
-            var unlocked = AccessTools.PropertyGetter(
-                typeof(ResearchProjectDef),
-                nameof(ResearchProjectDef.UnlockedDefs)
-            );
+            var unlocked = AccessTools.PropertyGetter(typeof(ResearchProjectDef), nameof(ResearchProjectDef.UnlockedDefs));
             var surgery = AccessTools.PropertyGetter(typeof(RecipeDef), nameof(RecipeDef.IsSurgery));
             var allUsers = AccessTools.PropertyGetter(typeof(RecipeDef), nameof(RecipeDef.AllRecipeUsers));
             var unlockedField = AccessTools.Field(typeof(ResearchProjectDef), "cachedUnlockedDefs");
             var surgeryField = AccessTools.Field(typeof(RecipeDef), "isSurgeryCached");
-            if (
-                unlocked == null
-                || surgery == null
-                || allUsers == null
-                || unlockedField?.FieldType != typeof(List<Def>)
-                || surgeryField?.FieldType != typeof(bool?)
-            )
+            if (unlocked == null || surgery == null || allUsers == null || unlockedField?.FieldType != typeof(List<Def>) || surgeryField?.FieldType != typeof(bool?))
             {
-                VersionCheck.Skip(
-                    "Surgery index",
-                    "ResearchProjectDef.UnlockedDefs, RecipeDef.IsSurgery or their cache fields no longer exist"
-                );
+                VersionCheck.Skip("Surgery index", "ResearchProjectDef.UnlockedDefs, RecipeDef.IsSurgery or their cache fields no longer exist");
                 return;
             }
             UnlockedCache = AccessTools.FieldRefAccess<ResearchProjectDef, List<Def>>(unlockedField);
             SurgeryCache = AccessTools.FieldRefAccess<RecipeDef, bool?>(surgeryField);
-            check = new SelfCheck(
-                "Surgery index",
-                VersionCheck.Code(unlocked, surgery, AccessTools.EnumeratorMoveNext(allUsers))
-            );
+            check = new SelfCheck("Surgery index", VersionCheck.Code(unlocked, surgery, AccessTools.EnumeratorMoveNext(allUsers)));
             harmony.Patch(unlocked, prefix: new HarmonyMethod(typeof(SurgeryIndex), nameof(Prefix)));
             StartupPhaseFixes.Reports.Add(Stats);
         }
@@ -132,8 +116,6 @@ namespace RimWorldLoadingOptimizer
             ticks += Stopwatch.GetTimestamp() - start;
         }
 
-        public static string Stats() =>
-            $"surgery index: {builds} builds, {filled} recipes filled in {StartupPhaseFixes.Seconds(ticks):F2} s"
-            + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
+        public static string Stats() => $"surgery index: {builds} builds, {filled} recipes filled in {StartupPhaseFixes.Seconds(ticks):F2} s" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
     }
 }

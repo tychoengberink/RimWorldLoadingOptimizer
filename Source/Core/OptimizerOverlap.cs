@@ -10,21 +10,14 @@ using Verse;
 namespace RimWorldLoadingOptimizer
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
-    public sealed class HookAttribute : Attribute { }
+    public sealed class HookAttribute : Attribute
+    {
+    }
 
     [Hook]
     public static class OptimizerOverlap
     {
-        private static readonly string[] Optimizers =
-        {
-            "Faster Game Loading",
-            "Performance Fish",
-            "Performance Optimizer",
-            "Performance Esmolas",
-            "Yet another Optimizer",
-            "WOWGAG's Performance Patch",
-            "Hyperdrive",
-        };
+        private static readonly string[] Optimizers = { "Faster Game Loading", "Performance Fish", "Performance Optimizer", "Performance Esmolas", "Yet another Optimizer", "WOWGAG's Performance Patch", "Hyperdrive" };
         private static readonly List<string> steppedAside = new List<string>();
         private static Harmony harmony;
         private static HashSet<string> optimizerAssemblies;
@@ -43,20 +36,11 @@ namespace RimWorldLoadingOptimizer
                     ours.Add(method);
                 }
             }
-            h.Patch(
-                AccessTools.Constructor(typeof(PatchProcessor), new[] { typeof(Harmony), typeof(MethodBase) }),
-                postfix: new HarmonyMethod(typeof(OptimizerOverlap), nameof(Track))
-            );
+            h.Patch(AccessTools.Constructor(typeof(PatchProcessor), new[] { typeof(Harmony), typeof(MethodBase) }), postfix: new HarmonyMethod(typeof(OptimizerOverlap), nameof(Track)));
             var deepProfilerStart = AccessTools.Method(typeof(DeepProfiler), nameof(DeepProfiler.Start));
             h.Patch(deepProfilerStart, prefix: new HarmonyMethod(typeof(OptimizerOverlap), nameof(BeforePhase)));
             MainMenu.UnpatchAfterStartup(deepProfilerStart);
-            h.Patch(
-                AccessTools.Method(
-                    typeof(StaticConstructorOnStartupUtility),
-                    nameof(StaticConstructorOnStartupUtility.CallAll)
-                ),
-                prefix: new HarmonyMethod(typeof(OptimizerOverlap), nameof(Check)) { priority = Priority.First }
-            );
+            h.Patch(AccessTools.Method(typeof(StaticConstructorOnStartupUtility), nameof(StaticConstructorOnStartupUtility.CallAll)), prefix: new HarmonyMethod(typeof(OptimizerOverlap), nameof(Check)) { priority = Priority.First });
             MainMenu.Then(Check);
         }
 
@@ -86,16 +70,9 @@ namespace RimWorldLoadingOptimizer
             checkTime.Start();
             try
             {
-                optimizerAssemblies =
-                    optimizerAssemblies
-                    ?? new HashSet<string>(
-                        LoadedModManager
-                            .RunningModsListForReading.Where(m =>
-                                m.Name != null
-                                && Optimizers.Any(o => m.Name.IndexOf(o, StringComparison.OrdinalIgnoreCase) >= 0)
-                            )
-                            .SelectMany(m => m.assemblies.loadedAssemblies.Select(a => a.GetName().Name))
-                    );
+                optimizerAssemblies = optimizerAssemblies ?? new HashSet<string>(LoadedModManager.RunningModsListForReading
+                    .Where(m => m.Name != null && Optimizers.Any(o => m.Name.IndexOf(o, StringComparison.OrdinalIgnoreCase) >= 0))
+                    .SelectMany(m => m.assemblies.loadedAssemblies.Select(a => a.GetName().Name)));
                 if (optimizerAssemblies.Count == 0)
                 {
                     return;
@@ -114,15 +91,8 @@ namespace RimWorldLoadingOptimizer
                     {
                         continue;
                     }
-                    var patches = info
-                        .Prefixes.Concat(info.Postfixes)
-                        .Concat(info.Transpilers)
-                        .Concat(info.Finalizers)
-                        .ToList();
-                    var replaced = info
-                        .Prefixes.Where(p => p.PatchMethod.ReturnType == typeof(bool))
-                        .Concat(info.Transpilers)
-                        .Any(p => p.owner != harmony.Id && IsOptimizer(p.PatchMethod));
+                    var patches = info.Prefixes.Concat(info.Postfixes).Concat(info.Transpilers).Concat(info.Finalizers).ToList();
+                    var replaced = info.Prefixes.Where(p => p.PatchMethod.ReturnType == typeof(bool)).Concat(info.Transpilers).Any(p => p.owner != harmony.Id && IsOptimizer(p.PatchMethod));
                     foreach (var patch in patches.Where(p => p.owner == harmony.Id && !IsHook(p.PatchMethod)))
                     {
                         var feature = Outer(patch.PatchMethod.DeclaringType);
@@ -152,28 +122,20 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        private static void StepAside(
-            Type feature,
-            List<(MethodBase original, MethodInfo patch)> patches,
-            MethodBase original
-        )
+        private static void StepAside(Type feature, List<(MethodBase original, MethodInfo patch)> patches, MethodBase original)
         {
             foreach (var (method, patch) in patches)
             {
                 harmony.Unpatch(method, patch);
             }
-            feature
-                .GetMethod("Stop", BindingFlags.Public | BindingFlags.Static, null, Type.EmptyTypes, null)
-                ?.Invoke(null, null);
+            feature.GetMethod("Stop", BindingFlags.Public | BindingFlags.Static, null, Type.EmptyTypes, null)?.Invoke(null, null);
             var name = Regex.Replace(feature.Name, "(?<=[a-z])(?=[A-Z])", " ").ToLowerInvariant();
             var where = $"{original.DeclaringType?.FullName}.{original.Name}";
             lock (steppedAside)
             {
                 steppedAside.Add($"{name} (on {where})");
             }
-            RLOLog.Detail(
-                $"{name}: another optimizer also replaces or rewrites {where}. This speedup steps aside and leaves that code to it; nothing is broken."
-            );
+            RLOLog.Detail($"{name}: another optimizer also replaces or rewrites {where}. This speedup steps aside and leaves that code to it; nothing is broken.");
         }
 
         private static bool IsOptimizer(MethodInfo patch)
@@ -182,9 +144,7 @@ namespace RimWorldLoadingOptimizer
             return assembly != null && optimizerAssemblies.Contains(assembly);
         }
 
-        private static bool IsHook(MethodInfo patch) =>
-            patch.IsDefined(typeof(HookAttribute), false)
-            || Outer(patch.DeclaringType).IsDefined(typeof(HookAttribute), false);
+        private static bool IsHook(MethodInfo patch) => patch.IsDefined(typeof(HookAttribute), false) || Outer(patch.DeclaringType).IsDefined(typeof(HookAttribute), false);
 
         private static Type Outer(Type type)
         {
@@ -200,9 +160,7 @@ namespace RimWorldLoadingOptimizer
             lock (steppedAside)
             {
                 var time = $"{checks} checks of {ours.Count} methods in {checkTime.Elapsed.TotalSeconds:F2} s";
-                return steppedAside.Count == 0
-                    ? $"optimizer overlap: none ({time})"
-                    : $"stepped aside for other optimizers ({time}): {string.Join(", ", steppedAside)}";
+                return steppedAside.Count == 0 ? $"optimizer overlap: none ({time})" : $"stepped aside for other optimizers ({time}): {string.Join(", ", steppedAside)}";
             }
         }
     }

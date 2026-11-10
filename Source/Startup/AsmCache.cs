@@ -13,40 +13,23 @@ namespace RimWorldLoadingOptimizer
         private static readonly object gate = new object();
         private static Assembly[] list;
         private static int generation;
-
-        [ThreadStatic]
-        private static bool inside;
-        private static readonly ConcurrentDictionary<object, string> fullNames = new ConcurrentDictionary<
-            object,
-            string
-        >(ReferenceComparer<object>.Instance);
-        private static long listHits,
-            listBuilds,
-            nameHits;
+        [ThreadStatic] private static bool inside;
+        private static readonly ConcurrentDictionary<object, string> fullNames = new ConcurrentDictionary<object, string>(ReferenceComparer<object>.Instance);
+        private static long listHits, listBuilds, nameHits;
         private static readonly MismatchLog mismatches = new MismatchLog("assembly cache");
 
         public static void Install(Harmony harmony)
         {
             AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoad;
             var getAssemblies = AccessTools.Method(typeof(AppDomain), nameof(AppDomain.GetAssemblies), Type.EmptyTypes);
-            harmony.Patch(
-                getAssemblies,
-                prefix: new HarmonyMethod(typeof(AsmCache), nameof(ListPrefix)) { priority = Priority.First }
-            );
+            harmony.Patch(getAssemblies, prefix: new HarmonyMethod(typeof(AsmCache), nameof(ListPrefix)) { priority = Priority.First });
             var runtimeAssembly = typeof(Assembly).Assembly.GetType("System.Reflection.RuntimeAssembly");
             var fullName = AccessTools.PropertyGetter(runtimeAssembly, nameof(Assembly.FullName));
-            harmony.Patch(
-                fullName,
-                prefix: new HarmonyMethod(typeof(AsmCache), nameof(NamePrefix)),
-                postfix: new HarmonyMethod(typeof(AsmCache), nameof(NamePostfix))
-            );
+            harmony.Patch(fullName, prefix: new HarmonyMethod(typeof(AsmCache), nameof(NamePrefix)), postfix: new HarmonyMethod(typeof(AsmCache), nameof(NamePostfix)));
             MainMenu.UnpatchAfterStartup(getAssemblies);
             MainMenu.UnpatchAfterStartup(fullName);
             MainMenu.Then(() => AppDomain.CurrentDomain.AssemblyLoad -= OnAssemblyLoad);
-            StartupPhaseFixes.Reports.Add(() =>
-                $"assembly list cache: GetAssemblies {listHits} hits, {listBuilds} builds; Assembly.FullName {nameHits} hits / {fullNames.Count} assemblies"
-                + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "")
-            );
+            StartupPhaseFixes.Reports.Add(() => $"assembly list cache: GetAssemblies {listHits} hits, {listBuilds} builds; Assembly.FullName {nameHits} hits / {fullNames.Count} assemblies" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : ""));
         }
 
         private static void OnAssemblyLoad(object sender, AssemblyLoadEventArgs args)
@@ -99,9 +82,7 @@ namespace RimWorldLoadingOptimizer
                 {
                     var added = fresh.Except(cached).Select(a => a.GetName().Name);
                     var removed = cached.Except(fresh).Select(a => a.GetName().Name);
-                    mismatches.Report(
-                        $"assembly list {cached.Length} cached, {fresh.Length} now; added [{string.Join(", ", added)}], removed [{string.Join(", ", removed)}]"
-                    );
+                    mismatches.Report($"assembly list {cached.Length} cached, {fresh.Length} now; added [{string.Join(", ", added)}], removed [{string.Join(", ", removed)}]");
                 }
             }
             lock (gate)

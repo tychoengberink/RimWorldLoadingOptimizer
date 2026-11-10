@@ -14,49 +14,29 @@ namespace RimWorldLoadingOptimizer
     {
         public const string Feature = "Atlas cache keys for bundle textures";
 
-        private static readonly ConditionalWeakTable<Texture2D, string> Origins =
-            new ConditionalWeakTable<Texture2D, string>();
-        private static readonly ConcurrentDictionary<string, string> FileStamps =
-            new ConcurrentDictionary<string, string>();
+        private static readonly ConditionalWeakTable<Texture2D, string> Origins = new ConditionalWeakTable<Texture2D, string>();
+        private static readonly ConcurrentDictionary<string, string> FileStamps = new ConcurrentDictionary<string, string>();
 
-        private static FieldInfo filePath,
-            refFile,
-            refPathId,
-            fileName;
-        private static int recorded,
-            stamped;
+        private static FieldInfo filePath, refFile, refPathId, fileName;
+        private static int recorded, stamped;
 
         public static void Install(Harmony harmony)
         {
             var reader = AccessTools.TypeByName("UnityStubs.Internal.AssetBundleReader");
             var assetRef = reader == null ? null : AccessTools.Inner(reader, "AssetRef");
             var materialize = assetRef == null ? null : AccessTools.Method(reader, "Materialize", new[] { assetRef });
-            var stamp = AccessTools.Method(
-                typeof(StaticTextureAtlas),
-                "TryWriteSourceStamp",
-                new[] { typeof(BinaryWriter), typeof(Texture2D) }
-            );
+            var stamp = AccessTools.Method(typeof(StaticTextureAtlas), "TryWriteSourceStamp", new[] { typeof(BinaryWriter), typeof(Texture2D) });
             filePath = reader == null ? null : AccessTools.Field(reader, "_filePath");
             refFile = assetRef == null ? null : AccessTools.Field(assetRef, "File");
             refPathId = assetRef == null ? null : AccessTools.Field(assetRef, "PathId");
             fileName = refFile == null ? null : AccessTools.Field(refFile.FieldType, "name");
-            if (
-                materialize == null
-                || stamp == null
-                || filePath == null
-                || refPathId == null
-                || fileName == null
-                || stamp.ReturnType != typeof(bool)
-            )
+            if (materialize == null || stamp == null || filePath == null || refPathId == null || fileName == null || stamp.ReturnType != typeof(bool))
             {
                 VersionCheck.Skip(Feature, "a method or field it needs no longer exists");
                 return;
             }
             harmony.Patch(materialize, postfix: new HarmonyMethod(typeof(AtlasBundleKeys), nameof(MaterializePostfix)));
-            harmony.Patch(
-                stamp,
-                prefix: new HarmonyMethod(typeof(AtlasBundleKeys), nameof(StampPrefix)) { priority = Priority.High }
-            );
+            harmony.Patch(stamp, prefix: new HarmonyMethod(typeof(AtlasBundleKeys), nameof(StampPrefix)) { priority = Priority.High });
             MainMenu.UnpatchAfterStartup(stamp);
             StartupPhaseFixes.Reports.Add(Stats);
         }
@@ -78,15 +58,11 @@ namespace RimWorldLoadingOptimizer
             Interlocked.Increment(ref recorded);
         }
 
-        private static string FileStamp(string path) =>
-            FileStamps.GetOrAdd(
-                path,
-                p =>
-                {
-                    var info = new FileInfo(p);
-                    return info.Exists ? $"{info.Length}:{info.LastWriteTimeUtc.Ticks}" : "missing";
-                }
-            );
+        private static string FileStamp(string path) => FileStamps.GetOrAdd(path, p =>
+        {
+            var info = new FileInfo(p);
+            return info.Exists ? $"{info.Length}:{info.LastWriteTimeUtc.Ticks}" : "missing";
+        });
 
         public static bool TryGet(Texture2D texture, out string origin)
         {
@@ -96,12 +72,7 @@ namespace RimWorldLoadingOptimizer
 
         public static bool StampPrefix(BinaryWriter writer, Texture2D texture, ref bool __result)
         {
-            if (
-                texture?.CoreTexture == null
-                || texture.CoreTexture.SourcePath != null
-                || !Origins.TryGetValue(texture, out var origin)
-                || origin.Contains("|missing|")
-            )
+            if (texture?.CoreTexture == null || texture.CoreTexture.SourcePath != null || !Origins.TryGetValue(texture, out var origin) || origin.Contains("|missing|"))
             {
                 return true;
             }
@@ -111,8 +82,7 @@ namespace RimWorldLoadingOptimizer
             return false;
         }
 
-        public static string Stats() =>
-            $"atlas cache keys for bundle textures: {recorded:N0} bundle textures recorded, {stamped:N0} atlas stamps written from their bundle file";
+        public static string Stats() => $"atlas cache keys for bundle textures: {recorded:N0} bundle textures recorded, {stamped:N0} atlas stamps written from their bundle file";
     }
 }
 #endif

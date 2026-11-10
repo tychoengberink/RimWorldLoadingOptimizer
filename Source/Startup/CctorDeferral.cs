@@ -26,14 +26,11 @@ namespace RimWorldLoadingOptimizer
         {
             public Type Type;
             public ConstructorInfo Cctor;
-
             // A static void method without parameters or locals whose body is replaced by the constructor's tail.
             public MethodInfo Stub;
-
             // Index of the first tail instruction in the constructor's instructions, or -1. The evaluation stack must
             // be empty there.
             public Func<List<CodeInstruction>, int> FindTail;
-
             // Checked each time the constructor reaches the tail; false runs the tail inline.
             public Func<bool> Allowed = () => true;
 
@@ -41,15 +38,11 @@ namespace RimWorldLoadingOptimizer
             internal List<CodeInstruction> Tail;
             internal LocalVariableInfo[] Locals;
             internal int TailStart = -1;
-            internal bool CctorPatched,
-                StubBuilt;
+            internal bool CctorPatched, StubBuilt;
             internal Action Run;
 
             public string Problem;
-            public int Deferred,
-                Inline,
-                Ran,
-                Failed;
+            public int Deferred, Inline, Ran, Failed;
             public long Ticks;
 
             public bool Ready => Run != null && Problem == null;
@@ -61,11 +54,8 @@ namespace RimWorldLoadingOptimizer
         private static MethodInfo runClassConstructor;
         private static string harmonyId;
 
-        [ThreadStatic]
-        private static List<IntPtr> running;
-
-        [ThreadStatic]
-        private static Entry pending;
+        [ThreadStatic] private static List<IntPtr> running;
+        [ThreadStatic] private static Entry pending;
 
         public static bool Register(Harmony harmony, Entry entry, out string problem)
         {
@@ -84,10 +74,7 @@ namespace RimWorldLoadingOptimizer
             }
             try
             {
-                harmony.Patch(
-                    entry.Cctor,
-                    transpiler: new HarmonyMethod(typeof(CctorDeferral), nameof(CctorTranspiler))
-                );
+                harmony.Patch(entry.Cctor, transpiler: new HarmonyMethod(typeof(CctorDeferral), nameof(CctorTranspiler)));
                 if (!entry.CctorPatched)
                 {
                     problem = entry.Problem ?? "the slow part of the static constructor was not found as expected";
@@ -114,7 +101,9 @@ namespace RimWorldLoadingOptimizer
                     harmony.Unpatch(entry.Stub, HarmonyPatchType.Transpiler, harmony.Id);
                     harmony.Unpatch(entry.Cctor, HarmonyPatchType.Transpiler, harmony.Id);
                 }
-                catch (Exception) { }
+                catch (Exception)
+                {
+                }
                 return false;
             }
         }
@@ -125,17 +114,11 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            var method = AccessTools.Method(
-                typeof(RuntimeHelpers),
-                nameof(RuntimeHelpers.RunClassConstructor),
-                new[] { typeof(RuntimeTypeHandle) }
-            );
-            harmony.Patch(
-                method,
+            var method = AccessTools.Method(typeof(RuntimeHelpers), nameof(RuntimeHelpers.RunClassConstructor), new[] { typeof(RuntimeTypeHandle) });
+            harmony.Patch(method,
                 prefix: new HarmonyMethod(typeof(CctorDeferral), nameof(Prefix)) { priority = Priority.Last },
                 postfix: new HarmonyMethod(typeof(CctorDeferral), nameof(Postfix)) { priority = Priority.First },
-                finalizer: new HarmonyMethod(typeof(CctorDeferral), nameof(Finalizer)) { priority = Priority.First }
-            );
+                finalizer: new HarmonyMethod(typeof(CctorDeferral), nameof(Finalizer)) { priority = Priority.First });
             harmonyId = harmony.Id;
             runClassConstructor = method;
         }
@@ -200,15 +183,7 @@ namespace RimWorldLoadingOptimizer
                 }
             }
             var stack = running;
-            if (
-                stack == null
-                || stack.Count == 0
-                || stack[stack.Count - 1] != type.Value
-                || pending != null
-                || !entry.Ready
-                || !OnlyOurPostfixes()
-                || !Allowed(entry)
-            )
+            if (stack == null || stack.Count == 0 || stack[stack.Count - 1] != type.Value || pending != null || !entry.Ready || !OnlyOurPostfixes() || !Allowed(entry))
             {
                 entry.Inline++;
                 return false;
@@ -233,16 +208,10 @@ namespace RimWorldLoadingOptimizer
         private static bool OnlyOurPostfixes()
         {
             var info = Harmony.GetPatchInfo(runClassConstructor);
-            return info != null
-                && info.Postfixes.All(p => p.owner == harmonyId)
-                && info.Postfixes.Any(p => p.PatchMethod.DeclaringType == typeof(CctorDeferral));
+            return info != null && info.Postfixes.All(p => p.owner == harmonyId) && info.Postfixes.Any(p => p.PatchMethod.DeclaringType == typeof(CctorDeferral));
         }
 
-        public static IEnumerable<CodeInstruction> CctorTranspiler(
-            IEnumerable<CodeInstruction> instructions,
-            MethodBase __originalMethod,
-            ILGenerator generator
-        )
+        public static IEnumerable<CodeInstruction> CctorTranspiler(IEnumerable<CodeInstruction> instructions, MethodBase __originalMethod, ILGenerator generator)
         {
             var list = instructions.ToList();
             Entry entry;
@@ -264,10 +233,7 @@ namespace RimWorldLoadingOptimizer
                 return list;
             }
             var start = Index(list, entry);
-            var problem =
-                start < 0
-                    ? "the slow part of the static constructor was not found as expected"
-                    : Check(list, start, __originalMethod);
+            var problem = start < 0 ? "the slow part of the static constructor was not found as expected" : Check(list, start, __originalMethod);
             if (problem != null)
             {
                 entry.Problem = problem;
@@ -300,16 +266,13 @@ namespace RimWorldLoadingOptimizer
             first.labels.AddRange(list[start].labels);
             list[start].labels.Clear();
             list[start].labels.Add(tail);
-            list.InsertRange(
-                start,
-                new[]
-                {
-                    first,
-                    new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CctorDeferral), nameof(Defer))),
-                    new CodeInstruction(OpCodes.Brfalse, tail),
-                    new CodeInstruction(OpCodes.Ret),
-                }
-            );
+            list.InsertRange(start, new[]
+            {
+                first,
+                new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(CctorDeferral), nameof(Defer))),
+                new CodeInstruction(OpCodes.Brfalse, tail),
+                new CodeInstruction(OpCodes.Ret),
+            });
         }
 
         private static string Check(List<CodeInstruction> list, int start, MethodBase method)
@@ -334,28 +297,7 @@ namespace RimWorldLoadingOptimizer
                     }
                 }
                 var op = list[i].opcode;
-                if (
-                    i >= start
-                    && (
-                        op == OpCodes.Ldarg
-                        || op == OpCodes.Ldarga
-                        || op == OpCodes.Starg
-                        || op == OpCodes.Ldarg_S
-                        || op == OpCodes.Ldarga_S
-                        || op == OpCodes.Starg_S
-                        || op == OpCodes.Ldarg_0
-                        || op == OpCodes.Ldarg_1
-                        || op == OpCodes.Ldarg_2
-                        || op == OpCodes.Ldarg_3
-                        || op == OpCodes.Localloc
-                        || op == OpCodes.Jmp
-                        || op == OpCodes.Tailcall
-                        || op == OpCodes.Leave
-                        || op == OpCodes.Leave_S
-                        || op == OpCodes.Endfinally
-                        || op == OpCodes.Endfilter
-                    )
-                )
+                if (i >= start && (op == OpCodes.Ldarg || op == OpCodes.Ldarga || op == OpCodes.Starg || op == OpCodes.Ldarg_S || op == OpCodes.Ldarga_S || op == OpCodes.Starg_S || op == OpCodes.Ldarg_0 || op == OpCodes.Ldarg_1 || op == OpCodes.Ldarg_2 || op == OpCodes.Ldarg_3 || op == OpCodes.Localloc || op == OpCodes.Jmp || op == OpCodes.Tailcall || op == OpCodes.Leave || op == OpCodes.Leave_S || op == OpCodes.Endfinally || op == OpCodes.Endfilter))
                 {
                     return $"the slow part of the static constructor uses {op.Name}";
                 }
@@ -385,34 +327,15 @@ namespace RimWorldLoadingOptimizer
 
         private static CodeInstruction Copy(CodeInstruction instruction)
         {
-            var copy = new CodeInstruction(
-                instruction.opcode,
-                instruction.operand is Label[] labels ? labels.ToArray() : instruction.operand
-            );
+            var copy = new CodeInstruction(instruction.opcode, instruction.operand is Label[] labels ? labels.ToArray() : instruction.operand);
             copy.labels.AddRange(instruction.labels);
             return copy;
         }
 
-        private static readonly OpCode[] shortLoads =
-        {
-            OpCodes.Ldloc_0,
-            OpCodes.Ldloc_1,
-            OpCodes.Ldloc_2,
-            OpCodes.Ldloc_3,
-        };
-        private static readonly OpCode[] shortStores =
-        {
-            OpCodes.Stloc_0,
-            OpCodes.Stloc_1,
-            OpCodes.Stloc_2,
-            OpCodes.Stloc_3,
-        };
+        private static readonly OpCode[] shortLoads = { OpCodes.Ldloc_0, OpCodes.Ldloc_1, OpCodes.Ldloc_2, OpCodes.Ldloc_3 };
+        private static readonly OpCode[] shortStores = { OpCodes.Stloc_0, OpCodes.Stloc_1, OpCodes.Stloc_2, OpCodes.Stloc_3 };
 
-        public static IEnumerable<CodeInstruction> StubTranspiler(
-            IEnumerable<CodeInstruction> instructions,
-            MethodBase __originalMethod,
-            ILGenerator generator
-        )
+        public static IEnumerable<CodeInstruction> StubTranspiler(IEnumerable<CodeInstruction> instructions, MethodBase __originalMethod, ILGenerator generator)
         {
             Entry entry;
             lock (gate)
@@ -474,10 +397,7 @@ namespace RimWorldLoadingOptimizer
                                 operand = targets.Select(Map).ToArray();
                                 break;
                             default:
-                                if (
-                                    opcode.OperandType == OperandType.ShortInlineVar
-                                    || opcode.OperandType == OperandType.InlineVar
-                                )
+                                if (opcode.OperandType == OperandType.ShortInlineVar || opcode.OperandType == OperandType.InlineVar)
                                 {
                                     operand = Local(Convert.ToInt32(operand));
                                 }
@@ -535,45 +455,38 @@ namespace RimWorldLoadingOptimizer
             }
             string Target(Label label) => at.TryGetValue(label, out var i) ? "@" + i : "@?";
             return list.Select(c =>
+            {
+                var name = c.opcode.Name;
+                var load = Array.IndexOf(shortLoads, c.opcode);
+                var store = Array.IndexOf(shortStores, c.opcode);
+                if (load >= 0)
                 {
-                    var name = c.opcode.Name;
-                    var load = Array.IndexOf(shortLoads, c.opcode);
-                    var store = Array.IndexOf(shortStores, c.opcode);
-                    if (load >= 0)
-                    {
-                        return "ldloc " + load;
-                    }
-                    if (store >= 0)
-                    {
-                        return "stloc " + store;
-                    }
-                    if (name.EndsWith(".s", StringComparison.Ordinal))
-                    {
-                        name = name.Substring(0, name.Length - 2);
-                    }
-                    switch (c.operand)
-                    {
-                        case null:
-                            return name;
-                        case LocalBuilder local:
-                            return name + " " + local.LocalIndex;
-                        case Label label:
-                            return name + " " + Target(label);
-                        case Label[] targets:
-                            return name + " " + string.Join(",", targets.Select(Target));
-                        case MemberInfo member:
-                            return name
-                                + " "
-                                + member.DeclaringType?.AssemblyQualifiedName
-                                + "::"
-                                + member
-                                + "#"
-                                + member.MetadataToken;
-                        default:
-                            return name + " " + c.operand.GetType().Name + ":" + c.operand;
-                    }
-                })
-                .ToList();
+                    return "ldloc " + load;
+                }
+                if (store >= 0)
+                {
+                    return "stloc " + store;
+                }
+                if (name.EndsWith(".s", StringComparison.Ordinal))
+                {
+                    name = name.Substring(0, name.Length - 2);
+                }
+                switch (c.operand)
+                {
+                    case null:
+                        return name;
+                    case LocalBuilder local:
+                        return name + " " + local.LocalIndex;
+                    case Label label:
+                        return name + " " + Target(label);
+                    case Label[] targets:
+                        return name + " " + string.Join(",", targets.Select(Target));
+                    case MemberInfo member:
+                        return name + " " + member.DeclaringType?.AssemblyQualifiedName + "::" + member + "#" + member.MetadataToken;
+                    default:
+                        return name + " " + c.operand.GetType().Name + ":" + c.operand;
+                }
+            }).ToList();
         }
     }
 }

@@ -12,32 +12,19 @@ namespace RimWorldLoadingOptimizer
     {
         public const string Feature = "Research tree layout per tab";
 
-        private static AccessTools.FieldRef<ResearchProjectDef, float> x,
-            y;
+        private static AccessTools.FieldRef<ResearchProjectDef, float> x, y;
         private static Action<ResearchProjectDef> clamp;
         private static SelfCheck check;
-        private static int projects,
-            groups,
-            longest;
+        private static int projects, groups, longest;
         private static long ticks;
 
         public static void Install(Harmony harmony)
         {
-            var method = AccessTools.Method(
-                typeof(ResearchProjectDef),
-                nameof(ResearchProjectDef.GenerateNonOverlappingCoordinates)
-            );
+            var method = AccessTools.Method(typeof(ResearchProjectDef), nameof(ResearchProjectDef.GenerateNonOverlappingCoordinates));
             var clampMethod = AccessTools.Method(typeof(ResearchProjectDef), "ClampInCoordinateLimits");
             var xField = AccessTools.Field(typeof(ResearchProjectDef), "x");
             var yField = AccessTools.Field(typeof(ResearchProjectDef), "y");
-            if (
-                method == null
-                || clampMethod == null
-                || xField == null
-                || yField == null
-                || xField.FieldType != typeof(float)
-                || yField.FieldType != typeof(float)
-            )
+            if (method == null || clampMethod == null || xField == null || yField == null || xField.FieldType != typeof(float) || yField.FieldType != typeof(float))
             {
                 VersionCheck.Skip(Feature, "a method or field it needs no longer exists");
                 return;
@@ -46,11 +33,7 @@ namespace RimWorldLoadingOptimizer
             y = AccessTools.FieldRefAccess<ResearchProjectDef, float>(yField);
             clamp = AccessTools.MethodDelegate<Action<ResearchProjectDef>>(clampMethod);
             check = new SelfCheck(Feature, VersionCheck.Code(method, clampMethod), 1);
-            harmony.Patch(
-                method,
-                prefix: new HarmonyMethod(typeof(ResearchCoordinates), nameof(Prefix)),
-                postfix: new HarmonyMethod(typeof(ResearchCoordinates), nameof(Postfix))
-            );
+            harmony.Patch(method, prefix: new HarmonyMethod(typeof(ResearchCoordinates), nameof(Prefix)), postfix: new HarmonyMethod(typeof(ResearchCoordinates), nameof(Postfix)));
             StartupPhaseFixes.Reports.Add(Stats);
         }
 
@@ -185,17 +168,13 @@ namespace RimWorldLoadingOptimizer
             {
                 if (__state[2 * i] != x(all[i]) || __state[2 * i + 1] != y(all[i]))
                 {
-                    check.Report(
-                        false,
-                        $"{all[i].defName} at ({__state[2 * i]}, {__state[2 * i + 1]}) instead of ({x(all[i])}, {y(all[i])})"
-                    );
+                    check.Report(false, $"{all[i].defName} at ({__state[2 * i]}, {__state[2 * i + 1]}) instead of ({x(all[i])}, {y(all[i])})");
                     return;
                 }
             }
             check.Report(true);
         }
 
-        public static string Stats() =>
-            $"research tree layout: {projects:N0} projects in {groups} tabs relaxed per tab in {ticks / (double)Stopwatch.Frequency:F2} s, most passes {longest}";
+        public static string Stats() => $"research tree layout: {projects:N0} projects in {groups} tabs relaxed per tab in {ticks / (double)Stopwatch.Frequency:F2} s, most passes {longest}";
     }
 }

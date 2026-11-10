@@ -13,53 +13,27 @@ namespace RimWorldLoadingOptimizer
     public static class ShadowedUploads
     {
         private static bool installed;
-        private static readonly Dictionary<CoreTexture, long> destroyed = new Dictionary<CoreTexture, long>(
-            ReferenceComparer<CoreTexture>.Instance
-        );
-        private static readonly Dictionary<CoreTexture, long> kept = new Dictionary<CoreTexture, long>(
-            ReferenceComparer<CoreTexture>.Instance
-        );
+        private static readonly Dictionary<CoreTexture, long> destroyed = new Dictionary<CoreTexture, long>(ReferenceComparer<CoreTexture>.Instance);
+        private static readonly Dictionary<CoreTexture, long> kept = new Dictionary<CoreTexture, long>(ReferenceComparer<CoreTexture>.Instance);
         private static HashSet<CoreTexture> winners;
-        private static int skippedDestroyed,
-            skippedKept,
-            refused,
-            checkedKept;
+        private static int skippedDestroyed, skippedKept, refused, checkedKept;
         private static readonly MismatchLog mismatches = new MismatchLog("shadowed textures");
         private static long skippedBytes;
         private static readonly List<CoreTexture> skippedKeptCores = new List<CoreTexture>();
 
         public static void Install(Harmony harmony)
         {
-            var target = AccessTools.Method(
-                typeof(GlobalTextureAtlasManager),
-                nameof(GlobalTextureAtlasManager.LeavesSourceEvicted),
-                new[] { typeof(CoreTexture) }
-            );
-            var bake = AccessTools.Method(
-                typeof(GlobalTextureAtlasManager),
-                nameof(GlobalTextureAtlasManager.BakeStaticAtlases)
-            );
-            var endDeferred = AccessTools.Method(
-                typeof(CoreTexture),
-                nameof(CoreTexture.EndDeferredLoading),
-                new[] { typeof(Func<CoreTexture, bool>) }
-            );
+            var target = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.LeavesSourceEvicted), new[] { typeof(CoreTexture) });
+            var bake = AccessTools.Method(typeof(GlobalTextureAtlasManager), nameof(GlobalTextureAtlasManager.BakeStaticAtlases));
+            var endDeferred = AccessTools.Method(typeof(CoreTexture), nameof(CoreTexture.EndDeferredLoading), new[] { typeof(Func<CoreTexture, bool>) });
             if (target == null || bake == null || endDeferred == null)
             {
                 VersionCheck.Skip("Shadowed textures not uploaded", "a method it needs no longer exists");
                 return;
             }
-            if (
-                !VersionCheck.Pattern(
-                    "Shadowed textures not uploaded",
-                    bake,
-                    code =>
-                        VersionCheck.Calls(code, endDeferred) == 1
-                        && code.Count(i => i.opcode == OpCodes.Ldftn && Equals(i.operand, target)) == 1,
-                    "hands LeavesSourceEvicted to Texture2D.EndDeferredLoading to choose the textures left to load "
-                        + "at first use"
-                )
-            )
+            if (!VersionCheck.Pattern("Shadowed textures not uploaded", bake,
+                    code => VersionCheck.Calls(code, endDeferred) == 1 && code.Count(i => i.opcode == OpCodes.Ldftn && Equals(i.operand, target)) == 1,
+                    "hands LeavesSourceEvicted to Texture2D.EndDeferredLoading to choose the textures left to load at first use"))
             {
                 return;
             }
@@ -97,9 +71,7 @@ namespace RimWorldLoadingOptimizer
                 refused++;
                 if (DevSwitches.Verify)
                 {
-                    mismatches.Report(
-                        $"{(isDestroyed ? "released" : "kept")} overridden texture is still the winning texture"
-                    );
+                    mismatches.Report($"{(isDestroyed ? "released" : "kept")} overridden texture is still the winning texture");
                 }
                 return;
             }
@@ -145,9 +117,7 @@ namespace RimWorldLoadingOptimizer
                     mismatches.Report("kept texture could not be loaded back on demand");
                 }
             }
-            RLOLog.Detail(
-                $"shadowed textures not uploaded, verify at the main menu: {checkedKept} kept textures loaded back on demand, {mismatches.Count} verify mismatches"
-            );
+            RLOLog.Detail($"shadowed textures not uploaded, verify at the main menu: {checkedKept} kept textures loaded back on demand, {mismatches.Count} verify mismatches");
         }
 
         public static string Stats() =>

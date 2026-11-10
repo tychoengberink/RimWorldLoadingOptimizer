@@ -23,19 +23,8 @@ namespace RimWorldLoadingOptimizer
         [ThreadStatic]
         private static int batchesAtDrain;
 
-        private static int drains,
-            batches,
-            meshes,
-            leases,
-            streams;
-        private static long drainTicks,
-            longestDrain,
-            batchTicks,
-            recordTicks,
-            createTicks,
-            deviceTicks,
-            submitTicks,
-            frameTicks;
+        private static int drains, batches, meshes, leases, streams;
+        private static long drainTicks, longestDrain, batchTicks, recordTicks, createTicks, deviceTicks, submitTicks, frameTicks;
         private static long streamBytes;
 
         public static void Install(Harmony h)
@@ -49,15 +38,7 @@ namespace RimWorldLoadingOptimizer
             var allocate = AccessTools.Method(type, "AllocateMeshBuffer");
             var submit = AccessTools.Method(type, "SubmitUploadCommandBuffer");
             var beginFrame = AccessTools.Method(type, nameof(MeshUploader.BeginFrame));
-            if (
-                drain == null
-                || uploadBatch == null
-                || record == null
-                || create == null
-                || allocate == null
-                || submit == null
-                || beginFrame == null
-            )
+            if (drain == null || uploadBatch == null || record == null || create == null || allocate == null || submit == null || beginFrame == null)
             {
                 RLOLog.Detail("mesh uploads: the engine's mesh uploader was not found; skipped");
                 return;
@@ -69,20 +50,15 @@ namespace RimWorldLoadingOptimizer
             Patch(allocate, nameof(TimePrefix), nameof(AllocatePostfix));
             Patch(submit, nameof(TimePrefix), nameof(SubmitPostfix));
             Patch(beginFrame, nameof(TimePrefix), nameof(FramePostfix));
-            harmony.Patch(
-                AccessTools.Method(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI)),
-                postfix: new HarmonyMethod(typeof(MeshUploadTiming), nameof(CheckEnd))
-            );
+            harmony.Patch(AccessTools.Method(typeof(MainMenuDrawer), nameof(MainMenuDrawer.MainMenuOnGUI)), postfix: new HarmonyMethod(typeof(MeshUploadTiming), nameof(CheckEnd)));
             StartupPhaseFixes.Reports.Add(Stats);
         }
 
         private static void Patch(MethodBase method, string prefix, string postfix)
         {
-            harmony.Patch(
-                method,
+            harmony.Patch(method,
                 prefix: new HarmonyMethod(typeof(MeshUploadTiming), prefix) { priority = Priority.First },
-                postfix: new HarmonyMethod(typeof(MeshUploadTiming), postfix)
-            );
+                postfix: new HarmonyMethod(typeof(MeshUploadTiming), postfix));
         }
 
         public static void TimePrefix(out long __state) => __state = done ? 0 : Stopwatch.GetTimestamp();
@@ -103,10 +79,9 @@ namespace RimWorldLoadingOptimizer
             Interlocked.Increment(ref drains);
             Interlocked.Add(ref drainTicks, ticks);
             long longest;
-            while (
-                ticks > (longest = Interlocked.Read(ref longestDrain))
-                && Interlocked.CompareExchange(ref longestDrain, ticks, longest) != longest
-            ) { }
+            while (ticks > (longest = Interlocked.Read(ref longestDrain)) && Interlocked.CompareExchange(ref longestDrain, ticks, longest) != longest)
+            {
+            }
         }
 
         public static void BatchPrefix(IReadOnlyList<Mesh> meshes, out long __state)

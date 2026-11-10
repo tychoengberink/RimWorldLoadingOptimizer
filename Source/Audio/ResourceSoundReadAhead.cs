@@ -37,19 +37,9 @@ namespace RimWorldLoadingOptimizer
         private static string[] extensions;
         private static volatile OrderedReadAhead<IPrefetchedAsset> queue;
         private static volatile bool done;
-        private static int started,
-            finished,
-            redirected;
-        private static long startedAt,
-            listTicks,
-            lastUse,
-            menuAt;
-        private static int clips,
-            folders,
-            listed,
-            ownOpens,
-            otherPaths,
-            compared;
+        private static int started, finished, redirected;
+        private static long startedAt, listTicks, lastUse, menuAt;
+        private static int clips, folders, listed, ownOpens, otherPaths, compared;
         private static readonly MismatchLog mismatches = new MismatchLog(Feature);
         private static long ownTicks;
         private static Timer idle;
@@ -66,36 +56,15 @@ namespace RimWorldLoadingOptimizer
             originalLoad = AccessTools.Method(typeof(AudioClip), "Load", new[] { typeof(string), typeof(bool) });
             var clipOpen = AccessTools.Method(typeof(AudioClip), "Open", new[] { typeof(string), typeof(bool) });
             openedType = AccessTools.Inner(typeof(AudioClip), "Opened");
-            clipCtor =
-                openedType == null
-                    ? null
-                    : AccessTools.Constructor(typeof(AudioClip), new[] { openedType, typeof(string) });
+            clipCtor = openedType == null ? null : AccessTools.Constructor(typeof(AudioClip), new[] { openedType, typeof(string) });
             var waylith = typeof(Waylith.Resources);
-            var find = AccessTools.Method(
-                waylith,
-                nameof(Waylith.Resources.FindFile),
-                new[] { typeof(string), typeof(string[]), typeof(bool) }
-            );
-            var paths = AccessTools.Method(
-                waylith,
-                nameof(Waylith.Resources.EnumerateResourcePaths),
-                new[] { typeof(string), typeof(string[]) }
-            );
-            var preResolve = AccessTools.Method(
-                typeof(DefGenerator),
-                nameof(DefGenerator.GenerateImpliedDefs_PreResolve)
-            );
+            var find = AccessTools.Method(waylith, nameof(Waylith.Resources.FindFile), new[] { typeof(string), typeof(string[]), typeof(bool) });
+            var paths = AccessTools.Method(waylith, nameof(Waylith.Resources.EnumerateResourcePaths), new[] { typeof(string), typeof(string[]) });
+            var preResolve = AccessTools.Method(typeof(DefGenerator), nameof(DefGenerator.GenerateImpliedDefs_PreResolve));
             extensions = (AccessTools.Field(resources, "AudioClipExtensions")?.GetValue(null) as string[])?.ToArray();
-            if (
-                clipCtor == null
-                || extensions == null
-                || clipOpen?.ReturnType != openedType
-                || !typeof(IPrefetchedAsset).IsAssignableFrom(openedType)
-            )
+            if (clipCtor == null || extensions == null || clipOpen?.ReturnType != openedType || !typeof(IPrefetchedAsset).IsAssignableFrom(openedType))
             {
-                RLOLog.Detail(
-                    $"{Feature}: the game's sound loading no longer has the members it needs. This speedup is skipped and the original code runs; nothing is broken."
-                );
+                RLOLog.Detail($"{Feature}: the game's sound loading no longer has the members it needs. This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             var openForPrefetch = AccessTools.Method(typeof(AudioClip), "OpenForPrefetch", new[] { typeof(string) });
@@ -104,20 +73,8 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip(Feature, "a method it needs no longer exists");
                 return;
             }
-            if (
-                !VersionCheck.Pattern(
-                    Feature,
-                    originalLoad,
-                    code => VersionCheck.CallsExactly(code, clipOpen, clipCtor),
-                    "builds the clip from AudioClip.Open and nothing else"
-                )
-                || !VersionCheck.Pattern(
-                    Feature,
-                    openForPrefetch,
-                    code => VersionCheck.Calls(code, clipOpen) == 1,
-                    "opens sounds for the engine's own prefetch with AudioClip.Open"
-                )
-            )
+            if (!VersionCheck.Pattern(Feature, originalLoad, code => VersionCheck.CallsExactly(code, clipOpen, clipCtor), "builds the clip from AudioClip.Open and nothing else")
+                || !VersionCheck.Pattern(Feature, openForPrefetch, code => VersionCheck.Calls(code, clipOpen) == 1, "opens sounds for the engine's own prefetch with AudioClip.Open"))
             {
                 return;
             }
@@ -126,22 +83,15 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            open =
-                (Func<string, bool, IPrefetchedAsset>)
-                    clipOpen.CreateDelegate(typeof(Func<string, bool, IPrefetchedAsset>));
+            open = (Func<string, bool, IPrefetchedAsset>)clipOpen.CreateDelegate(typeof(Func<string, bool, IPrefetchedAsset>));
             load = (Func<string, bool, AudioClip>)originalLoad.CreateDelegate(typeof(Func<string, bool, AudioClip>));
-            findFile =
-                (Func<string, string[], bool, string>)find.CreateDelegate(typeof(Func<string, string[], bool, string>));
-            enumerate =
-                (Func<string, string[], IEnumerable<string>>)
-                    paths.CreateDelegate(typeof(Func<string, string[], IEnumerable<string>>));
+            findFile = (Func<string, string[], bool, string>)find.CreateDelegate(typeof(Func<string, string[], bool, string>));
+            enumerate = (Func<string, string[], IEnumerable<string>>)paths.CreateDelegate(typeof(Func<string, string[], IEnumerable<string>>));
             harmony.Patch(stub, transpiler: new HarmonyMethod(typeof(ResourceSoundReadAhead), nameof(Transpiler)));
             if (redirected != 1)
             {
                 harmony.Unpatch(stub, HarmonyPatchType.Transpiler, harmony.Id);
-                RLOLog.Detail(
-                    $"{Feature}: the sound load call was not found as expected ({redirected} of 1). This speedup is skipped and the original code runs; nothing is broken."
-                );
+                RLOLog.Detail($"{Feature}: the sound load call was not found as expected ({redirected} of 1). This speedup is skipped and the original code runs; nothing is broken.");
                 return;
             }
             harmony.Patch(preResolve, prefix: new HarmonyMethod(typeof(ResourceSoundReadAhead), nameof(Begin)));
@@ -153,22 +103,14 @@ namespace RimWorldLoadingOptimizer
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             var list = instructions.ToList();
-            redirected = list.Count(i =>
-                (i.opcode == OpCodes.Call || i.opcode == OpCodes.Callvirt)
-                && i.operand is MethodInfo m
-                && m == originalLoad
-            );
+            redirected = list.Count(i => (i.opcode == OpCodes.Call || i.opcode == OpCodes.Callvirt) && i.operand is MethodInfo m && m == originalLoad);
             if (redirected != 1)
             {
                 return list;
             }
             foreach (var instruction in list)
             {
-                if (
-                    (instruction.opcode == OpCodes.Call || instruction.opcode == OpCodes.Callvirt)
-                    && instruction.operand is MethodInfo m
-                    && m == originalLoad
-                )
+                if ((instruction.opcode == OpCodes.Call || instruction.opcode == OpCodes.Callvirt) && instruction.operand is MethodInfo m && m == originalLoad)
                 {
                     instruction.opcode = OpCodes.Call;
                     instruction.operand = AccessTools.Method(typeof(ResourceSoundReadAhead), nameof(Load));
@@ -214,10 +156,7 @@ namespace RimWorldLoadingOptimizer
                             requests.Add((root + ((AudioGrain_Clip)grain).clipPath, false));
                             clips++;
                         }
-                        else if (
-                            grain.GetType() == typeof(AudioGrain_Folder)
-                            && ((AudioGrain_Folder)grain).clipFolderPath != null
-                        )
+                        else if (grain.GetType() == typeof(AudioGrain_Folder) && ((AudioGrain_Folder)grain).clipFolderPath != null)
                         {
                             requests.Add((root + ((AudioGrain_Folder)grain).clipFolderPath, true));
                             folders++;
@@ -230,12 +169,7 @@ namespace RimWorldLoadingOptimizer
                 AudioReadAhead.PrepareCompare(openedType);
             }
             startedAt = Stopwatch.GetTimestamp();
-            new Thread(() => List(requests))
-            {
-                IsBackground = true,
-                Name = "RLO game sound list",
-                Priority = System.Threading.ThreadPriority.BelowNormal,
-            }.Start();
+            new Thread(() => List(requests)) { IsBackground = true, Name = "RLO game sound list", Priority = System.Threading.ThreadPriority.BelowNormal }.Start();
         }
 
         // The file each request ends up opening, in request order: the same lookups UnityEngine.Resources makes for Load and LoadAll.
@@ -267,13 +201,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             listTicks = Stopwatch.GetTimestamp() - startedAt;
-            var made = new OrderedReadAhead<IPrefetchedAsset>(
-                files,
-                path => open(path, true),
-                asset => Math.Max(0, asset.Bytes),
-                Release,
-                CapBytes
-            );
+            var made = new OrderedReadAhead<IPrefetchedAsset>(files, path => open(path, true), asset => Math.Max(0, asset.Bytes), Release, CapBytes);
             listed = made.Count;
             if (made.Count == 0 || done)
             {
@@ -383,19 +311,14 @@ namespace RimWorldLoadingOptimizer
                 Finish();
                 return;
             }
-            idle = new Timer(
-                _ =>
+            idle = new Timer(_ =>
+            {
+                var last = Math.Max(Volatile.Read(ref lastUse), menuAt);
+                if (Stopwatch.GetTimestamp() - last > IdleTicks)
                 {
-                    var last = Math.Max(Volatile.Read(ref lastUse), menuAt);
-                    if (Stopwatch.GetTimestamp() - last > IdleTicks)
-                    {
-                        Finish();
-                    }
-                },
-                null,
-                5000,
-                5000
-            );
+                    Finish();
+                }
+            }, null, 5000, 5000);
         }
 
         private static void Finish()
@@ -418,13 +341,10 @@ namespace RimWorldLoadingOptimizer
             var q = queue;
             if (q == null)
             {
-                return started == 0
-                    ? $"{Feature}: off"
-                    : $"{Feature}: {clips} clip and {folders} folder grains, {listed} files listed, nothing opened ahead";
+                return started == 0 ? $"{Feature}: off" : $"{Feature}: {clips} clip and {folders} folder grains, {listed} files listed, nothing opened ahead";
             }
             double S(long ticks) => ticks / (double)Stopwatch.Frequency;
-            var text =
-                $"{Feature}: {clips} clip and {folders} folder grains listed {q.Count} files in {S(listTicks):F1} s; {q.Summary("game sounds")}; "
+            var text = $"{Feature}: {clips} clip and {folders} folder grains listed {q.Count} files in {S(listTicks):F1} s; {q.Summary("game sounds")}; "
                 + $"opened {ownOpens} listed sounds itself in {S(Volatile.Read(ref ownTicks)):F1} s, {otherPaths} sounds outside the list; workers done at {(q.DoneAt == 0 ? "not yet" : $"{S(q.DoneAt - startedAt):F1} s")}";
             if (DevSwitches.Verify)
             {

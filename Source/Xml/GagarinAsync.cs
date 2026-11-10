@@ -14,8 +14,7 @@ namespace RimWorldLoadingOptimizer
     public static class GagarinAsync
     {
         private static Harmony harmony;
-        private static bool attempted,
-            installed;
+        private static bool attempted, installed;
         private static string path;
         private static XmlWriterSettings settings;
         private static Thread writer;
@@ -25,10 +24,7 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony)
         {
             GagarinAsync.harmony = harmony;
-            harmony.Patch(
-                AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
-                prefix: new HarmonyMethod(typeof(GagarinAsync), nameof(ParsePrefix))
-            );
+            harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)), prefix: new HarmonyMethod(typeof(GagarinAsync), nameof(ParsePrefix)));
         }
 
         [Hook]
@@ -65,42 +61,21 @@ namespace RimWorldLoadingOptimizer
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
-            var create = AccessTools.Method(
-                typeof(XmlWriter),
-                nameof(XmlWriter.Create),
-                new[] { typeof(string), typeof(XmlWriterSettings) }
-            );
-            var docSave = AccessTools.Method(
-                typeof(XmlDocument),
-                nameof(XmlDocument.Save),
-                new[] { typeof(XmlWriter) }
-            );
+            var create = AccessTools.Method(typeof(XmlWriter), nameof(XmlWriter.Create), new[] { typeof(string), typeof(XmlWriterSettings) });
+            var docSave = AccessTools.Method(typeof(XmlDocument), nameof(XmlDocument.Save), new[] { typeof(XmlWriter) });
             var original = instructions.ToList();
             if (original.Count(i => i.Calls(create)) != 1 || original.Count(i => i.Calls(docSave)) != 1)
             {
                 installed = false;
-                RLOLog.Warning(
-                    "Gagarin async save left unchanged: Save no longer has one writer and one document save"
-                );
+                RLOLog.Warning("Gagarin async save left unchanged: Save no longer has one writer and one document save");
                 return original;
             }
             installed = true;
-            return original
-                .Select(instruction =>
-                    instruction.Calls(create)
-                        ? new CodeInstruction(
-                            OpCodes.Call,
-                            AccessTools.Method(typeof(GagarinAsync), nameof(CreateWriter))
-                        )
-                            .WithLabels(instruction.labels)
-                            .WithBlocks(instruction.blocks)
-                    : instruction.Calls(docSave)
-                        ? new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GagarinAsync), nameof(SaveAsync)))
-                            .WithLabels(instruction.labels)
-                            .WithBlocks(instruction.blocks)
-                    : instruction
-                )
-                .ToList();
+            return original.Select(instruction => instruction.Calls(create)
+                ? new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GagarinAsync), nameof(CreateWriter))).WithLabels(instruction.labels).WithBlocks(instruction.blocks)
+                : instruction.Calls(docSave)
+                    ? new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(GagarinAsync), nameof(SaveAsync))).WithLabels(instruction.labels).WithBlocks(instruction.blocks)
+                    : instruction).ToList();
         }
 
         public static XmlWriter CreateWriter(string file, XmlWriterSettings writerSettings)
@@ -136,14 +111,12 @@ namespace RimWorldLoadingOptimizer
                     {
                         File.Delete(temporary);
                     }
-                    catch { }
+                    catch
+                    {
+                    }
                 }
                 writeSeconds = stopwatch.Elapsed.TotalSeconds;
-            })
-            {
-                IsBackground = false,
-                Name = "Gagarin cache writer",
-            };
+            }) { IsBackground = false, Name = "Gagarin cache writer" };
             writer.Start();
         }
 
@@ -158,9 +131,6 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        public static string Stats() =>
-            !attempted ? "gagarin async save: not reached"
-            : !installed ? "gagarin async save: not installed"
-            : $"gagarin async save: write {writeSeconds:F2} s off the def thread{(writer != null ? " (still running)" : "")}";
+        public static string Stats() => !attempted ? "gagarin async save: not reached" : !installed ? "gagarin async save: not installed" : $"gagarin async save: write {writeSeconds:F2} s off the def thread{(writer != null ? " (still running)" : "")}";
     }
 }

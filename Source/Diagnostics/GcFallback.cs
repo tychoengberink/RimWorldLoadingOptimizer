@@ -11,12 +11,8 @@ namespace RimWorldLoadingOptimizer
 
         private static Listener listener;
         private static readonly object gate = new object();
-        private static int fullCollections,
-            background,
-            blocked;
-        private static double blockedSeconds,
-            firstBlockedAt = -1,
-            longest;
+        private static int fullCollections, background, blocked;
+        private static double blockedSeconds, firstBlockedAt = -1, longest;
 
         public static void Install()
         {
@@ -50,10 +46,9 @@ namespace RimWorldLoadingOptimizer
                 {
                     return "full collections: none seen since RLO started";
                 }
-                var lost =
-                    blocked == 0
-                        ? ""
-                        : $"; {blocked} of them started as background collections but ran blocking (first at {firstBlockedAt:F1} s, {blockedSeconds:F2} s of pause in total, longest {longest:F2} s): the runtime could not run them in the background";
+                var lost = blocked == 0
+                    ? ""
+                    : $"; {blocked} of them started as background collections but ran blocking (first at {firstBlockedAt:F1} s, {blockedSeconds:F2} s of pause in total, longest {longest:F2} s): the runtime could not run them in the background";
                 return $"full collections since RLO started: {fullCollections}, {background} ran in the background{lost}";
             }
         }
@@ -90,8 +85,7 @@ namespace RimWorldLoadingOptimizer
                     }
                     else if (name.StartsWith("GCStart", StringComparison.Ordinal))
                     {
-                        announcedBackground =
-                            Convert.ToUInt32(Value(e, "Depth")) == 2 && Convert.ToUInt32(Value(e, "Type")) == 1;
+                        announcedBackground = Convert.ToUInt32(Value(e, "Depth")) == 2 && Convert.ToUInt32(Value(e, "Type")) == 1;
                     }
                     else if (name.StartsWith("GCGlobalHeapHistory", StringComparison.Ordinal))
                     {
@@ -130,7 +124,9 @@ namespace RimWorldLoadingOptimizer
                         currentBlocked = false;
                     }
                 }
-                catch (Exception) { }
+                catch (Exception)
+                {
+                }
             }
 
             private static object Value(EventWrittenEventArgs e, string field)

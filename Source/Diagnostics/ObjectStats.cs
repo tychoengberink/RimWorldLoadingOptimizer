@@ -15,30 +15,20 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            var rows = Resources
-                .FindObjectsOfTypeAll<UnityEngine.Object>()
+            var rows = Resources.FindObjectsOfTypeAll<UnityEngine.Object>()
                 .GroupBy(o => o.GetType().Name)
-                .Select(g => new
-                {
-                    Type = g.Key,
-                    Count = g.Count(),
-                    Bytes = g.Sum(o => Profiler.GetRuntimeMemorySizeLong(o)),
-                })
+                .Select(g => new { Type = g.Key, Count = g.Count(), Bytes = g.Sum(o => Profiler.GetRuntimeMemorySizeLong(o)) })
                 .OrderByDescending(r => r.Bytes)
                 .ThenByDescending(r => r.Count)
                 .Take(15);
 #if RW17
-            var sb = new StringBuilder(
-                $"[RLO] unity objects (allocated {Profiler.GetTotalAllocatedMemoryLong() >> 20} MB, reserved {Profiler.GetTotalReservedMemoryLong() >> 20} MB):"
-            );
+            var sb = new StringBuilder($"[RLO] unity objects (allocated {Profiler.GetTotalAllocatedMemoryLong() >> 20} MB, reserved {Profiler.GetTotalReservedMemoryLong() >> 20} MB):");
 #else
-            var sb = new StringBuilder(
-                $"[RLO] unity objects (allocated {Profiler.GetTotalAllocatedMemoryLong() >> 20} MB, reserved {Profiler.GetTotalReservedMemoryLong() >> 20} MB, gfx driver {Profiler.GetAllocatedMemoryForGraphicsDriver() >> 20} MB):"
-            );
+            var sb = new StringBuilder($"[RLO] unity objects (allocated {Profiler.GetTotalAllocatedMemoryLong() >> 20} MB, reserved {Profiler.GetTotalReservedMemoryLong() >> 20} MB, gfx driver {Profiler.GetAllocatedMemoryForGraphicsDriver() >> 20} MB):");
 #endif
             foreach (var row in rows)
             {
-                sb.Append($"\n  {row.Bytes >> 20, 8} MB  x{row.Count, -8} {row.Type}");
+                sb.Append($"\n  {row.Bytes >> 20,8} MB  x{row.Count,-8} {row.Type}");
             }
             Log.Message(sb.ToString());
         }

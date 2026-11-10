@@ -6,8 +6,7 @@ namespace RimWorldLoadingOptimizer
     {
         private const string Prefix = "[RLO] ";
 
-        public static bool Details =>
-            DevSwitches.Profile || DevSwitches.Verify || RLOMod.Settings?.startupReport == true;
+        public static bool Details => DevSwitches.Profile || DevSwitches.Verify || RLOMod.Settings?.startupReport == true;
 
         public static void Message(string text) => Log.Message(Prefix + text);
 

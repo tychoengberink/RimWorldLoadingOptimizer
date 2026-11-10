@@ -24,10 +24,9 @@ namespace RimWorldLoadingOptimizer
             started = DateTime.UtcNow;
             ProfileOptimization.SetProfileRoot(root);
             ProfileOptimization.StartProfile(Name);
-            state =
-                existing < 0
-                    ? "recording a first profile, used from the next start"
-                    : $"replaying last start's profile ({existing / 1024} KB) on a background thread and recording a new one";
+            state = existing < 0
+                ? "recording a first profile, used from the next start"
+                : $"replaying last start's profile ({existing / 1024} KB) on a background thread and recording a new one";
             MainMenu.Then(Stop);
             StartupPhaseFixes.Reports.Add(Stats);
         }
@@ -42,12 +41,9 @@ namespace RimWorldLoadingOptimizer
                     if (DevSwitches.Verify)
                     {
                         var info = new FileInfo(file);
-                        RLOLog.Detail(
-                            info.Exists && info.LastWriteTimeUtc >= started
-                                ? $"background JIT profile verify: profile written at the main menu ({info.Length / 1024} KB)"
-                                : "background JIT profile verify: the runtime did not write a profile (another mod may have set "
-                                    + "the profile folder first, or this system has a single core)"
-                        );
+                        RLOLog.Detail(info.Exists && info.LastWriteTimeUtc >= started
+                            ? $"background JIT profile verify: profile written at the main menu ({info.Length / 1024} KB)"
+                            : "background JIT profile verify: the runtime did not write a profile (another mod may have set the profile folder first, or this system has a single core)");
                     }
                 }
                 catch (Exception e)
@@ -57,8 +53,7 @@ namespace RimWorldLoadingOptimizer
             });
         }
 
-        private static string Stats() =>
-            $"background JIT profile: {state}; JIT so far {JitInfo.GetCompiledMethodCount():N0} methods, {JitInfo.GetCompilationTime().TotalSeconds:F1} s summed over all threads";
+        private static string Stats() => $"background JIT profile: {state}; JIT so far {JitInfo.GetCompiledMethodCount():N0} methods, {JitInfo.GetCompilationTime().TotalSeconds:F1} s summed over all threads";
     }
 }
 #endif

@@ -11,11 +11,8 @@ namespace RimWorldLoadingOptimizer
     {
         private const long MinStreamBytes = 100 * 1024;
 
-        [ThreadStatic]
-        private static int yieldUntil;
-
-        [ThreadStatic]
-        private static bool yieldArmed;
+        [ThreadStatic] private static int yieldUntil;
+        [ThreadStatic] private static bool yieldArmed;
 
         private static readonly Type FilesystemFile = AccessTools.TypeByName("RimWorld.IO.FilesystemFile");
 
@@ -33,10 +30,7 @@ namespace RimWorldLoadingOptimizer
 #if RW17
             if (target == null)
             {
-                RLOLog.Detail(
-                    "audio streaming: not available on this RimWorld version (it loads sounds without the old wait "
-                        + "loop); skipped"
-                );
+                RLOLog.Detail("audio streaming: not available on this RimWorld version (it loads sounds without the old wait loop); skipped");
                 return;
             }
 #endif
@@ -61,12 +55,7 @@ namespace RimWorldLoadingOptimizer
         {
             yieldUntil = unchecked(Environment.TickCount + 250);
             yieldArmed = true;
-            if (
-                __result
-                || !FilesystemFile.IsInstanceOfType(file)
-                || !file.Exists
-                || !file.Name.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)
-            )
+            if (__result || !FilesystemFile.IsInstanceOfType(file) || !file.Exists || !file.Name.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }

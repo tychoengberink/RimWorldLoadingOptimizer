@@ -25,9 +25,7 @@ namespace RimWorldLoadingOptimizer
             if (GCSettings.LatencyMode != GCLatencyMode.SustainedLowLatency)
             {
                 outcome = $"the runtime kept {GCSettings.LatencyMode}";
-                RLOLog.Detail(
-                    $"GC latency: the runtime did not accept SustainedLowLatency and stays at {GCSettings.LatencyMode}"
-                );
+                RLOLog.Detail($"GC latency: the runtime did not accept SustainedLowLatency and stays at {GCSettings.LatencyMode}");
                 StartupPhaseFixes.Reports.Add(Stats);
                 return;
             }
@@ -35,9 +33,7 @@ namespace RimWorldLoadingOptimizer
             gen2AtStart = GC.CollectionCount(2);
             setAt = Now();
             outcome = $"SustainedLowLatency from {setAt:F1} s until the main menu (was {mode})";
-            RLOLog.Detail(
-                $"GC latency: {mode} -> SustainedLowLatency until the main menu, so the runtime avoids blocking full collections while loading"
-            );
+            RLOLog.Detail($"GC latency: {mode} -> SustainedLowLatency until the main menu, so the runtime avoids blocking full collections while loading");
             MainMenu.Then(Restore);
             StartupPhaseFixes.Reports.Add(Stats);
         }
@@ -55,9 +51,7 @@ namespace RimWorldLoadingOptimizer
             if (current != GCLatencyMode.SustainedLowLatency)
             {
                 outcome += $"; someone else changed it to {current} before the main menu, left at that";
-                RLOLog.Detail(
-                    $"GC latency: changed to {current} by someone else before the main menu; left at that. {counts}"
-                );
+                RLOLog.Detail($"GC latency: changed to {current} by someone else before the main menu; left at that. {counts}");
                 return;
             }
             GCSettings.LatencyMode = mode;

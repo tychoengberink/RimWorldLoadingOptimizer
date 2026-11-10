@@ -10,13 +10,9 @@ namespace RimWorldLoadingOptimizer
     // A caller takes an item by its key exactly once; anything it does not take is handed back to the release callback.
     // The list order is only a guess of the order the caller asks in: when the budget is full, items before the furthest
     // one the main thread took are released to make room, and the caller makes those itself if it asks for them later.
-    internal sealed class OrderedReadAhead<T>
-        where T : class
+    internal sealed class OrderedReadAhead<T> where T : class
     {
-        private const int Untouched = 0,
-            Making = 1,
-            Ready = 2,
-            Gone = 3;
+        private const int Untouched = 0, Making = 1, Ready = 2, Gone = 3;
 
         private readonly object gate = new object();
         private readonly string[] keys;
@@ -28,33 +24,14 @@ namespace RimWorldLoadingOptimizer
         private readonly Func<T, long> size;
         private readonly Action<T> release;
         private readonly long cap;
-        private int floor,
-            remaining,
-            running;
+        private int floor, remaining, running;
         private long held;
         private bool stop;
 
-        public int Made,
-            Failed,
-            TakenReady,
-            TakenWaited,
-            OtherTaken,
-            Dropped,
-            Leftovers;
-        public long WorkerTicks,
-            WaitTicks,
-            SavedTicks,
-            Bytes,
-            MaxHeld,
-            DoneAt;
+        public int Made, Failed, TakenReady, TakenWaited, OtherTaken, Dropped, Leftovers;
+        public long WorkerTicks, WaitTicks, SavedTicks, Bytes, MaxHeld, DoneAt;
 
-        public OrderedReadAhead(
-            IList<string> list,
-            Func<string, T> make,
-            Func<T, long> size,
-            Action<T> release,
-            long cap
-        )
+        public OrderedReadAhead(IList<string> list, Func<string, T> make, Func<T, long> size, Action<T> release, long cap)
         {
             var order = new List<string>(list.Count);
             indexOf = new Dictionary<string, int>(list.Count, StringComparer.Ordinal);
@@ -97,12 +74,7 @@ namespace RimWorldLoadingOptimizer
             running = threads;
             for (var t = 0; t < threads; t++)
             {
-                new Thread(Run)
-                {
-                    IsBackground = true,
-                    Name = name,
-                    Priority = ThreadPriority.BelowNormal,
-                }.Start();
+                new Thread(Run) { IsBackground = true, Name = name, Priority = ThreadPriority.BelowNormal }.Start();
             }
         }
 
@@ -309,7 +281,9 @@ namespace RimWorldLoadingOptimizer
                 {
                     release(item);
                 }
-                catch (Exception) { }
+                catch (Exception)
+                {
+                }
             }
             items.Clear();
         }

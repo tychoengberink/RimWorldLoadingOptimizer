@@ -24,8 +24,7 @@ namespace RimWorldLoadingOptimizer
         private static bool featuresOff;
         private static bool insideLoadingProgress;
         private static float refreshedAt = float.MinValue;
-        private static string live = "",
-            summary = "";
+        private static string live = "", summary = "";
         private static List<(string label, int done, int total)> bars = new List<(string label, int done, int total)>();
 
         public static void Install(Harmony harmony, bool off)
@@ -33,10 +32,7 @@ namespace RimWorldLoadingOptimizer
             featuresOff = off;
             active = true;
             HookLoadingProgress(harmony);
-            harmony.Patch(
-                AccessTools.Method(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsOnGUI)),
-                postfix: new HarmonyMethod(typeof(LoadingBanner), nameof(DrawPanel))
-            );
+            harmony.Patch(AccessTools.Method(typeof(LongEventHandler), nameof(LongEventHandler.LongEventsOnGUI)), postfix: new HarmonyMethod(typeof(LoadingBanner), nameof(DrawPanel)));
             MainMenu.Then(Hide);
         }
 
@@ -72,22 +68,11 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            Guarded(
-                "inside Loading Progress",
-                () =>
-                {
-                    var height = StatusLineHeight();
-                    DrawStatusLine(
-                        new Rect(
-                            rect.x + WindowMargin,
-                            rect.yMax - WindowMargin - height,
-                            rect.width - 2f * WindowMargin,
-                            height
-                        )
-                    );
-                },
-                () => insideLoadingProgress = false
-            );
+            Guarded("inside Loading Progress", () =>
+            {
+                var height = StatusLineHeight();
+                DrawStatusLine(new Rect(rect.x + WindowMargin, rect.yMax - WindowMargin - height, rect.width - 2f * WindowMargin, height));
+            }, () => insideLoadingProgress = false);
         }
 
         public static void DrawPanel()
@@ -96,22 +81,13 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            Guarded(
-                "panel",
-                () =>
-                {
-                    var panel = new Rect(
-                        (UI.screenWidth - PanelWidth) / 2f,
-                        PanelTop,
-                        PanelWidth,
-                        SectionHeight() + 2f * PanelPadding
-                    );
-                    Widgets.DrawShadowAround(panel);
-                    Widgets.DrawWindowBackground(panel);
-                    DrawSection(panel.ContractedBy(PanelPadding));
-                },
-                Hide
-            );
+            Guarded("panel", () =>
+            {
+                var panel = new Rect((UI.screenWidth - PanelWidth) / 2f, PanelTop, PanelWidth, SectionHeight() + 2f * PanelPadding);
+                Widgets.DrawShadowAround(panel);
+                Widgets.DrawWindowBackground(panel);
+                DrawSection(panel.ContractedBy(PanelPadding));
+            }, Hide);
         }
 
         private static void Guarded(string where, Action draw, Action onError)
@@ -136,10 +112,7 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
-        private static string Status =>
-            featuresOff
-                ? "RimWorld Loading Optimizer is off for this measurement start"
-                : "RimWorld Loading Optimizer enabled";
+        private static string Status => featuresOff ? "RimWorld Loading Optimizer is off for this measurement start" : "RimWorld Loading Optimizer enabled";
 
         private static float StatusLineHeight() => Gap + Text.LineHeightOf(GameFont.Small);
 

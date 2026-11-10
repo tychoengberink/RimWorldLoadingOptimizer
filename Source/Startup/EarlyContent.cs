@@ -18,8 +18,7 @@ namespace RimWorldLoadingOptimizer
         private static int[] state;
         private static int next;
         private static volatile bool ready;
-        private static int ranEarly,
-            ranLate;
+        private static int ranEarly, ranLate;
         private static long earlyTicks;
 
         public static void Install(Harmony harmony)
@@ -37,20 +36,12 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             var reloadInt = AccessTools.Method(typeof(ModContentPack), "ReloadContentInt");
-            if (
-                !VersionCheck.Pattern(
-                    "Early content loading",
-                    reloadInt,
-                    code => VersionCheck.Called(code).All(OwnContentOnly),
-                    "only reloads the mod's own sounds, textures, strings and asset bundles"
-                )
-            )
+            if (!VersionCheck.Pattern("Early content loading", reloadInt, code => VersionCheck.Called(code).All(OwnContentOnly), "only reloads the mod's own sounds, textures, strings and asset bundles"))
             {
                 return;
             }
 #endif
-            var list =
-                (List<Action>)AccessTools.Field(typeof(LongEventHandler), "toExecuteWhenFinished").GetValue(null);
+            var list = (List<Action>)AccessTools.Field(typeof(LongEventHandler), "toExecuteWhenFinished").GetValue(null);
             var reloads = new List<int>();
             for (var i = 0; i < list.Count; i++)
             {
@@ -66,38 +57,21 @@ namespace RimWorldLoadingOptimizer
             }
             var first = reloads[0];
             var last = reloads[reloads.Count - 1];
-            if (
-                last - first + 1 != reloads.Count
-                || first < 1
-                || !IsLoadModContentStep(list[first - 1])
-                || last + 1 >= list.Count
-                || !IsLoadModContentStep(list[last + 1])
-            )
+            if (last - first + 1 != reloads.Count || first < 1 || !IsLoadModContentStep(list[first - 1]) || last + 1 >= list.Count || !IsLoadModContentStep(list[last + 1]))
             {
-                RLOLog.Detail(
-                    "early content loading: the queued content reloads are not in the expected order; skipped"
-                );
+                RLOLog.Detail("early content loading: the queued content reloads are not in the expected order; skipped");
                 return;
             }
             for (var i = 0; i < first - 1; i++)
             {
                 if (!IsLoadModContentStep(list[i]))
                 {
-                    RLOLog.Detail(
-                        $"early content loading: {first - 1} other queued action(s) must run before the content reloads; skipped"
-                    );
+                    RLOLog.Detail($"early content loading: {first - 1} other queued action(s) must run before the content reloads; skipped");
                     return;
                 }
             }
 #if RW17
-            if (
-                !VersionCheck.Pattern(
-                    "Early content loading",
-                    list[first].Method,
-                    code => VersionCheck.Called(code).All(m => m == reloadInt),
-                    "only runs ModContentPack.ReloadContentInt"
-                )
-            )
+            if (!VersionCheck.Pattern("Early content loading", list[first].Method, code => VersionCheck.Called(code).All(m => m == reloadInt), "only runs ModContentPack.ReloadContentInt"))
             {
                 return;
             }
@@ -117,25 +91,19 @@ namespace RimWorldLoadingOptimizer
         }
 
         private static bool IsReload(Action action) =>
-            action.Method.DeclaringType?.DeclaringType == typeof(ModContentPack)
-            && action.Method.Name.Contains("<ReloadContent>");
+            action.Method.DeclaringType?.DeclaringType == typeof(ModContentPack) && action.Method.Name.Contains("<ReloadContent>");
 
 #if RW17
         private static bool OwnContentOnly(MethodBase method) =>
             method?.DeclaringType == typeof(DeepProfiler)
-            || method?.Name == nameof(ModContentHolder<string>.ReloadAll)
-                && (
-                    method.DeclaringType == typeof(ModAssetBundlesHandler)
-                    || method.DeclaringType.IsGenericType
-                        && method.DeclaringType.GetGenericTypeDefinition() == typeof(ModContentHolder<>)
-                );
+            || method?.Name == nameof(ModContentHolder<string>.ReloadAll) && (method.DeclaringType == typeof(ModAssetBundlesHandler)
+                || method.DeclaringType.IsGenericType && method.DeclaringType.GetGenericTypeDefinition() == typeof(ModContentHolder<>));
 #endif
 
         private static bool IsLoadModContentStep(Action action)
         {
             var type = action.Method.DeclaringType;
-            return (type == typeof(LoadedModManager) || type?.DeclaringType == typeof(LoadedModManager))
-                && action.Method.Name.Contains("<LoadModContent>");
+            return (type == typeof(LoadedModManager) || type?.DeclaringType == typeof(LoadedModManager)) && action.Method.Name.Contains("<LoadModContent>");
         }
 
         public static void Ready()
@@ -148,13 +116,7 @@ namespace RimWorldLoadingOptimizer
 
         public static void UpdatePostfix()
         {
-            if (
-                !ready
-                || originals == null
-                || next >= originals.Length
-                || !UnityData.IsInMainThread
-                || PlayDataLoader.Loaded
-            )
+            if (!ready || originals == null || next >= originals.Length || !UnityData.IsInMainThread || PlayDataLoader.Loaded)
             {
                 return;
             }
@@ -203,9 +165,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return "early content loading: off";
             }
-            int textures = 0,
-                sounds = 0,
-                strings = 0;
+            int textures = 0, sounds = 0, strings = 0;
             foreach (var mod in LoadedModManager.RunningModsListForReading)
             {
                 textures += mod.GetContentHolder<Texture2D>().contentList.Count;

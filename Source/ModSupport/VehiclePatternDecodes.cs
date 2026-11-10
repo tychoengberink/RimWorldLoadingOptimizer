@@ -38,14 +38,9 @@ namespace RimWorldLoadingOptimizer
         private static readonly List<Entry> entries = new List<Entry>(MaxEntries);
         private static int activeThread = -1;
         private static int depth;
-        private static int hits,
-            misses,
-            uncached,
-            verified,
-            runs;
+        private static int hits, misses, uncached, verified, runs;
         private static readonly MismatchLog mismatches = new MismatchLog(Feature);
-        private static long missTicks,
-            hitTicks;
+        private static long missTicks, hitTicks;
         private static readonly bool verify = DevSwitches.Verify;
         private static SelfCheck check;
 
@@ -58,14 +53,7 @@ namespace RimWorldLoadingOptimizer
             }
             var generate = AccessTools.Method(pattern, "GenerateMaterials");
             var textures = typeof(UnityEngine.Texture2D).Assembly.GetType("UnityStubs.Internal.AssetBundleTextures");
-            var decodeToRgba32 =
-                textures == null
-                    ? null
-                    : AccessTools.Method(
-                        textures,
-                        "DecodeToRgba32",
-                        new[] { typeof(byte[]), typeof(LoadedTextureFormat), typeof(int), typeof(int) }
-                    );
+            var decodeToRgba32 = textures == null ? null : AccessTools.Method(textures, "DecodeToRgba32", new[] { typeof(byte[]), typeof(LoadedTextureFormat), typeof(int), typeof(int) });
             var decode = textures == null ? null : AccessTools.Method(textures, "Decode");
             var managed = Type.GetType("AssetsTools.NET.Texture.TextureFile, AssetsTools.NET.Texture", false);
             var decodeManaged = managed == null ? null : AccessTools.Method(managed, "DecodeManagedData");
@@ -79,16 +67,8 @@ namespace RimWorldLoadingOptimizer
             {
                 return;
             }
-            harmony.Patch(
-                generate,
-                prefix: new HarmonyMethod(typeof(VehiclePatternDecodes), nameof(Begin)),
-                finalizer: new HarmonyMethod(typeof(VehiclePatternDecodes), nameof(End))
-            );
-            harmony.Patch(
-                decodeToRgba32,
-                prefix: new HarmonyMethod(typeof(VehiclePatternDecodes), nameof(DecodePrefix)),
-                postfix: new HarmonyMethod(typeof(VehiclePatternDecodes), nameof(DecodePostfix))
-            );
+            harmony.Patch(generate, prefix: new HarmonyMethod(typeof(VehiclePatternDecodes), nameof(Begin)), finalizer: new HarmonyMethod(typeof(VehiclePatternDecodes), nameof(End)));
+            harmony.Patch(decodeToRgba32, prefix: new HarmonyMethod(typeof(VehiclePatternDecodes), nameof(DecodePrefix)), postfix: new HarmonyMethod(typeof(VehiclePatternDecodes), nameof(DecodePostfix)));
             MainMenu.UnpatchAfterStartup(generate);
             MainMenu.UnpatchAfterStartup(decodeToRgba32);
             StartupPhaseFixes.Reports.Add(Stats);
@@ -119,14 +99,7 @@ namespace RimWorldLoadingOptimizer
             return __exception;
         }
 
-        public static bool DecodePrefix(
-            byte[] data,
-            LoadedTextureFormat format,
-            int w,
-            int h,
-            ref byte[] __result,
-            out State __state
-        )
+        public static bool DecodePrefix(byte[] data, LoadedTextureFormat format, int w, int h, ref byte[] __result, out State __state)
         {
             __state = null;
             if (depth == 0 || activeThread != Environment.CurrentManagedThreadId || data == null || check.IsOff)
@@ -146,14 +119,7 @@ namespace RimWorldLoadingOptimizer
             return true;
         }
 
-        public static void DecodePostfix(
-            byte[] data,
-            LoadedTextureFormat format,
-            int w,
-            int h,
-            byte[] __result,
-            State __state
-        )
+        public static void DecodePostfix(byte[] data, LoadedTextureFormat format, int w, int h, byte[] __result, State __state)
         {
             if (__state == null)
             {
@@ -182,17 +148,7 @@ namespace RimWorldLoadingOptimizer
             {
                 entries.RemoveAt(entries.Count - 1);
             }
-            entries.Insert(
-                0,
-                new Entry
-                {
-                    Input = (byte[])data.Clone(),
-                    Format = format,
-                    Width = w,
-                    Height = h,
-                    Result = (byte[])__result.Clone(),
-                }
-            );
+            entries.Insert(0, new Entry { Input = (byte[])data.Clone(), Format = format, Width = w, Height = h, Result = (byte[])__result.Clone() });
         }
 
         private static Entry Find(byte[] data, LoadedTextureFormat format, int w, int h)
@@ -200,13 +156,7 @@ namespace RimWorldLoadingOptimizer
             for (var i = 0; i < entries.Count; i++)
             {
                 var entry = entries[i];
-                if (
-                    entry.Format == format
-                    && entry.Width == w
-                    && entry.Height == h
-                    && entry.Input.Length == data.Length
-                    && entry.Input.AsSpan().SequenceEqual(data)
-                )
+                if (entry.Format == format && entry.Width == w && entry.Height == h && entry.Input.Length == data.Length && entry.Input.AsSpan().SequenceEqual(data))
                 {
                     if (i > 0)
                     {
@@ -226,16 +176,14 @@ namespace RimWorldLoadingOptimizer
                 return $"{Feature}: Vehicle Framework did not build its pattern materials during startup";
             }
             var missMs = misses > 0 ? StartupPhaseFixes.Seconds(missTicks) * 1000 / misses : 0;
-            var text =
-                $"{Feature}: {misses} pattern textures decoded in {StartupPhaseFixes.Seconds(missTicks):F2} s, {hits} repeat decodes answered from memory in {StartupPhaseFixes.Seconds(hitTicks):F2} s, about {hits * missMs / 1000 - StartupPhaseFixes.Seconds(hitTicks):F1} s saved";
+            var text = $"{Feature}: {misses} pattern textures decoded in {StartupPhaseFixes.Seconds(missTicks):F2} s, {hits} repeat decodes answered from memory in {StartupPhaseFixes.Seconds(hitTicks):F2} s, about {hits * missMs / 1000 - StartupPhaseFixes.Seconds(hitTicks):F1} s saved";
             if (uncached > 0)
             {
                 text += $", {uncached} decodes failed (not remembered)";
             }
             if (verify)
             {
-                text +=
-                    $"; verify: {verified} remembered decodes compared with a fresh decode, {mismatches.Count} mismatches";
+                text += $"; verify: {verified} remembered decodes compared with a fresh decode, {mismatches.Count} mismatches";
             }
             return text;
         }
