@@ -24,6 +24,7 @@ namespace RimWorldLoadingOptimizer
         private static readonly HashSet<MethodBase> ours = new HashSet<MethodBase>();
         private static readonly Stopwatch checkTime = new Stopwatch();
         private static int checks;
+        private static volatile bool xmlPhaseSeen;
 
         public static void Install(Harmony h)
         {
@@ -36,7 +37,9 @@ namespace RimWorldLoadingOptimizer
                 }
             }
             h.Patch(AccessTools.Constructor(typeof(PatchProcessor), new[] { typeof(Harmony), typeof(MethodBase) }), postfix: new HarmonyMethod(typeof(OptimizerOverlap), nameof(Track)));
-            h.Patch(AccessTools.Method(typeof(DeepProfiler), nameof(DeepProfiler.Start)), prefix: new HarmonyMethod(typeof(OptimizerOverlap), nameof(BeforePhase)));
+            var deepProfilerStart = AccessTools.Method(typeof(DeepProfiler), nameof(DeepProfiler.Start));
+            h.Patch(deepProfilerStart, prefix: new HarmonyMethod(typeof(OptimizerOverlap), nameof(BeforePhase)));
+            MainMenu.UnpatchAfterStartup(deepProfilerStart);
             h.Patch(AccessTools.Method(typeof(StaticConstructorOnStartupUtility), nameof(StaticConstructorOnStartupUtility.CallAll)), prefix: new HarmonyMethod(typeof(OptimizerOverlap), nameof(Check)) { priority = Priority.First });
             MainMenu.Then(Check);
         }
@@ -54,9 +57,9 @@ namespace RimWorldLoadingOptimizer
 
         public static void BeforePhase(string label)
         {
-            if (label == "LoadModXML()")
+            if (!xmlPhaseSeen && label == "LoadModXML()")
             {
-                harmony.Unpatch(AccessTools.Method(typeof(DeepProfiler), nameof(DeepProfiler.Start)), AccessTools.Method(typeof(OptimizerOverlap), nameof(BeforePhase)));
+                xmlPhaseSeen = true;
                 Check();
             }
         }
