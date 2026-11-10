@@ -4,13 +4,13 @@
 
 Load-time and memory optimizer for RimWorld 1.6 and 1.7 with very large mod lists. It patches the base game and other mods' code paths; it does not change any def content.
 
-All numbers below come from the Progression packs 1–3 mod list ([1/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521297585), [2/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521319712), [3/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3637541646)) with RimWorld Loading Optimizer 5.2 and its default settings.
+All numbers below come from the Progression packs 1–3 mod list ([1/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521297585), [2/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521319712), [3/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3637541646)) with RimWorld Loading Optimizer 5.3 and its default settings.
 
-Every speedup has a verification mode that recomputes the result the original way; all reported 0 mismatches in the 5.2 verification starts on 1.7.
+Every speedup has a verification mode that recomputes the result the original way; all reported 0 mismatches in the 5.3 verification starts on 1.7.
 
 ## Benchmarks
 
-"Off" = 5.2 with every speedup switched off (`RLO_ALL_OFF=1`); the mod stays loaded for the measurement and the log reports. "On" = 5.2 with its default settings. Warm = Missile Girl's XML cache was used (a normal start); cold = it was not (first start after a mod or mod-list change). Loading Progress, Missile Girl and Performance Optimizer were active in every start. RimWorld 1.6 and 1.7 run different builds with different speedups, so their results are kept separate.
+"Off" = 5.3 with every speedup switched off (`RLO_ALL_OFF=1`); the mod stays loaded for the measurement and the log reports. "On" = 5.3 with its default settings. Warm = Missile Girl's XML cache was used (a normal start); cold = it was not (first start after a mod or mod-list change). Loading Progress, Missile Girl and Performance Optimizer were active in every start. RimWorld 1.6 and 1.7 run different builds with different speedups, so their results are kept separate.
 
 Mac: Apple M5 Pro, 24 GB unified memory, macOS, Steam closed.
 
