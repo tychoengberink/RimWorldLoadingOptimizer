@@ -40,7 +40,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             state = "running";
-            new Thread(() => Read(paths)) { IsBackground = true, Name = "RLO cache read-ahead", Priority = ThreadPriority.BelowNormal }.Start();
+            RLOMod.StartAfterPatching("Missile Girl cache read-ahead", () => new Thread(() => Read(paths)) { IsBackground = true, Name = "RLO cache read-ahead", Priority = ThreadPriority.BelowNormal }.Start());
         }
 
         private static bool SameModList(string path)

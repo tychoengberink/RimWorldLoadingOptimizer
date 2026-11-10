@@ -44,7 +44,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             state = "running";
-            new Thread(() => Run(path)) { IsBackground = true, Name = "RLO pre-compile" }.Start();
+            RLOMod.StartAfterPatching("pre-compile patched methods", () => new Thread(() => Run(path)) { IsBackground = true, Name = "RLO pre-compile" }.Start());
         }
 
         public static void Run(string file)

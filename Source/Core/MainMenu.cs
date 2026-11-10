@@ -50,6 +50,10 @@ namespace RimWorldLoadingOptimizer
                     RLOLog.Warning($"main menu step failed: {e}");
                 }
             }
+            if (DevSwitches.KeepStartupPatches)
+            {
+                return;
+            }
             foreach (var method in startupOnly)
             {
                 try

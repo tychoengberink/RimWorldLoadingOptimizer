@@ -21,6 +21,7 @@ namespace RimWorldLoadingOptimizer
         public static readonly bool NoMeshPool = On("RLO_NO_MESH_POOL");
         public static readonly bool NoBoost = On("RLO_NO_BOOST");
         public static readonly bool NoPrefetch = On("RLO_NO_PREFETCH");
+        public static readonly bool KeepStartupPatches = On("RLO_KEEP_STARTUP_PATCHES");
         public static readonly bool GraphicsProfile = On("RLO_GRAPHICS_PROFILE");
         public static readonly bool ThreadTimeline = On("RLO_THREAD_TIMELINE");
         public static readonly bool FilterDigest = On("RLO_FILTER_DIGEST");

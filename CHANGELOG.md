@@ -10,6 +10,7 @@
 - Thing filters: the loops that remove disallowed things walk only the things still allowed instead of every thing. It steps aside when another mod patches thing filters.
 
 ### Fixed
+- RimWorld Loading Optimizer starts its own background work (pre-compiling patched methods, the def XML cache key, the Missile Girl and DDS read-ahead) only after it has installed all its patches. Before, those threads could run a method at the moment it was being patched, which crashed the game in rare cases while the mods were starting.
 - The optimizer overlap check no longer removes its own hook while the game is loading; removing it while other threads ran the same method caused a rare crash just before the main menu (seen once on 1.7).
 
 ### RimWorld 1.7

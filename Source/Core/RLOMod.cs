@@ -289,6 +289,7 @@ namespace RimWorldLoadingOptimizer
 #if RW17
             Try("shadowed textures not uploaded", settings.shadowedTextures && settings.shadowedUploads, () => ShadowedUploads.Install(harmony));
 #endif
+            RunBackgroundStarts();
             LongEventHandler.ExecuteWhenFinished(() =>
             {
                 Try("compatibility list", true, () => Compatibility.Detect(settings));
@@ -312,6 +313,28 @@ namespace RimWorldLoadingOptimizer
         }
 
         public static ModContentPack Running(string packageId) => LoadedModManager.RunningModsListForReading.FirstOrDefault(m => string.Equals(m.PackageIdPlayerFacing, packageId, StringComparison.OrdinalIgnoreCase));
+
+        private static List<(string feature, Action start)> backgroundStarts = new List<(string feature, Action start)>();
+
+        internal static void StartAfterPatching(string feature, Action start)
+        {
+            if (backgroundStarts == null)
+            {
+                Try(feature, true, start);
+                return;
+            }
+            backgroundStarts.Add((feature, start));
+        }
+
+        private static void RunBackgroundStarts()
+        {
+            var starts = backgroundStarts;
+            backgroundStarts = null;
+            foreach (var (feature, start) in starts)
+            {
+                Try(feature, true, start);
+            }
+        }
 
         internal static void Try(string feature, bool enabled, Action install)
         {

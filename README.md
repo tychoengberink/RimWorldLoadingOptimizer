@@ -161,6 +161,7 @@ Environment variables for testing; none are needed for normal play.
 | `RLO_LATE_SUPPORT_VERIFY=1` | Verify mode for the startup-code fixes only |
 | `RLO_CONSTRUCTOR_TIMING=1` | Times selected mod static constructors |
 | `RLO_CONSTRUCTOR_FIXES_OFF=a,b` | Switches off single mod-constructor speedups: `reflcache`, `asmcache`, `earlytypes`, `loadfrom`, `ilscan`, `cai`, or `all` |
+| `RLO_KEEP_STARTUP_PATCHES=1` | Keeps the startup-only patches after the main menu instead of removing them (for crash testing) |
 | `RLO_STARTUP_FRAME=0.4` | Seconds of loading work per frame during startup (default 0.25) |
 
 ## Changelog

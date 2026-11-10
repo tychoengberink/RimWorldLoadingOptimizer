@@ -95,7 +95,7 @@ namespace RimWorldLoadingOptimizer
             {
                 harmony.Patch(reloadContent, prefix: new HarmonyMethod(typeof(DdsPrefetch), nameof(ReloadContentPrefix)));
             }
-            new Thread(() => Start(mods)) { IsBackground = true, Name = "RLO DDS scan" }.Start();
+            RLOMod.StartAfterPatching("DDS prefetch", () => new Thread(() => Start(mods)) { IsBackground = true, Name = "RLO DDS scan" }.Start());
         }
 
         private static void Start(List<ModContentPack> mods)

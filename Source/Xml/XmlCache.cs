@@ -74,9 +74,10 @@ namespace RimWorldLoadingOptimizer
             var inputs = mods.Select(m => new Input { PackageId = m.PackageId, Folders = m.foldersToLoadDescendingOrder.ToList() }).ToList();
             var settingFiles = SettingFiles();
             var version = RimWorld.VersionControl.CurrentVersionStringWithRev;
-            fingerprint = Task.Run(() => Fingerprint(version, inputs, settingFiles));
+            fingerprint = new Task<string>(() => Fingerprint(version, inputs, settingFiles));
             cached = fingerprint.ContinueWith(t => t.Status == TaskStatus.RanToCompletion ? Read(t.Result, mods) : null, TaskContinuationOptions.ExecuteSynchronously);
             patchFiles = fingerprint.ContinueWith(t => t.Status == TaskStatus.RanToCompletion && t.Result == StoredFingerprint() ? ReadPatchFiles(mods) : null);
+            RLOMod.StartAfterPatching(Feature, StartKey);
 
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.LoadModXML)),
                 prefix: new HarmonyMethod(typeof(XmlCache), nameof(LoadModXmlPrefix)) { priority = Priority.Last });
@@ -192,8 +193,25 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
+        private static void StartKey()
+        {
+            var task = fingerprint;
+            if (task == null || task.Status != TaskStatus.Created)
+            {
+                return;
+            }
+            try
+            {
+                task.Start();
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+
         private static bool WillHit()
         {
+            StartKey();
             try
             {
                 return fingerprint != null && fingerprint.Result != null && fingerprint.Result == StoredFingerprint();
@@ -292,6 +310,7 @@ namespace RimWorldLoadingOptimizer
             System.Collections.Concurrent.ConcurrentDictionary<ModContentPack, LoadableXmlAsset[]> ready;
             try
             {
+                StartKey();
                 ready = patchFiles.Result;
             }
             catch (Exception)
@@ -336,6 +355,7 @@ namespace RimWorldLoadingOptimizer
             var watch = Stopwatch.StartNew();
             try
             {
+                StartKey();
                 hit = cached?.Result;
             }
             catch (Exception)
