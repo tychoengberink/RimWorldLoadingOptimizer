@@ -17,14 +17,10 @@
 - The category cache, recipe index, facility link lookup and thing filter loops also step aside when another mod patches the same method later during startup, not only when it was patched before their first use.
 - Reading textures ahead: when the self-check of the DDS buffers switches them off, the buffers already read are freed and the remaining files are read into the file cache. Before, read-ahead stopped and up to 768 MB stayed in use until the main menu.
 - Measurement: the "off" start no longer turns on the detailed startup report, so both starts log the same amount. A measurement start that goes straight into a game is cancelled instead of leaving every later start switched off.
-- Melee Animation support is no longer listed on 1.7, where it never loaded.
-- 1.6: releasing overridden textures no longer frees a texture when the mod that overrides it has no usable texture at that path.
-- 1.7, def XML cache: the cache is not kept on mod lists where patch operations run after the patching phase (XML Extensions' def database operations, PostInheritanceOperation), because a start from the cache could not repeat them. Such lists load the normal way on every start.
-- 1.7, def XML cache: only the first load of a session writes the cache. A reload after a mod error or a language change could store its result under the key of the original mod list.
-- 1.7, def XML cache: a mod's name is part of the cache key, and the cached document has the same first node as the original. Existing caches are rebuilt once.
-- 1.7: a start that uses the def XML cache is recorded as a warm start in the measurement.
-- 1.7, decoding mod sounds ahead: a sound the game was waiting for is used instead of being opened a second time.
 - The optimizer overlap check no longer removes its own hook while the game is loading; removing it while other threads ran the same method caused a rare crash just before the main menu (seen once on 1.7).
+
+### RimWorld 1.6
+- Releasing overridden textures no longer frees a texture when the mod that overrides it has no usable texture at that path.
 
 ### RimWorld 1.7
 - Works with RimWorld 1.7.5000.
@@ -39,6 +35,12 @@
 - 1.7.5000: skipping the forced memory clean-up at the end of loading finds the game's new clean-up call.
 - The game's built-in Prepatcher support counts as Prepatcher for the Yet another Optimizer check and the log hint about rewritten methods.
 - README: an optional Steam launch option for a larger GC budget while loading.
+- Melee Animation support is no longer listed, because it never loaded on 1.7.
+- Def XML cache: the cache is not kept on mod lists where patch operations run after the patching phase (XML Extensions' def database operations, PostInheritanceOperation), because a start from the cache could not repeat them. Such lists load the normal way on every start.
+- Def XML cache: only the first load of a session writes the cache. A reload after a mod error or a language change could store its result under the key of the original mod list.
+- Def XML cache: a mod's name is part of the cache key, and the cached document has the same first node as the original. Existing caches are rebuilt once.
+- A start that uses the def XML cache is recorded as a warm start in the measurement.
+- Decoding mod sounds ahead: a sound the game was waiting for is used instead of being opened a second time.
 
 ## 5.2
 
