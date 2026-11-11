@@ -41,9 +41,9 @@ namespace RimWorldLoadingOptimizer
         public bool atlasPageBuffers = true;
         public bool meshPool = true;
         public bool atlasStamps = true;
-        public bool gagarinCacheKeep = false;
-        public bool gameSoundReadAhead = false;
-        public bool seedIconReadAhead = false;
+        public bool gagarinCacheKeep = true;
+        public bool gameSoundReadAhead = true;
+        public bool seedIconReadAhead = true;
         public bool defXmlCache = true;
         public bool atlasBundleKeys = true;
         public bool atlasPagePrefetch = true;
@@ -214,6 +214,7 @@ namespace RimWorldLoadingOptimizer
             Try("Harmony identity map", settings.harmonyIdentityMap, () => HarmonyIdentityMap.Install(harmony));
 #if RW17
             Try("Harmony rebuild coalescing", settings.harmonyCoalesce, () => Coalesce.Install(harmony));
+            Try("lazy Harmony replacements", settings.harmonyRebuildCaches && !settings.harmonyCoalesce, () => HarmonyLazy.Install(harmony));
 #endif
             Try("mod constructor speedups", EarlyModSupport.Needed(settings), () => EarlyModSupport.InstallEarly(harmony));
 #if !NATIVE_ASSETS
@@ -437,9 +438,9 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Cache atlas pages with textures from asset bundles", ref settings.atlasBundleKeys, "The game only saves a baked texture atlas page when every texture on it comes from a file, so pages with DLC or mod textures from asset bundles are baked again on every start. Give those textures a cache key from their bundle file (path, size, date and the texture's place in the bundle), the same kind of key the game uses for texture files, so these pages are saved and loaded too.");
             list.CheckboxLabeled("Read cached atlas pages ahead", ref settings.atlasPagePrefetch, "Atlas pages loaded from the game's cache are read and unpacked on the main thread, one after another. Read and unpack the pages the last start used on worker threads while the main thread prepares the atlases, a few pages ahead at a time. A page that is not ready or not listed is loaded the normal way. Same atlases.");
             list.CheckboxLabeled("Cache the patched def XML", ref settings.defXmlCache, "Saves the def XML after all patches are applied. On the next start with the same mods, files, mod settings and game version, mod XML files are not read and patches are not applied; the saved XML is read on a background thread while the mods start. Missile Girl's own XML cache stays off on those starts. Any change to a Defs, Patches or Assemblies file, the mod list or the game rebuilds it once.");
-            list.CheckboxLabeled("Keep Missile Girl's rebuilt cache usable (test)", ref settings.gagarinCacheKeep, "When Missile Girl rebuilds its XML cache (for example after a mod or game update), it deletes its own mod list file and keeps hashes of files that are no longer loaded, so the next start is slow again. After a rebuild, write the mod list again and drop those hashes with Missile Girl's own functions. Missile Girl still checks every file on the next start. Off by default until it is verified after real mod updates; this works around a Missile Girl issue.");
-            list.CheckboxLabeled("Prepare the game's own sounds ahead (test)", ref settings.gameSoundReadAhead, "Open the game's built-in sound files on worker threads while mod data loads, so they are ready when the sound definitions are resolved. Uses up to 128 MB of extra memory during loading. Off by default until it shows a gain.");
-            list.CheckboxLabeled("Prepare PA Dynamic Seed Icons' images ahead (test)", ref settings.seedIconReadAhead, "Read and decode PA Dynamic Seed Icons' cached seed icon images on worker threads; its own code still makes every texture on the main thread. Uses up to 160 MB of extra memory during loading. Off by default until it shows a gain.");
+            list.CheckboxLabeled("Keep Missile Girl's rebuilt cache usable", ref settings.gagarinCacheKeep, "When Missile Girl rebuilds its XML cache (for example after a mod or game update), it deletes its own mod list file and keeps hashes of files that are no longer loaded, so the next start is slow again. After a rebuild, write the mod list again and drop those hashes with Missile Girl's own functions. Missile Girl still checks every file on the next start. This works around a Missile Girl issue and needs the Missile Girl support above.");
+            list.CheckboxLabeled("Prepare the game's own sounds ahead", ref settings.gameSoundReadAhead, "Open the game's built-in sound files on worker threads while mod data loads, so they are ready when the sound definitions are resolved. Uses up to 128 MB of extra memory during loading.");
+            list.CheckboxLabeled("Prepare PA Dynamic Seed Icons' images ahead", ref settings.seedIconReadAhead, "Read and decode PA Dynamic Seed Icons' cached seed icon images on worker threads; its own code still makes every texture on the main thread. Uses up to 160 MB of extra memory during loading.");
 #endif
 #if !RW17
             list.CheckboxLabeled("Free atlas baking memory after every atlas", ref settings.atlasFlush, "While the texture atlases are baked, send the graphics commands after every atlas, so the graphics driver can free that atlas's temporary buffers right away instead of keeping all of them until loading is done.");

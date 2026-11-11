@@ -84,7 +84,7 @@ On the Progression packs list (1,495 mods, Mac) this took the main menu from 55.
 | Atlas source stamps (1.7) | `StaticTextureAtlas.TryWriteSourceStamp` | File size and date of every atlas source texture are read on worker threads before baking; same cache key bytes. Own setting |
 | GC latency (1.7) | `GCSettings.LatencyMode` | SustainedLowLatency from RimWorld Loading Optimizer's start until the main menu, so the runtime avoids blocking full memory clean-ups while loading; set back at the main menu. Follows the "skip the forced memory clean-up" setting |
 | Startup report | `RuntimeHelpers.RunClassConstructor` | Logs the slowest mod static constructors |
-| Game sound read-ahead (1.7, test, off by default) | `UnityEngine.Resources.LoadStubResource` (its `AudioClip.Load` call) | Once the defs are loaded, the game's own sound files that the sub-sounds' grains will ask for are opened on worker threads with the game's `AudioClip.Open` (at most 128 MB waiting); the clip is then built from that on the thread that asks, exactly as `AudioClip.Load` builds it. Anything not ready is opened by the game as before |
+| Game sound read-ahead (1.7) | `UnityEngine.Resources.LoadStubResource` (its `AudioClip.Load` call) | Once the defs are loaded, the game's own sound files that the sub-sounds' grains will ask for are opened on worker threads with the game's `AudioClip.Open` (at most 128 MB waiting); the clip is then built from that on the thread that asks, exactly as `AudioClip.Load` builds it. Anything not ready is opened by the game as before |
 
 ### Extra support for other mods (off by default)
 
@@ -108,7 +108,7 @@ Each of these targets one mod, can be switched on separately in Mod Settings, an
 | TD Find Lib (1.7) | Recipe users read during its startup come from an index, in the same order |
 | Vanilla Trading Expanded (1.7) | Its product check and the market value recipe check use an index while it sorts items; steps aside when another mod (such as Performance Optimizer) patches the same method |
 
-Tests, off by default (Mod Settings): keep Missile Girl's rebuilt cache usable (writes its mod list again and drops stale hashes after a rebuild, with Missile Girl's own functions; works around a Missile Girl issue), PA Dynamic Seed Icons image read-ahead, and the game sound read-ahead above.
+On by default since 5.4, each with its own switch in Mod Settings: keep Missile Girl's rebuilt cache usable (writes its mod list again and drops stale hashes after a rebuild, with Missile Girl's own functions; works around a Missile Girl issue), PA Dynamic Seed Icons image read-ahead, and the game sound read-ahead above.
 
 Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assembly.FullName`, `Assembly.GetTypes`, `Type.ContainsGenericParameters`, `Type.GetGenericArguments`, `XmlChildNodes.Item`, `XmlLinkedNode.PreviousSibling`, `Thread.Sleep`) only exist during startup and are removed when the main menu opens, or when a game finishes loading if startup goes straight into one.
 

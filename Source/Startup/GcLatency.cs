@@ -11,8 +11,27 @@ namespace RimWorldLoadingOptimizer
         private static double setAt;
         private static string outcome = "not changed";
 
+        private static void PassOnServerGc()
+        {
+            if (GCSettings.IsServerGC || Environment.GetEnvironmentVariable("DOTNET_gcServer") != null || Environment.GetEnvironmentVariable("COMPlus_gcServer") != null)
+            {
+                return;
+            }
+            if (GC.GetGCMemoryInfo().TotalAvailableMemoryBytes < 15L << 30 || Environment.ProcessorCount < 4)
+            {
+                return;
+            }
+            Environment.SetEnvironmentVariable("DOTNET_gcServer", "1");
+            if (Environment.GetEnvironmentVariable("DOTNET_GCHeapCount") == null)
+            {
+                Environment.SetEnvironmentVariable("DOTNET_GCHeapCount", Math.Min(8, Environment.ProcessorCount / 2).ToString("X"));
+            }
+            RLOLog.Detail("GC mode: this process runs the workstation GC; if the game restarts itself (a mod list change, or a mod that restarts the game), the restarted game uses the server GC, which collects on several cores");
+        }
+
         public static void Install()
         {
+            PassOnServerGc();
             var mode = GCSettings.LatencyMode;
             if (mode != GCLatencyMode.Interactive)
             {

@@ -13,6 +13,31 @@ namespace RimWorldLoadingOptimizer
 {
     public static partial class Coalesce
     {
+        internal static bool InitSafety()
+        {
+            var factory = AccessTools.Method(typeof(Patch), "IsFactory");
+            var arrays = new[] { "prefixes", "postfixes", "transpilers", "finalizers", "innerprefixes", "innerpostfixes", "innerfinalizers" }.Select(n => AccessTools.Field(typeof(PatchInfo), n)).ToArray();
+            var debugging = AccessTools.Property(typeof(PatchInfo), "Debugging");
+            var fromHandle = AccessTools.Method(typeof(Type), nameof(Type.GetTypeFromHandle));
+            if (factory == null || debugging == null || fromHandle == null || arrays.Any(f => f == null))
+            {
+                return false;
+            }
+            isFactory = isFactory ?? HarmonyLib.MethodInvoker.GetHandler(factory);
+            infoArrays = infoArrays ?? arrays;
+            infoDebugging = infoDebugging ?? debugging;
+            getTypeFromHandle = getTypeFromHandle ?? fromHandle;
+            return true;
+        }
+
+        internal static bool Pure(MethodBase original, PatchInfo patchInfo)
+        {
+            var arrays = infoArrays.Select(f => (Patch[])f.GetValue(patchInfo)).ToArray();
+            return arrays[4].Length == 0 && arrays[5].Length == 0 && arrays[6].Length == 0 && !(bool)infoDebugging.GetValue(patchInfo) && !ModCodeOrUnknown(original, arrays);
+        }
+
+        internal static bool TrustedAssembly(Assembly assembly) => Trusted(assembly);
+
         private static bool ModCodeOrUnknown(MethodBase original, Patch[][] arrays)
         {
             try
