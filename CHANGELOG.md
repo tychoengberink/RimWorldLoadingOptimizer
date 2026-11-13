@@ -3,7 +3,8 @@
 ## 5.4
 
 ### Changed
-- Three former tests are on by default: preparing the game's own sounds ahead, preparing PA Dynamic Seed Icons' images ahead, and keeping Missile Girl's rebuilt cache usable (the last one only acts with the Missile Girl support switched on). Each keeps its own switch in Mod Settings. "Merge repeated Harmony rebuilds" stays a test and stays off.
+- Three former tests are on by default: preparing the game's own sounds ahead, preparing PA Dynamic Seed Icons' images ahead, and keeping Missile Girl's rebuilt cache usable. The first two keep their own switch in Mod Settings; the Missile Girl one is a switch below the Missile Girl support (see below). "Merge repeated Harmony rebuilds" stays a test and stays off.
+- Mod Settings: a supported mod with several optimizations (Missile Girl, Lunar, Vehicle Framework) lists them below its own switch once that is on, each with its own switch. All are on when the mod's support is switched on.
 
 ### Fixed
 - Loading screen: the mod content bar also counts mods whose content loads after the XML, so it always fills. Before, it stopped where early loading stopped, for example at a third on a slow disk.

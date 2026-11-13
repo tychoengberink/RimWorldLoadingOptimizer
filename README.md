@@ -108,7 +108,7 @@ Each of these targets one mod, can be switched on separately in Mod Settings, an
 | TD Find Lib (1.7) | Recipe users read during its startup come from an index, in the same order |
 | Vanilla Trading Expanded (1.7) | Its product check and the market value recipe check use an index while it sorts items; steps aside when another mod (such as Performance Optimizer) patches the same method |
 
-On by default since 5.4, each with its own switch in Mod Settings: keep Missile Girl's rebuilt cache usable (writes its mod list again and drops stale hashes after a rebuild, with Missile Girl's own functions; works around a Missile Girl issue), PA Dynamic Seed Icons image read-ahead, and the game sound read-ahead above.
+On by default since 5.4, each with its own switch in Mod Settings: PA Dynamic Seed Icons image read-ahead and the game sound read-ahead above. Keeping Missile Girl's rebuilt cache usable (writes its mod list again and drops stale hashes after a rebuild, with Missile Girl's own functions; works around a Missile Girl issue) is one of the switches below the Missile Girl support and is on when that support is on.
 
 Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assembly.FullName`, `Assembly.GetTypes`, `Type.ContainsGenericParameters`, `Type.GetGenericArguments`, `XmlChildNodes.Item`, `XmlLinkedNode.PreviousSibling`, `Thread.Sleep`) only exist during startup and are removed when the main menu opens, or when a game finishes loading if startup goes straight into one.
 

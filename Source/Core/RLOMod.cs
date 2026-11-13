@@ -41,7 +41,6 @@ namespace RimWorldLoadingOptimizer
         public bool atlasPageBuffers = true;
         public bool meshPool = true;
         public bool atlasStamps = true;
-        public bool gagarinCacheKeep = true;
         public bool gameSoundReadAhead = true;
         public bool seedIconReadAhead = true;
         public bool defXmlCache = true;
@@ -63,8 +62,25 @@ namespace RimWorldLoadingOptimizer
         public long measureOffPeakMb;
         public string lastMeasurement = "";
         public List<string> modSupport = new List<string>();
+        public List<string> modFixOff = new List<string>();
 
         public bool Supports(string id) => modSupport != null && modSupport.Contains(id);
+
+        // One optimization of a supported mod: on with the mod unless it was switched off on its own.
+        public bool Supports(string id, string fix) => Supports(id) && !modFixOff.Contains(id + "." + fix);
+
+        public void SetFix(string id, string fix, bool on)
+        {
+            var key = id + "." + fix;
+            if (on)
+            {
+                modFixOff.Remove(key);
+            }
+            else if (!modFixOff.Contains(key))
+            {
+                modFixOff.Add(key);
+            }
+        }
 
         public void SetSupport(string id, bool on)
         {
@@ -114,6 +130,11 @@ namespace RimWorldLoadingOptimizer
             if (modSupport == null)
             {
                 modSupport = new List<string>();
+            }
+            Scribe_Collections.Look(ref modFixOff, "modFixOff", LookMode.Value);
+            if (modFixOff == null)
+            {
+                modFixOff = new List<string>();
             }
         }
     }
@@ -276,16 +297,16 @@ namespace RimWorldLoadingOptimizer
             Try(ResearchCoordinates.Feature, settings.defLoadingFixes, () => ResearchCoordinates.Install(harmony));
             Try("type name lookups", settings.defLoadingFixes, () => TypeNameIndex.Install(harmony));
             Try("vanilla facility link lookup", settings.defLoadingFixes, () => FacilityFast.Install(harmony));
-            Try("Missile Girl background cache write", settings.defLoadingFixes && settings.gagarinFast && settings.Supports("missilegirl") && !xmlCache, () => GagarinAsync.Install(harmony));
+            Try("Missile Girl background cache write", settings.defLoadingFixes && settings.gagarinFast && settings.Supports("missilegirl", "write") && !xmlCache, () => GagarinAsync.Install(harmony));
 #if RW17
-            Try("Missile Girl cache kept after a rebuild", settings.gagarinCacheKeep && settings.gagarinFast && settings.Supports("missilegirl") && !xmlCache, () => GagarinCacheKeep.Install(harmony));
+            Try("Missile Girl cache kept after a rebuild", settings.gagarinFast && settings.Supports("missilegirl", "keep") && !xmlCache, () => GagarinCacheKeep.Install(harmony));
 #endif
             Try("startup phase fixes", true, () => StartupPhaseFixes.Install(harmony, settings, Try));
             Try("optimizer overlap check", true, () => OptimizerOverlap.Install(harmony));
 #if RW17
             Try("Giddy-Up draw offsets", settings.Supports("giddyup"), () => GiddyUpOffsets.Install(harmony));
             Try("Worksites Expanded trader count", settings.Supports("miningoutpost"), () => WorksitesTraders.Install(harmony));
-            Try("Vehicle Framework pattern decodes", settings.Supports("vehicles"), () => VehiclePatternDecodes.Install(harmony));
+            Try("Vehicle Framework pattern decodes", settings.Supports("vehicles", "decodes"), () => VehiclePatternDecodes.Install(harmony));
             Try(RecipeScans.TradingFeature, settings.Supports("vanillatrading"), () => RecipeScans.InstallTrading(harmony));
             Try(RecipeScans.FindFeature, settings.Supports("tdfindlib"), () => RecipeScans.InstallFind(harmony));
             Try(SeedIconReadAhead.Feature, settings.seedIconReadAhead, () => SeedIconReadAhead.Install(harmony));
@@ -369,6 +390,8 @@ namespace RimWorldLoadingOptimizer
             var view = new Rect(0f, 0f, inRect.width - 20f, settingsHeight);
             Widgets.BeginScrollView(inRect, ref settingsScroll, view);
             var list = new Listing_Standard();
+            // The view is as high as the content was on the last frame; a row added since then must not start a second column.
+            list.maxOneColumn = true;
             list.Begin(view);
             if (persisted.measureStep == Measurement.Idle)
             {
@@ -438,7 +461,6 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Cache atlas pages with textures from asset bundles", ref settings.atlasBundleKeys, "The game only saves a baked texture atlas page when every texture on it comes from a file, so pages with DLC or mod textures from asset bundles are baked again on every start. Give those textures a cache key from their bundle file (path, size, date and the texture's place in the bundle), the same kind of key the game uses for texture files, so these pages are saved and loaded too.");
             list.CheckboxLabeled("Read cached atlas pages ahead", ref settings.atlasPagePrefetch, "Atlas pages loaded from the game's cache are read and unpacked on the main thread, one after another. Read and unpack the pages the last start used on worker threads while the main thread prepares the atlases, a few pages ahead at a time. A page that is not ready or not listed is loaded the normal way. Same atlases.");
             list.CheckboxLabeled("Cache the patched def XML", ref settings.defXmlCache, "Saves the def XML after all patches are applied. On the next start with the same mods, files, mod settings and game version, mod XML files are not read and patches are not applied; the saved XML is read on a background thread while the mods start. Missile Girl's own XML cache stays off on those starts. Any change to a Defs, Patches or Assemblies file, the mod list or the game rebuilds it once.");
-            list.CheckboxLabeled("Keep Missile Girl's rebuilt cache usable", ref settings.gagarinCacheKeep, "When Missile Girl rebuilds its XML cache (for example after a mod or game update), it deletes its own mod list file and keeps hashes of files that are no longer loaded, so the next start is slow again. After a rebuild, write the mod list again and drop those hashes with Missile Girl's own functions. Missile Girl still checks every file on the next start. This works around a Missile Girl issue and needs the Missile Girl support above.");
             list.CheckboxLabeled("Prepare the game's own sounds ahead", ref settings.gameSoundReadAhead, "Open the game's built-in sound files on worker threads while mod data loads, so they are ready when the sound definitions are resolved. Uses up to 128 MB of extra memory during loading.");
             list.CheckboxLabeled("Prepare PA Dynamic Seed Icons' images ahead", ref settings.seedIconReadAhead, "Read and decode PA Dynamic Seed Icons' cached seed icon images on worker threads; its own code still makes every texture on the main thread. Uses up to 160 MB of extra memory during loading.");
 #endif
@@ -459,12 +481,21 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Release def XML after loading", ref settings.xmlRelease, "Stop vanilla's unused translation-key bookkeeping from keeping the whole merged def XML in memory.");
             list.CheckboxLabeled("Detailed startup report in log", ref settings.startupReport, "Log what every speedup did during startup, cache statistics and the slowest mod static constructors. For troubleshooting; when off, only the load time and problems are logged.");
             list.GapLine();
-            list.Label("Extra support for other mods. Each one speeds up startup code of one specific mod and is off by default. It relies on that mod's internals: it switches itself off when the mod changes and may need a RimWorld Loading Optimizer update after the mod updates. Switch one on here if you want it.");
+            list.Label("Extra support for other mods. Each one speeds up startup code of one specific mod and is off by default. A mod with several optimizations lists them below it once it is switched on, each with its own switch. It relies on that mod's internals: it switches itself off when the mod changes and may need a RimWorld Loading Optimizer update after the mod updates. Switch one on here if you want it.");
             foreach (var support in Compatibility.Supports)
             {
                 var on = settings.Supports(support.Id);
                 list.CheckboxLabeled(support.Name, ref on, support.Description);
                 settings.SetSupport(support.Id, on);
+                if (on && support.Fixes.Length > 1)
+                {
+                    foreach (var fix in support.Fixes)
+                    {
+                        var fixOn = settings.Supports(support.Id, fix.Id);
+                        list.CheckboxLabeled("      " + fix.Name, ref fixOn, fix.Description);
+                        settings.SetFix(support.Id, fix.Id, fixOn);
+                    }
+                }
             }
             settingsHeight = list.CurHeight + 20f;
             list.End();

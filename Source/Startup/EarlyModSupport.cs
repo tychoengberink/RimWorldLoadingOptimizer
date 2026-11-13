@@ -62,7 +62,7 @@ namespace RimWorldLoadingOptimizer
             }
             lateInstalled = true;
             Try("Research Reinvented: Stepping Stones", On("steppingstones"), () => RrssRecipes.Install(harmony));
-            Try("Lunar inlining fixer", On("lunar"), () => LunarInlining.Install(harmony));
+            Try("Lunar inlining fixer", RLOMod.Settings.Supports("lunar", "inlining"), () => LunarInlining.Install(harmony));
             Try("What's That Mod", On("whatsthatmod"), () => WtmPatchScan.InstallLate(harmony));
 #if RW17
             Try("Alien Worlds Framework", On("alienworlds"), () => AlienWorldsPresets.Install(harmony));

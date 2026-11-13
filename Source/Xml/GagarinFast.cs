@@ -43,7 +43,7 @@ namespace RimWorldLoadingOptimizer
         public static void Install(Harmony harmony, bool parallelXmlLoader)
         {
             GagarinFast.harmony = harmony;
-            missileGirl = RLOMod.Settings.Supports("missilegirl");
+            missileGirl = RLOMod.Settings.Supports("missilegirl", "load");
             reusePatches = !parallelXmlLoader && AccessTools.Method(typeof(ModContentPack), "LoadPatches") != null && AccessTools.Method(typeof(DirectXmlLoader), nameof(DirectXmlLoader.XmlAssetsInModFolder)) != null;
             if (reusePatches)
             {
@@ -138,7 +138,7 @@ namespace RimWorldLoadingOptimizer
                 skippedNote = "unused cache asset still built (patched by " + string.Join(", ", foreign.Select(p => p.owner)) + ")";
             }
 #if RW17
-            parallelRead = ParallelReadUsable(code);
+            parallelRead = RLOMod.Settings.Supports("missilegirl", "threads") ? ParallelReadUsable(code) : Note("switched off in Mod Settings");
 #endif
             harmony.Patch(loadMethod, prefix: new HarmonyMethod(typeof(GagarinFast), nameof(LoadStart)), postfix: new HarmonyMethod(typeof(GagarinFast), nameof(LoadEnd)),
                 transpiler: new HarmonyMethod(typeof(GagarinFast), nameof(LoadTranspiler)));
@@ -153,6 +153,12 @@ namespace RimWorldLoadingOptimizer
         private const string ParallelFeature = "Missile Girl cache read on several threads";
         private static SelfCheck parallelCheck;
         private static int parallelChecks;
+
+        private static bool Note(string note)
+        {
+            parallelNote = note;
+            return false;
+        }
 
         private static bool ParallelReadUsable(List<CodeInstruction> code)
         {
