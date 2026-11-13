@@ -175,8 +175,6 @@ namespace RimWorldLoadingOptimizer
 
         public static int Total => originals?.Length ?? 0;
 
-        public static int Done => ranEarly;
-
         public static int Loaded => ranEarly + ranLate;
 
         private static string Stats()

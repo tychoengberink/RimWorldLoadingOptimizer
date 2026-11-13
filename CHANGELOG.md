@@ -6,6 +6,7 @@
 - Three former tests are on by default: preparing the game's own sounds ahead, preparing PA Dynamic Seed Icons' images ahead, and keeping Missile Girl's rebuilt cache usable (the last one only acts with the Missile Girl support switched on). Each keeps its own switch in Mod Settings. "Merge repeated Harmony rebuilds" stays a test and stays off.
 
 ### Fixed
+- Loading screen: the mod content bar also counts mods whose content loads after the XML, so it always fills. Before, it stopped where early loading stopped, for example at a third on a slow disk.
 - Humanoid Alien Races: race mods (Ratkin, Nearmare and others) no longer lose body, head and addon textures. Humanoid Alien Races looks up each race's textures as soon as its own textures are loaded; with "Load sounds and textures during XML loading" that was before the race mods' textures were loaded, so it found none. It now waits until every mod's textures are loaded.
 
 ### RimWorld 1.7

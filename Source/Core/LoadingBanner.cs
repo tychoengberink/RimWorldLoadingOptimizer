@@ -189,7 +189,7 @@ namespace RimWorldLoadingOptimizer
             var list = new List<(string label, int done, int total)>();
             if (EarlyContent.Total > 0)
             {
-                list.Add(("Mod content loaded early", EarlyContent.Done, EarlyContent.Total));
+                list.Add(("Mod content loaded", EarlyContent.Loaded, EarlyContent.Total));
             }
             return list;
         }
