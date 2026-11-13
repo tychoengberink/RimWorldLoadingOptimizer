@@ -16,6 +16,15 @@ namespace RimWorldLoadingOptimizer
             public string Feature;
             public string Description;
             public Func<bool> Listed = () => true;
+            // The separate optimizations of this mod, each with its own switch below the mod; empty when there is only one.
+            public Fix[] Fixes = new Fix[0];
+        }
+
+        public sealed class Fix
+        {
+            public string Id;
+            public string Name;
+            public string Description;
         }
 
         public static readonly Support[] Supports =
@@ -23,13 +32,34 @@ namespace RimWorldLoadingOptimizer
 #if !RW17
             new Support { Id = "meleeanimation", Name = "Melee Animation", Description = "Index for Melee Animation's retexture scan.", Type = "AM.Retexture.RetextureUtility", Feature = "Melee Animation retexture scan index" },
 #endif
-            new Support { Id = "vehicles", Name = "Vehicle Framework", Description = "Routes Vehicle Framework's pattern texture lookups through RimWorld Loading Optimizer's texture index.", Type = "Vehicles.PatternDef", Feature = "Vehicle Framework pattern lookups" },
-            new Support { Id = "lunar", Name = "Lunar", Description = "Faster Lunar inlining fixer and patch conflict check.", Type = "LunarFramework.Patching.HarmonyInliningFixer", Feature = "Lunar inlining fixer" },
+            new Support { Id = "vehicles", Name = "Vehicle Framework", Description = "Routes Vehicle Framework's pattern texture lookups through RimWorld Loading Optimizer's texture index.", Type = "Vehicles.PatternDef", Feature = "Vehicle Framework pattern lookups", Fixes = new[]
+            {
+                new Fix { Id = "lookups", Name = "Pattern texture lookups", Description = "Routes Vehicle Framework's pattern texture lookups through RimWorld Loading Optimizer's texture index." },
+#if RW17
+                new Fix { Id = "decodes", Name = "Pattern decodes", Description = "While Vehicle Framework rotates its pattern textures at startup, remembers the last decoded textures instead of decoding the same one six times in a row. Same pixels." },
+#endif
+            } },
+            new Support { Id = "lunar", Name = "Lunar", Description = "Faster Lunar inlining fixer and patch conflict check.", Type = "LunarFramework.Patching.HarmonyInliningFixer", Feature = "Lunar inlining fixer", Fixes = new[]
+            {
+                new Fix { Id = "inlining", Name = "Inlining fixer", Description = "Faster Lunar inlining fixer." },
+                new Fix { Id = "conflicts", Name = "Patch conflict check", Description = "Faster Lunar patch conflict check." },
+            } },
             new Support { Id = "whatsthatmod", Name = "What's That Mod", Description = "Precomputed patch scan for What's That Mod.", Type = "WhatsThatMod.ModCore", Feature = "What's That Mod patch scan" },
             new Support { Id = "childrenwearanything", Name = "Children Wear Anything", Description = "Routes Children Wear Anything's texture lookups through RimWorld Loading Optimizer's texture index.", Type = "ChildClothingUnrestricted.TextureRouting.TexturePathResolver", Feature = "Texture lookup index" },
             new Support { Id = "steppingstones", Name = "Research Reinvented: Stepping Stones", Description = "Indexed recipe-user lookups for Stepping Stones.", Type = "PeteTimesSix.ResearchReinvented_SteppingStones.PreregRebuilders.PreregRebuilder", Feature = "Research Reinvented: Stepping Stones recipe users" },
             new Support { Id = "loadingprogress", Name = "Loading Progress", Description = "Installs the fixes above before Loading Progress runs the static constructors.", Type = "ilyvion.LoadingProgress.StaticConstructorOnStartupUtilityReplacement" },
-            new Support { Id = "missilegirl", Name = "Missile Girl", Description = "Missile Girl's own cache loader reads its cache straight into the def document instead of copying every def, and writes a new cache on a background thread.", Type = "Gagarin.CachedDefHelper", Feature = "Faster Missile Girl cache load" },
+            new Support { Id = "missilegirl", Name = "Missile Girl", Description = "Missile Girl's own cache loader reads its cache straight into the def document instead of copying every def, and writes a new cache on a background thread.", Type = "Gagarin.CachedDefHelper", Feature = "Faster Missile Girl cache load", Fixes = new[]
+            {
+                new Fix { Id = "load", Name = "Load the cache straight into the def document", Description = "Missile Girl's own cache loader reads its cache straight into the def document instead of copying every def, and skips an unused second read of the cache file. Needs \"Reuse parsed patch files\"." },
+#if RW17
+                new Fix { Id = "threads", Name = "Read the cache on several threads", Description = "Reads Missile Girl's cache file into the def document on several threads. Needs the cache load above." },
+#endif
+                new Fix { Id = "write", Name = "Write a new cache in the background", Description = "When Missile Girl writes a new cache, it is written on a background thread instead of on the loading thread. Needs \"Faster def loading\" and \"Reuse parsed patch files\"." },
+                new Fix { Id = "readahead", Name = "Read the cache files ahead", Description = "Reads Missile Girl's cache files from disk on a background thread when the mod list is unchanged, so they are in the file cache when Missile Girl opens them. Needs \"Reuse parsed patch files\"." },
+#if RW17
+                new Fix { Id = "keep", Name = "Keep a rebuilt cache usable", Description = "When Missile Girl rebuilds its XML cache (for example after a mod or game update), it deletes its own mod list file and keeps hashes of files that are no longer loaded, so the next start is slow again. After a rebuild, write the mod list again and drop those hashes with Missile Girl's own functions. Missile Girl still checks every file on the next start. This works around a Missile Girl issue. Needs \"Reuse parsed patch files\"." },
+#endif
+            } },
             new Support { Id = "graphicssettings", Name = "Graphics Settings+", Description = "Hands Graphics Settings+'s own DDS loader file bytes that were read ahead in memory (otherwise only the file cache is warmed).", Type = "GraphicSetter.DDSLoader", Feature = "Graphics Settings+ texture buffers (falls back to read-ahead)" },
             new Support { Id = "combatai", Name = "CombatAI", Description = "Faster CombatAI label scan; also moves its label patches to the main thread.", Type = "CombatAI.Patches.LabelSuppressor_Patch", Feature = "CombatAI label scan" },
 #if RW17

@@ -68,7 +68,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             StaticConstructorTiming.InstallMethods(LateModSupport.Harmony);
-            if (LateModSupport.On("lunar"))
+            if (RLOMod.Settings.Supports("lunar", "conflicts"))
             {
                 LateModSupport.Try("lunar", () => LunarConflicts.Install(LateModSupport.Harmony));
             }
@@ -76,7 +76,7 @@ namespace RimWorldLoadingOptimizer
             {
                 LateModSupport.Try("av", () => AvSkins.Install(LateModSupport.Harmony));
             }
-            if (LateModSupport.On("vehicles"))
+            if (RLOMod.Settings.Supports("vehicles", "lookups"))
             {
                 LateModSupport.Try("vehicles", () => VehiclePatternLookups.Install(LateModSupport.Harmony));
             }

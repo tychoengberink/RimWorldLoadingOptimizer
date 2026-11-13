@@ -99,6 +99,10 @@ namespace RimWorldLoadingOptimizer
 
         public static PatchInfo ForPrepare(MethodBase original)
         {
+            if (HarmonyLazy.Overrides(original))
+            {
+                return HarmonyLazy.PreviousInfo();
+            }
             byte[] bytes;
             lock (state)
             {

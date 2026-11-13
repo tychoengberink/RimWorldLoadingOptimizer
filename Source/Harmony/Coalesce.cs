@@ -82,6 +82,8 @@ namespace RimWorldLoadingOptimizer
         private static volatile int pendingCount;
         private static readonly Dictionary<object, bool> safety = new Dictionary<object, bool>();
 
+        internal const string WrapperCalls = "GeneralExtensions.FullDescription,HarmonyException.Create,HarmonySharedState.GetPatchInfo,HarmonySharedState.UpdatePatchInfo,IDisposable.Dispose,MethodCreator..ctor,MethodCreator.CreateReplacement,MethodCreatorConfig..ctor,MissingMethodException..ctor,PatchFunctions.GetInfixes,PatchFunctions.GetInfixes,PatchFunctions.GetInfixes,PatchFunctions.GetSortedPatchCalls,PatchFunctions.GetSortedPatchCalls,PatchFunctions.GetSortedPatchCalls,PatchFunctions.GetSortedPatchMethods,PatchInfo.ValidateSurvivingMetadata,PatchInfo.get_Debugging,PatchInfoSerialization.SerializeValidated,PatchTools.DetourMethod,PersistentStateHooks.Commit,PersistentStateHooks.Prepare,String.Concat";
+
         private static object locker;
         private static Dictionary<MethodBase, byte[]> state;
         private static IDictionary detours;
@@ -130,7 +132,7 @@ namespace RimWorldLoadingOptimizer
             {
                 (patchAll, "AccessTools.GetTypesFromAssembly,Action`1..ctor,CollectionExtensions.DoIf,Func`2..ctor"),
                 (processJob, "<>c__DisplayClass17_0..ctor,Enumerable.Any,Enumerable.Select,Enumerable.ToArray,Enumerable.Where,Exception.get_Message,Func`2..ctor,Func`2..ctor,Func`2..ctor,GeneralExtensions.FullDescription,Harmony.get_Id,Harmony.get_Id,Harmony.get_Id,Harmony.get_Id,Harmony.get_Id,Harmony.get_Id,Harmony.get_Id,HarmonyException..ctor,HarmonySharedState.GetPatchInfo,List`1.ToArray,List`1.ToArray,List`1.ToArray,List`1.ToArray,List`1.ToArray,List`1.ToArray,List`1.ToArray,Monitor.Enter,Monitor.Exit,PatchClassProcessor.ReportException,PatchClassProcessor.RunMethod,PatchClassProcessor.RunMethod,PatchFunctions.UpdateWrapper,PatchInfo..ctor,PatchInfo.AddFinalizers,PatchInfo.AddInnerFinalizers,PatchInfo.AddInnerPostfixes,PatchInfo.AddInnerPrefixes,PatchInfo.AddPostfixes,PatchInfo.AddPrefixes,PatchInfo.AddTranspilers,String.Concat,String.Join"),
-                (wrapper, "GeneralExtensions.FullDescription,HarmonyException.Create,HarmonySharedState.GetPatchInfo,HarmonySharedState.UpdatePatchInfo,IDisposable.Dispose,MethodCreator..ctor,MethodCreator.CreateReplacement,MethodCreatorConfig..ctor,MissingMethodException..ctor,PatchFunctions.GetInfixes,PatchFunctions.GetInfixes,PatchFunctions.GetInfixes,PatchFunctions.GetSortedPatchCalls,PatchFunctions.GetSortedPatchCalls,PatchFunctions.GetSortedPatchCalls,PatchFunctions.GetSortedPatchMethods,PatchInfo.ValidateSurvivingMetadata,PatchInfo.get_Debugging,PatchInfoSerialization.SerializeValidated,PatchTools.DetourMethod,PersistentStateHooks.Commit,PersistentStateHooks.Prepare,String.Concat"),
+                (wrapper, WrapperCalls),
                 (generateMethod, "MethodBodyGenerator.Generate"),
                 (detourMethod, "DetourFactory.CreateDetour,DetourFactory.get_Current,Dictionary`2.TryGetValue,Dictionary`2.set_Item,IDisposable.Dispose,Monitor.Enter,Monitor.Exit"),
                 (updatePatchInfo, "AccessTools.Identifiable,AccessTools.get_IsMonoRuntime,Dictionary`2.Remove,Dictionary`2.get_Keys,Dictionary`2.set_Item,Dictionary`2.set_Item,Dictionary`2.set_Item,Enumerable.ToArray,Enumerable.Where,Func`2..ctor,MemberInfo.get_Module,MethodBase.get_MethodHandle,Module.get_Assembly,Monitor.Enter,Monitor.Enter,Monitor.Enter,Monitor.Exit,Monitor.Exit,Monitor.Exit,PropertyInfo.GetValue,RuntimeMethodHandle.GetFunctionPointer,WeakMethodInfo..ctor"),

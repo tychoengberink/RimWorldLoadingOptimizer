@@ -22,7 +22,7 @@ namespace RimWorldLoadingOptimizer
 
         public static void Start()
         {
-            if (!RLOMod.Settings.Supports("missilegirl") || RLOMod.Running("vr.missilegirl") == null)
+            if (!RLOMod.Settings.Supports("missilegirl", "readahead") || RLOMod.Running("vr.missilegirl") == null)
             {
                 return;
             }
