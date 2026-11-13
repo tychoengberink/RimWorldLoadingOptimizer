@@ -20,6 +20,7 @@ namespace RimWorldLoadingOptimizer
         private static volatile bool ready;
         private static int ranEarly, ranLate;
         private static long earlyTicks;
+        private static int heldFrames;
 
         public static void Install(Harmony harmony)
         {
@@ -88,6 +89,25 @@ namespace RimWorldLoadingOptimizer
             harmony.Patch(update, postfix: new HarmonyMethod(typeof(EarlyContent), nameof(UpdatePostfix)));
             MainMenu.UnpatchAfterStartup(update);
             StartupPhaseFixes.Reports.Add(Stats);
+            // Humanoid Alien Races counts each race's texture variants on the first rendered frame on which its own textures
+            // exist. In the game that is after every mod's textures; here its textures exist while those of the race mods
+            // that load after it do not, and it would count none for them. Its hook retries every frame, so hold it until then.
+            var raceGraphics = AccessTools.Method(AccessTools.TypeByName("AlienRace.AlienPartGenerator"), "LoadGraphicsHook");
+            if (raceGraphics != null)
+            {
+                RLOMod.Try("Humanoid Alien Races graphics after early content", true, () =>
+                    harmony.Patch(raceGraphics, prefix: new HarmonyMethod(typeof(EarlyContent), nameof(AllLoaded)) { priority = Priority.First }));
+            }
+        }
+
+        public static bool AllLoaded()
+        {
+            if (originals == null || Loaded >= originals.Length)
+            {
+                return true;
+            }
+            heldFrames++;
+            return false;
         }
 
         private static bool IsReload(Action action) =>
@@ -172,7 +192,7 @@ namespace RimWorldLoadingOptimizer
                 sounds += mod.GetContentHolder<AudioClip>().contentList.Count;
                 strings += mod.GetContentHolder<string>().contentList.Count;
             }
-            return $"early content loading: {ranEarly} of {originals.Length} mods loaded while the XML was loading ({earlyTicks * 1.0 / Stopwatch.Frequency:F1} s on the main thread), {ranLate} after; content loaded: {textures} textures, {sounds} sounds, {strings} string files";
+            return $"early content loading: {ranEarly} of {originals.Length} mods loaded while the XML was loading ({earlyTicks * 1.0 / Stopwatch.Frequency:F1} s on the main thread), {ranLate} after; content loaded: {textures} textures, {sounds} sounds, {strings} string files{(heldFrames > 0 ? $"; held the Humanoid Alien Races graphics lookup for {heldFrames} frames until all content was loaded" : "")}";
         }
     }
 }

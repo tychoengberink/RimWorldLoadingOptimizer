@@ -5,6 +5,9 @@
 ### Changed
 - Three former tests are on by default: preparing the game's own sounds ahead, preparing PA Dynamic Seed Icons' images ahead, and keeping Missile Girl's rebuilt cache usable (the last one only acts with the Missile Girl support switched on). Each keeps its own switch in Mod Settings. "Merge repeated Harmony rebuilds" stays a test and stays off.
 
+### Fixed
+- Humanoid Alien Races: race mods (Ratkin, Nearmare and others) no longer lose body, head and addon textures. Humanoid Alien Races looks up each race's textures as soon as its own textures are loaded; with "Load sounds and textures during XML loading" that was before the race mods' textures were loaded, so it found none. It now waits until every mod's textures are loaded.
+
 ### RimWorld 1.7
 - Harmony replacements are built at the first call of the patched method instead of when the patch is applied, for methods whose exact patches were already built on the last start. Most patched methods are never called before the main menu. Patches with a transpiler, and methods known to be called during loading, are built right away as before. The first 200 are compared with Harmony's own build after every game, Harmony or RimWorld Loading Optimizer update. It follows the "Harmony rebuild caches" setting and steps aside when "Merge repeated Harmony rebuilds" is on. The first start after a mod list change builds everything as before.
 - When the game restarts itself (after a mod list change, or with a mod that restarts the game on every start), the restarted game runs the server garbage collector, which collects on several cores. It uses more memory (about 1.6 GB on the Progression packs list) and is only passed on with at least 15 GB of memory. It follows the "Skip the forced memory clean-up" setting.
