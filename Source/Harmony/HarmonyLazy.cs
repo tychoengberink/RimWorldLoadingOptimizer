@@ -25,6 +25,7 @@ namespace RimWorldLoadingOptimizer
             public int Id;
             public MethodBase Original;
             public byte[] Previous;
+            public Patch[][] Live;
             public string Expected;
             public volatile bool Done;
             public Exception Failure;
@@ -60,7 +61,7 @@ namespace RimWorldLoadingOptimizer
         private static FieldInfo configOriginal, configSource, creatorConfig;
         private static SelfCheck check;
         private static string path, header;
-        private static int listed, deferred, stubs, resolvedEarly, resolvedLate, superseded, notProven, calledEarly, impure, generic, notProvider, failed, compared;
+        private static int listed, deferred, stubs, resolvedEarly, resolvedLate, superseded, notProven, calledEarly, impure, generic, notProvider, failed, compared, notAdopted;
         private static long stubTicks, resolveTicks;
 
         [ThreadStatic] private static Pending resolving;
@@ -314,6 +315,7 @@ namespace RimWorldLoadingOptimizer
             Pending entry;
             byte[] bytes;
             string expected = null;
+            var live = PatchSafety.Patches(patchInfo);
             lock (locker)
             {
                 try
@@ -369,6 +371,7 @@ namespace RimWorldLoadingOptimizer
                     {
                         var copy = deserialize(bytes);
                         copy.VersionCount--;
+                        PatchSafety.Adopt(copy, live);
                         updateWrapper(null, original, copy);
                     }
                     catch (Captured)
@@ -427,6 +430,7 @@ namespace RimWorldLoadingOptimizer
                         stubs++;
                     }
                     entry.Previous = before;
+                    entry.Live = live;
                     entry.Expected = expected;
                     updatePatchInfo(null, original, null, bytes);
                 }
@@ -532,6 +536,10 @@ namespace RimWorldLoadingOptimizer
                     var bytes = Stored(entry.Original);
                     var info = deserialize(bytes);
                     info.VersionCount--;
+                    if (!PatchSafety.Adopt(info, entry.Live))
+                    {
+                        Interlocked.Increment(ref notAdopted);
+                    }
                     updateWrapper(null, entry.Original, info);
                     if (!Same(bytes, Stored(entry.Original)))
                     {
@@ -694,7 +702,7 @@ namespace RimWorldLoadingOptimizer
                 firedCount = fired.Count;
             }
             var text = $"{Feature}: {listed} rebuilds listed from the last start, {early.Count} methods known to be called before the main menu; {deferred} rebuilds not built at patch time for {stubs} methods ({StartupPhaseFixes.Seconds(stubTicks):F2} s for their stand-ins), "
-                + $"{resolvedEarly} of those methods built at their first call before the main menu ({StartupPhaseFixes.Seconds(resolveTicks):F2} s), {superseded} built by a later patch; built right away as before: {calledEarly} of methods called before the main menu, "
+                + $"{resolvedEarly} of those methods built at their first call before the main menu ({StartupPhaseFixes.Seconds(resolveTicks):F2} s), {superseded} built by a later patch, {notAdopted} built from the stored patch list without the patch methods of patch time; built right away as before: {calledEarly} of methods called before the main menu, "
                 + $"{impure} with a transpiler or other mod code, {generic} with a generic patch method, {notProven} not seen on the last start, {notProvider} that Harmony does not install through the game, {failed} whose stand-in could not be made; {recordedCount} rebuilds and {early.Count + firedCount} early methods recorded for the next start";
             if (DevSwitches.Verify || compared > 0)
             {

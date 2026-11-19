@@ -36,9 +36,42 @@ namespace RimWorldLoadingOptimizer
             return true;
         }
 
+        internal static Patch[][] Patches(PatchInfo patchInfo) => infoArrays.Select(f => (Patch[])f.GetValue(patchInfo)).ToArray();
+
+        internal static bool Adopt(PatchInfo stored, Patch[][] live)
+        {
+            if (live == null)
+            {
+                return false;
+            }
+            var fresh = Patches(stored);
+            for (var kind = 0; kind < fresh.Length; kind++)
+            {
+                if (fresh[kind].Length != live[kind].Length)
+                {
+                    return false;
+                }
+                for (var i = 0; i < fresh[kind].Length; i++)
+                {
+                    if (fresh[kind][i].owner != live[kind][i].owner || fresh[kind][i].index != live[kind][i].index)
+                    {
+                        return false;
+                    }
+                }
+            }
+            for (var kind = 0; kind < fresh.Length; kind++)
+            {
+                for (var i = 0; i < fresh[kind].Length; i++)
+                {
+                    fresh[kind][i].PatchMethod = live[kind][i].PatchMethod;
+                }
+            }
+            return true;
+        }
+
         internal static bool Pure(MethodBase original, PatchInfo patchInfo)
         {
-            var arrays = infoArrays.Select(f => (Patch[])f.GetValue(patchInfo)).ToArray();
+            var arrays = Patches(patchInfo);
             return arrays[4].Length == 0 && arrays[5].Length == 0 && arrays[6].Length == 0 && !(bool)infoDebugging.GetValue(patchInfo) && !ModCodeOrUnknown(original, arrays);
         }
 
