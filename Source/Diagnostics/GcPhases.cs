@@ -45,18 +45,35 @@ namespace RimWorldLoadingOptimizer
         private static readonly object gate = new object();
         private static int current;
         private static bool menuReported;
+        private static bool hooked;
         private static Sample atReport;
 
-        public static void Install(Harmony harmony)
+        public static event Action<int> PhaseStarted;
+
+        public static bool Hook(Harmony harmony)
         {
+            if (hooked)
+            {
+                return true;
+            }
             var start = AccessTools.Method(typeof(DeepProfiler), nameof(DeepProfiler.Start));
             if (start == null)
             {
-                return;
+                return false;
             }
+            hooked = true;
             marks[1] = Take();
             harmony.Patch(start, prefix: new HarmonyMethod(typeof(GcPhases), nameof(OnStart)));
             MainMenu.UnpatchAfterStartup(start);
+            return true;
+        }
+
+        public static void Install(Harmony harmony)
+        {
+            if (!Hook(harmony))
+            {
+                return;
+            }
             MainMenu.Then(OnMainMenu);
             StartupPhaseFixes.Reports.Add(Report);
         }
@@ -113,6 +130,7 @@ namespace RimWorldLoadingOptimizer
                 marks[phase] = Take();
                 current = phase;
             }
+            PhaseStarted?.Invoke(phase);
         }
 
         private static string Row(string name, Sample from, Sample to)

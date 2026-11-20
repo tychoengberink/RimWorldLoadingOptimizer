@@ -249,6 +249,7 @@ namespace RimWorldLoadingOptimizer
             Try("startup report", settings.startupReport, () => StartupProfiler.Install(harmony));
 #if RW17
             Try("GC per phase", settings.startupReport, () => GcPhases.Install(harmony));
+            Try("background JIT profile per phase", settings.backgroundJitProfile, () => JitProfile.Hook(harmony));
             Try("atlas cache miss report", settings.startupReport, () => AtlasMisses.Install(harmony));
             Try("atlas page buffers", settings.atlasPageBuffers, () => AtlasPageBuffers.Install(harmony));
             Try("atlas source stamps", settings.atlasStamps, () => AtlasStamps.Install(harmony));
