@@ -173,6 +173,7 @@ Environment variables for testing; none are needed for normal play.
 | `RLO_CONSTRUCTOR_TIMING=1` | Times selected mod static constructors |
 | `RLO_CONSTRUCTOR_FIXES_OFF=a,b` | Switches off single mod-constructor speedups: `reflcache`, `asmcache`, `earlytypes`, `loadfrom`, `ilscan`, `cai`, or `all` |
 | `RLO_KEEP_STARTUP_PATCHES=1` | Keeps the startup-only patches after the main menu instead of removing them (for crash testing) |
+| `RLO_LAZY_IDLE_MS=0` | With "Build Harmony replacements at the first call (test)": milliseconds per frame for building the replacements that are still waiting in the main menu (default 6; 0 switches it off, a large value builds them all in the first frame, for measuring) |
 | `RLO_STARTUP_FRAME=0.4` | Seconds of loading work per frame during startup (default 0.25) |
 
 ## Changelog

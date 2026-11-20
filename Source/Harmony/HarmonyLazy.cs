@@ -64,6 +64,13 @@ namespace RimWorldLoadingOptimizer
         private static int listed, deferred, stubs, resolvedEarly, resolvedLate, superseded, notProven, calledEarly, impure, generic, notProvider, failed, compared, notAdopted;
         private static long stubTicks, resolveTicks;
 
+        private static readonly long IdleMs = DevSwitches.LazyIdleMs;
+        private static Harmony patcher;
+        private static MethodInfo idleTarget;
+        private static bool idleWaiting;
+        private static int idleNext, idleBuilt, idleFailed, idleFrames;
+        private static long idleTicks;
+
         [ThreadStatic] private static Pending resolving;
         [ThreadStatic] private static Dry dry;
 
@@ -166,7 +173,68 @@ namespace RimWorldLoadingOptimizer
             harmony.Patch(create, postfix: H(nameof(CreatePostfix)));
             harmony.Patch(getPatchInfo, prefix: H(nameof(ReadPrefix)));
             MainMenu.Then(Save);
+            patcher = harmony;
+            MainMenu.Then(StartIdle);
             StartupPhaseFixes.Reports.Add(Stats);
+        }
+
+        private static void StartIdle()
+        {
+            idleTarget = AccessTools.Method(typeof(Root_Entry), nameof(Root_Entry.Update));
+            if (stubs > 0 && idleTarget != null && IdleMs > 0)
+            {
+                patcher.Patch(idleTarget, postfix: new HarmonyMethod(typeof(HarmonyLazy), nameof(Idle)));
+            }
+        }
+
+        public static void Idle()
+        {
+            if (LongEventHandler.AnyEventNowOrWaiting)
+            {
+                if (!idleWaiting)
+                {
+                    idleWaiting = true;
+                    RLOLog.Detail($"{Feature}: building in the main menu paused while the game loads, {idleBuilt} of {stubs} methods built there so far");
+                }
+                return;
+            }
+            idleWaiting = false;
+            idleFrames++;
+            var start = Stopwatch.GetTimestamp();
+            var end = start + Stopwatch.Frequency * IdleMs / 1000;
+            do
+            {
+                Pending entry = null;
+                lock (gate)
+                {
+                    while (entry == null && idleNext < table.Count)
+                    {
+                        var next = table[idleNext++];
+                        if (!next.Done && next.Failure == null)
+                        {
+                            entry = next;
+                        }
+                    }
+                }
+                if (entry == null)
+                {
+                    idleTicks += Stopwatch.GetTimestamp() - start;
+                    patcher.Unpatch(idleTarget, AccessTools.Method(typeof(HarmonyLazy), nameof(Idle)));
+                    RLOLog.Detail($"{Feature}: {idleBuilt} of {stubs} methods built in the main menu in {StartupPhaseFixes.Seconds(idleTicks):F1} s over {idleFrames} frames (at most {IdleMs} ms per frame), {idleFailed} could not be built; the others were built at their first call or by a later patch");
+                    return;
+                }
+                try
+                {
+                    Resolve(entry, false);
+                    idleBuilt++;
+                }
+                catch (Exception)
+                {
+                    idleFailed++;
+                }
+            }
+            while (Stopwatch.GetTimestamp() < end);
+            idleTicks += Stopwatch.GetTimestamp() - start;
         }
 
         private static bool Same(byte[] a, byte[] b) => a == b || a != null && b != null && a.AsSpan().SequenceEqual(b);
