@@ -12,22 +12,20 @@ Every speedup has a verification mode that recomputes the result the original wa
 
 ## Benchmarks
 
-"Off" = 5.3 with every speedup switched off (`RLO_ALL_OFF=1`); the mod stays loaded for the measurement and the log reports. "On" = 5.3 with its default settings. Warm = Missile Girl's XML cache was used (a normal start); cold = it was not (first start after a mod or mod-list change). Loading Progress, Missile Girl and Performance Optimizer were active in every start.
+"Off" = 5.5 with every speedup switched off (`RLO_ALL_OFF=1`); the mod stays loaded for the measurement and the log reports. "On" = 5.5 with its support for seven other mods (Vehicle Framework, Missile Girl, Giddy-Up 2, Worksites Expanded, TD Find Lib, Cherry Picker, Alien Worlds Framework) and the startup report switched on, and everything else at its default. Warm = Missile Girl's XML cache was used (a normal start); cold = it was not (first start after a mod or mod-list change). Loading Progress, Missile Girl and Performance Optimizer were active in every start.
 
-Mac: Apple M5 Pro, 24 GB unified memory, macOS, Steam closed.
+Mac: Apple M5 Pro, 24 GB unified memory, macOS.
 
 ### RimWorld 1.7
 
 | Start | Off | On | Change | Peak memory (off → on) |
 |---|---|---|---|---|
-| cold | 2:19 | **1:26** | −38% | 24.0 → 22.0 GB |
-| warm | 1:50 | **1:11** | −36% | 24.3 → 24.3 GB |
+| cold | 4:07 | **1:29** | −64% | 18.8 → 16.2 GB |
+| warm | 2:57 | **1:13** | −59% | 17.3 → 15.0 GB |
 
-RimWorld 1.7.4981 (unstable branch), 1,482 mods. The error log is identical with RimWorld Loading Optimizer on and off.
+RimWorld 1.7.5014 (unstable branch), 1,553 mods (listed in [MODLIST.md](MODLIST.md)), measured on 20 November 2026 with one start each. The error log shows the same errors with RimWorld Loading Optimizer on and off.
 
-Times are to the main menu. "–" means not measured.
-
-The latest measured times are in [BENCHMARK.md](BENCHMARK.md).
+Times are to the main menu; the times in seconds are in [BENCHMARK.md](BENCHMARK.md).
 
 ## Measure it on your own PC
 
