@@ -8,7 +8,5 @@ RimWorld Loading Optimizer 5.5.0, measured on 20 November 2026 with one start pe
 | 246.6 s (4:07) | Cold start to the main menu, without RimWorld Loading Optimizer | Mac (Apple M5 Pro, 24 GB), macOS, RimWorld 1.7.5014 with 1,553 mods |
 | 72.6 s (1:13) | Warm start to the main menu, with RimWorld Loading Optimizer | Mac (Apple M5 Pro, 24 GB), macOS, RimWorld 1.7.5014 with 1,553 mods |
 | 177.4 s (2:57) | Warm start to the main menu, without RimWorld Loading Optimizer | Mac (Apple M5 Pro, 24 GB), macOS, RimWorld 1.7.5014 with 1,553 mods |
-| 149.3 s (2:29) | Warm start to the main menu, with RimWorld Loading Optimizer | Windows PC (AMD Ryzen 7 5800X3D, 32 GB, GeForce RTX 5080), Windows 11, RimWorld 1.7.5014 with 1,553 mods |
+| 149.6 s (2:30) | Warm start to the main menu, with RimWorld Loading Optimizer | Windows PC (AMD Ryzen 7 5800X3D, 32 GB, GeForce RTX 5080), Windows 11, RimWorld 1.7.5014 with 1,553 mods |
 | 304.0 s (5:04) | Warm start to the main menu, without RimWorld Loading Optimizer | Windows PC (AMD Ryzen 7 5800X3D, 32 GB, GeForce RTX 5080), Windows 11, RimWorld 1.7.5014 with 1,553 mods |
-
-The Windows rows were measured on the same day, with Harmony 3.0.4. "With" there is the mean of three starts (149.6, 148.4 and 149.9 s) with lazy Harmony replacements and shadowed textures "also from mods that ship code" switched on, no support for other mods and everything else at its default; "without" is one start. No cold start to the main menu was measured on Windows. Peak memory was 18.2 to 18.7 GB with and 17.8 GB without.

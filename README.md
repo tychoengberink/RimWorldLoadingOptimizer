@@ -14,24 +14,22 @@ Every speedup has a verification mode that recomputes the result the original wa
 
 "Off" = 5.5.0 with every speedup switched off (`RLO_ALL_OFF=1`); the mod stays loaded for the measurement and the log reports. "On" = 5.5.0 with its support for seven other mods (Vehicle Framework, Missile Girl, Giddy-Up 2, Worksites Expanded, TD Find Lib, Cherry Picker, Alien Worlds Framework) and the startup report switched on, and everything else at its default. Warm = Missile Girl's XML cache was used (a normal start); cold = it was not (first start after a mod or mod-list change). Loading Progress, Missile Girl and Performance Optimizer were active in every start.
 
-Mac: Apple M5 Pro, 24 GB unified memory, macOS.
-
 ### RimWorld 1.7
+
+Mac: Apple M5 Pro, 24 GB unified memory, macOS.
 
 | Start | Off | On | Change | Peak memory (off → on) |
 |---|---|---|---|---|
 | cold | 4:07 | **1:29** | −64% | 18.8 → 16.2 GB |
 | warm | 2:57 | **1:13** | −59% | 17.3 → 15.0 GB |
 
-RimWorld 1.7.5014 (unstable branch), 1,553 mods (listed in [MODLIST.md](MODLIST.md)), measured on 20 November 2026 with one start each. The error log shows the same errors with RimWorld Loading Optimizer on and off.
-
 Windows PC: AMD Ryzen 7 5800X3D, 32 GB, GeForce RTX 5080, Windows 11.
 
 | Start | Off | On | Change | Peak memory (off → on) |
 |---|---|---|---|---|
-| warm | 5:04 | **2:29** | −51% | 17.8 → 18.5 GB |
+| warm | 5:04 | **2:30** | −51% | 17.8 → 18.2 GB |
 
-RimWorld 1.7.5014, 1,553 mods, Harmony 3.0.4, measured on 20 November 2026. "On" is the mean of three starts, with lazy Harmony replacements and shadowed textures "also from mods that ship code" switched on and no support for other mods; "off" is one start. No cold start was measured on Windows. The error log shows the same number of errors with RimWorld Loading Optimizer on and off.
+RimWorld 1.7.5014 (unstable branch), 1,553 mods (listed in [MODLIST.md](MODLIST.md)), measured on 20 November 2026 with one start each. The error log shows the same errors with RimWorld Loading Optimizer on and off.
 
 Times are to the main menu; the times in seconds are in [BENCHMARK.md](BENCHMARK.md).
 
