@@ -8,5 +8,7 @@ RimWorld Loading Optimizer 5.5.0, measured on 20 November 2026 with one start pe
 | 246.6 s (4:07) | Cold start to the main menu, without RimWorld Loading Optimizer | Mac (Apple M5 Pro, 24 GB), macOS, RimWorld 1.7.5014 with 1,553 mods |
 | 72.6 s (1:13) | Warm start to the main menu, with RimWorld Loading Optimizer | Mac (Apple M5 Pro, 24 GB), macOS, RimWorld 1.7.5014 with 1,553 mods |
 | 177.4 s (2:57) | Warm start to the main menu, without RimWorld Loading Optimizer | Mac (Apple M5 Pro, 24 GB), macOS, RimWorld 1.7.5014 with 1,553 mods |
+| 165.4 s (2:45) | Cold start to the main menu, with RimWorld Loading Optimizer | Windows PC (AMD Ryzen 7 5800X3D, 32 GB, GeForce RTX 5080), Windows 11, RimWorld 1.7.5014 with 1,553 mods |
+| 338.0 s (5:38) | Cold start to the main menu, without RimWorld Loading Optimizer | Windows PC (AMD Ryzen 7 5800X3D, 32 GB, GeForce RTX 5080), Windows 11, RimWorld 1.7.5014 with 1,553 mods |
 | 149.6 s (2:30) | Warm start to the main menu, with RimWorld Loading Optimizer | Windows PC (AMD Ryzen 7 5800X3D, 32 GB, GeForce RTX 5080), Windows 11, RimWorld 1.7.5014 with 1,553 mods |
 | 304.0 s (5:04) | Warm start to the main menu, without RimWorld Loading Optimizer | Windows PC (AMD Ryzen 7 5800X3D, 32 GB, GeForce RTX 5080), Windows 11, RimWorld 1.7.5014 with 1,553 mods |

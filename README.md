@@ -27,6 +27,7 @@ Windows PC: AMD Ryzen 7 5800X3D, 32 GB, GeForce RTX 5080, Windows 11.
 
 | Start | Off | On | Change | Peak memory (off → on) |
 |---|---|---|---|---|
+| cold | 5:38 | **2:45** | −51% | 18.2 → 18.3 GB |
 | warm | 5:04 | **2:30** | −51% | 17.8 → 18.2 GB |
 
 RimWorld 1.7.5014 (unstable branch), 1,553 mods (listed in [MODLIST.md](MODLIST.md)), measured on 20 November 2026 with one start each. The error log shows the same errors with RimWorld Loading Optimizer on and off.
