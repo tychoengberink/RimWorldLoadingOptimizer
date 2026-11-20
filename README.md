@@ -25,6 +25,14 @@ Mac: Apple M5 Pro, 24 GB unified memory, macOS.
 
 RimWorld 1.7.5014 (unstable branch), 1,553 mods (listed in [MODLIST.md](MODLIST.md)), measured on 20 November 2026 with one start each. The error log shows the same errors with RimWorld Loading Optimizer on and off.
 
+Windows PC: AMD Ryzen 7 5800X3D, 32 GB, GeForce RTX 5080, Windows 11.
+
+| Start | Off | On | Change | Peak memory (off → on) |
+|---|---|---|---|---|
+| warm | 5:04 | **2:29** | −51% | 17.8 → 18.5 GB |
+
+RimWorld 1.7.5014, 1,553 mods, Harmony 3.0.4, measured on 20 November 2026. "On" is the mean of three starts, with lazy Harmony replacements and shadowed textures "also from mods that ship code" switched on and no support for other mods; "off" is one start. No cold start was measured on Windows. The error log shows the same number of errors with RimWorld Loading Optimizer on and off.
+
 Times are to the main menu; the times in seconds are in [BENCHMARK.md](BENCHMARK.md).
 
 ## Measure it on your own PC
