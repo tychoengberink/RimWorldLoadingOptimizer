@@ -19,6 +19,7 @@ namespace RimWorldLoadingOptimizer
         private static int[] state;
         private static int next;
         private static volatile bool ready;
+        private static volatile bool stopped;
         private static int ranEarly, ranLate;
         private static long earlyTicks;
         private static int heldFrames;
@@ -139,8 +140,16 @@ namespace RimWorldLoadingOptimizer
 
         public static void UpdatePostfix()
         {
-            if (!ready || originals == null || next >= originals.Length || !UnityData.IsInMainThread || PlayDataLoader.Loaded)
+            if (!ready || originals == null || !UnityData.IsInMainThread || PlayDataLoader.Loaded)
             {
+                return;
+            }
+            if (next >= originals.Length)
+            {
+                if (!stopped)
+                {
+                    LoadAhead();
+                }
                 return;
             }
             lock (gate)
@@ -155,11 +164,19 @@ namespace RimWorldLoadingOptimizer
             }
         }
 
+        private static void LoadAhead()
+        {
+#if NATIVE_ASSETS
+            FastContent.LoadBundleTexturesAhead((long)(FrameBudgetSeconds * Stopwatch.Frequency));
+#endif
+        }
+
         public static void Stop()
         {
             lock (gate)
             {
                 next = originals.Length;
+                stopped = true;
             }
         }
 
