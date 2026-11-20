@@ -12,7 +12,7 @@ Every speedup has a verification mode that recomputes the result the original wa
 
 ## Benchmarks
 
-"Off" = 5.5 with every speedup switched off (`RLO_ALL_OFF=1`); the mod stays loaded for the measurement and the log reports. "On" = 5.5 with its support for seven other mods (Vehicle Framework, Missile Girl, Giddy-Up 2, Worksites Expanded, TD Find Lib, Cherry Picker, Alien Worlds Framework) and the startup report switched on, and everything else at its default. Warm = Missile Girl's XML cache was used (a normal start); cold = it was not (first start after a mod or mod-list change). Loading Progress, Missile Girl and Performance Optimizer were active in every start.
+"Off" = 5.5.0 with every speedup switched off (`RLO_ALL_OFF=1`); the mod stays loaded for the measurement and the log reports. "On" = 5.5.0 with its support for seven other mods (Vehicle Framework, Missile Girl, Giddy-Up 2, Worksites Expanded, TD Find Lib, Cherry Picker, Alien Worlds Framework) and the startup report switched on, and everything else at its default. Warm = Missile Girl's XML cache was used (a normal start); cold = it was not (first start after a mod or mod-list change). Loading Progress, Missile Girl and Performance Optimizer were active in every start.
 
 Mac: Apple M5 Pro, 24 GB unified memory, macOS.
 
@@ -58,7 +58,7 @@ RimWorld 1.7 starts with the workstation garbage collector. The server garbage c
 DOTNET_gcServer=1 DOTNET_GCHeapCount=8 %command%
 ```
 
-Measured on the Progression packs list (1,495 mods, Mac, 24 GB, RimWorld 1.7.5013, Harmony 3.0.3, RimWorld Loading Optimizer 5.5 with the same settings in every start):
+Measured on the Progression packs list (1,495 mods, Mac, 24 GB, RimWorld 1.7.5013, Harmony 3.0.3, RimWorld Loading Optimizer 5.5.0 with the same settings in every start):
 
 | | Workstation (2 starts) | Server (2 starts) |
 |---|---|---|
