@@ -27,7 +27,7 @@ RimWorld 1.7.4981 (unstable branch), 1,482 mods. The error log is identical with
 
 Times are to the main menu. "–" means not measured.
 
-The full test setup, the phase times and the single starts are in [BENCHMARK.md](BENCHMARK.md).
+The latest measured times are in [BENCHMARK.md](BENCHMARK.md).
 
 ## Measure it on your own PC
 
