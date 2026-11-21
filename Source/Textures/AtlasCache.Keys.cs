@@ -22,13 +22,14 @@ namespace RimWorldLoadingOptimizer
             if (owners == null)
             {
                 owners = new Dictionary<Texture2D, (ModContentPack, string)>();
-                foreach (var mod in LoadedModManager.RunningModsListForReading)
+                var mods = LoadedModManager.RunningModsListForReading;
+                for (var i = mods.Count - 1; i >= 0; i--)
                 {
-                    foreach (var kv in mod.GetContentHolder<Texture2D>().contentList)
+                    foreach (var kv in mods[i].GetContentHolder<Texture2D>().contentList)
                     {
                         if (kv.Value != null && !owners.ContainsKey(kv.Value))
                         {
-                            owners.Add(kv.Value, (mod, kv.Key));
+                            owners.Add(kv.Value, (mods[i], kv.Key));
                         }
                     }
                 }

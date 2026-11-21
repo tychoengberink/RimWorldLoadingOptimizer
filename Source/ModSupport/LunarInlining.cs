@@ -139,7 +139,7 @@ namespace RimWorldLoadingOptimizer
                 return null;
             }
             var result = new List<KeyValuePair<OpCode, object>>();
-            var il = method.GetMethodBody()?.GetILAsByteArray();
+            var il = OriginalBody.Of(method)?.GetILAsByteArray();
             if (il == null || il.Length == 0)
             {
                 return result;

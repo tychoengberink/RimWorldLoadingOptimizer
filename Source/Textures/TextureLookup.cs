@@ -34,6 +34,7 @@ namespace RimWorldLoadingOptimizer
         public static bool Installed { get; private set; }
 
         private static SelfCheck check;
+        private static Fingerprint.FrameGuard guard;
 
         public static void Install(Harmony harmony)
         {
@@ -43,6 +44,7 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             check = new SelfCheck("Texture lookup index", VersionCheck.Code(Original));
+            guard = new Fingerprint.FrameGuard(Original);
             Installed = true;
             var transpiler = new HarmonyMethod(typeof(TextureLookup), nameof(Transpiler)) { priority = Priority.Last };
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ClearDestroy)),
@@ -90,7 +92,7 @@ namespace RimWorldLoadingOptimizer
 
         public static Texture2D Get(string itemPath, bool reportFailure)
         {
-            if (itemPath == null || check.IsOff || Compatibility.LazyTextures || !UnityData.IsInMainThread)
+            if (itemPath == null || check.IsOff || Compatibility.LazyTextures || !UnityData.IsInMainThread || !guard.Ours)
             {
                 return ContentFinder<Texture2D>.Get(itemPath, reportFailure);
             }

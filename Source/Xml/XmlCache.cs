@@ -100,6 +100,7 @@ namespace RimWorldLoadingOptimizer
                 prefix: new HarmonyMethod(typeof(XmlCache), nameof(ClearCachedPatchesPrefix)) { priority = Priority.Last });
             harmony.Patch(AccessTools.Method(typeof(LoadedModManager), nameof(LoadedModManager.ParseAndProcessXML)),
                 postfix: new HarmonyMethod(typeof(XmlCache), nameof(ParseAndProcessXmlPostfix)) { priority = Priority.Last });
+            harmony.Patch(AccessTools.Method(typeof(ModsConfig), nameof(ModsConfig.Reset)), prefix: new HarmonyMethod(typeof(XmlCache), nameof(TryDelete)));
             var apply = AccessTools.Method(typeof(PatchOperation), nameof(PatchOperation.Apply));
             harmony.Patch(apply, prefix: new HarmonyMethod(typeof(XmlCache), nameof(OperationApplyPrefix)));
             MainMenu.Then(() =>
@@ -367,6 +368,10 @@ namespace RimWorldLoadingOptimizer
         {
             if (!armed)
             {
+                active = false;
+                hit = null;
+                skipPatchCleanup = false;
+                watchingLateOperations = false;
                 return true;
             }
             armed = false;
@@ -420,7 +425,7 @@ namespace RimWorldLoadingOptimizer
 
         public static bool ApplyPatchesPrefix() => !active;
 
-        public static void ApplyPatchesPostfix(XmlDocument xmlDoc, Dictionary<XmlNode, LoadableXmlAsset> assetlookup)
+        public static void ApplyPatchesPostfix(XmlDocument xmlDoc, Dictionary<XmlNode, LoadableXmlAsset> assetlookup, bool __runOriginal)
         {
             if (loadedOnce)
             {
@@ -431,6 +436,11 @@ namespace RimWorldLoadingOptimizer
             loadedOnce = true;
             if (active || armed || pendingOwners != null)
             {
+                return;
+            }
+            if (!__runOriginal)
+            {
+                state = "miss; not cached, another mod skipped the patching phase, so this XML was not patched on this start";
                 return;
             }
             var watch = Stopwatch.StartNew();
@@ -586,7 +596,7 @@ namespace RimWorldLoadingOptimizer
             pendingAssets = null;
         }
 
-        private static void TryDelete()
+        public static void TryDelete()
         {
             try
             {

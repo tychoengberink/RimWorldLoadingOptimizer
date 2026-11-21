@@ -278,6 +278,9 @@ namespace RimWorldLoadingOptimizer
 
         private static MethodInfo redirectGet;
         private static SelfCheck check;
+        private static MethodBase[] watched;
+        private static Fingerprint.FrameGuard guard;
+        private static bool reportedPatched;
 
         public static void Install(Harmony harmony, bool textureLookup)
         {
@@ -286,11 +289,9 @@ namespace RimWorldLoadingOptimizer
                 VersionCheck.Skip("Fast content lookups", "a ContentFinder method it replaces no longer exists");
                 return;
             }
-            check = new SelfCheck("Fast content lookups", VersionCheck.Code(
-                OriginalGet,
-                OriginalFolder,
-                AccessTools.EnumeratorMoveNext(OriginalFolder),
-                AccessTools.EnumeratorMoveNext(OriginalAudioFolder)));
+            watched = new MethodBase[] { OriginalGet, OriginalFolder, OriginalAudioFolder, AccessTools.EnumeratorMoveNext(OriginalFolder), AccessTools.EnumeratorMoveNext(OriginalAudioFolder) };
+            guard = new Fingerprint.FrameGuard(watched);
+            check = new SelfCheck("Fast content lookups", VersionCheck.Code(watched[0], watched[1], watched[3], watched[4]));
 #if NATIVE_ASSETS
             InstallBundles();
 #endif
@@ -402,7 +403,7 @@ namespace RimWorldLoadingOptimizer
 
         public static Texture2D Get(string itemPath, bool reportFailure)
         {
-            if (check.IsOff || Compatibility.LazyTextures || !UnityData.IsInMainThread)
+            if (check.IsOff || Compatibility.LazyTextures || !UnityData.IsInMainThread || !Unpatched())
             {
                 return ContentFinder<Texture2D>.Get(itemPath, reportFailure);
             }
@@ -412,11 +413,26 @@ namespace RimWorldLoadingOptimizer
         // For a caller that already knows no mod's content holder has a texture at this path (the texture lookup index).
         public static Texture2D GetOutsideHolders(string itemPath, bool reportFailure)
         {
-            if (check.IsOff || Compatibility.LazyTextures || !UnityData.IsInMainThread)
+            if (check.IsOff || Compatibility.LazyTextures || !UnityData.IsInMainThread || !Unpatched())
             {
                 return Get(itemPath, reportFailure);
             }
             return Report(itemPath, reportFailure, Outside(itemPath));
+        }
+
+        private static bool Unpatched()
+        {
+            if (guard.Ours)
+            {
+                return true;
+            }
+            if (!reportedPatched)
+            {
+                reportedPatched = true;
+                var owners = watched.Where(m => m != null).SelectMany(m => Harmony.GetPatchInfo(m)?.Owners ?? Enumerable.Empty<string>()).Where(o => o != RLOMod.HarmonyId).Distinct();
+                RLOLog.Detail("fast content: another mod patches ContentFinder (" + string.Join(", ", owners) + "); lookups are left to the game while that patch is in place");
+            }
+            return false;
         }
 
         private static Texture2D Report(string itemPath, bool reportFailure, Texture2D result)
@@ -506,7 +522,7 @@ namespace RimWorldLoadingOptimizer
 
         public static IEnumerable<Texture2D> GetAllInFolder(string folderPath)
         {
-            if (check.IsOff || Compatibility.LazyTextures || !UnityData.IsInMainThread)
+            if (check.IsOff || Compatibility.LazyTextures || !UnityData.IsInMainThread || !Unpatched())
             {
                 return ContentFinder<Texture2D>.GetAllInFolder(folderPath);
             }
@@ -528,7 +544,7 @@ namespace RimWorldLoadingOptimizer
 
         public static IEnumerable<AudioClip> GetAllInAudioFolder(string folderPath)
         {
-            if (check.IsOff || !UnityData.IsInMainThread)
+            if (check.IsOff || !UnityData.IsInMainThread || !Unpatched())
             {
                 return ContentFinder<AudioClip>.GetAllInFolder(folderPath);
             }

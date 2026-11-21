@@ -11,9 +11,15 @@ using Verse;
 
 namespace RimWorldLoadingOptimizer
 {
-    public static partial class Coalesce
+    public static class PatchSafety
     {
-        internal static bool InitSafety()
+        private static readonly Dictionary<object, bool> safety = new Dictionary<object, bool>();
+        private static FastInvokeHandler isFactory;
+        private static FieldInfo[] infoArrays;
+        private static PropertyInfo infoDebugging;
+        private static MethodInfo getTypeFromHandle;
+
+        internal static bool Init()
         {
             var factory = AccessTools.Method(typeof(Patch), "IsFactory");
             var arrays = new[] { "prefixes", "postfixes", "transpilers", "finalizers", "innerprefixes", "innerpostfixes", "innerfinalizers" }.Select(n => AccessTools.Field(typeof(PatchInfo), n)).ToArray();
@@ -30,10 +36,61 @@ namespace RimWorldLoadingOptimizer
             return true;
         }
 
+        internal static Patch[][] Patches(PatchInfo patchInfo) => infoArrays.Select(f => (Patch[])f.GetValue(patchInfo)).ToArray();
+
+        internal static bool Adopt(PatchInfo stored, Patch[][] live)
+        {
+            if (live == null)
+            {
+                return false;
+            }
+            var fresh = Patches(stored);
+            for (var kind = 0; kind < fresh.Length; kind++)
+            {
+                if (fresh[kind].Length != live[kind].Length)
+                {
+                    return false;
+                }
+                for (var i = 0; i < fresh[kind].Length; i++)
+                {
+                    if (fresh[kind][i].owner != live[kind][i].owner || fresh[kind][i].index != live[kind][i].index)
+                    {
+                        return false;
+                    }
+                }
+            }
+            for (var kind = 0; kind < fresh.Length; kind++)
+            {
+                for (var i = 0; i < fresh[kind].Length; i++)
+                {
+                    fresh[kind][i].PatchMethod = live[kind][i].PatchMethod;
+                }
+            }
+            return true;
+        }
+
         internal static bool Pure(MethodBase original, PatchInfo patchInfo)
         {
-            var arrays = infoArrays.Select(f => (Patch[])f.GetValue(patchInfo)).ToArray();
+            var arrays = Patches(patchInfo);
             return arrays[4].Length == 0 && arrays[5].Length == 0 && arrays[6].Length == 0 && !(bool)infoDebugging.GetValue(patchInfo) && !ModCodeOrUnknown(original, arrays);
+        }
+
+        // A stored patch is found again by module and metadata token only, which gives the open method
+        // for a patch method that is generic or sits in a generic class: its type arguments are lost.
+        internal static bool HasGenericPatch(PatchInfo patchInfo)
+        {
+            foreach (var field in infoArrays)
+            {
+                foreach (var patch in (Patch[])field.GetValue(patchInfo))
+                {
+                    var method = patch.PatchMethod;
+                    if (method == null || method.IsGenericMethod || method.ContainsGenericParameters || method.DeclaringType != null && method.DeclaringType.IsGenericType)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         internal static bool TrustedAssembly(Assembly assembly) => Trusted(assembly);
@@ -70,8 +127,6 @@ namespace RimWorldLoadingOptimizer
             }
             return false;
         }
-
-        private static bool ClassSafe(Type type) => type.BaseType == typeof(object) && type.GetMethods(AccessTools.all).All(MethodSafe);
 
         private static bool MethodSafe(MethodBase method) => Cached(method, () => AttributesSafe(method.GetCustomAttributesData())
             && method.GetParameters().All(p => AttributesSafe(p.GetCustomAttributesData()))

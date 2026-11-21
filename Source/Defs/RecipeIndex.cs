@@ -188,10 +188,19 @@ namespace RimWorldLoadingOptimizer
             unchecked
             {
                 long hash = recipes.Count;
+#if RW17
+                var versions = ListVersion.Available;
+#endif
                 for (var i = 0; i < recipes.Count; i++)
                 {
                     var users = recipes[i].recipeUsers;
                     hash = hash * 31 + (users?.Count ?? -1);
+#if RW17
+                    if (versions && users != null)
+                    {
+                        hash = hash * 31 + ListVersion.Of(users);
+                    }
+#endif
                 }
                 return hash;
             }

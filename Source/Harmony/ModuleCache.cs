@@ -41,9 +41,44 @@ namespace RimWorldLoadingOptimizer
                 return;
             }
             check = new SelfCheck("Harmony module cache", VersionCheck.Code(target));
+#if RW17
+            AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoad;
+#endif
             harmony.Patch(target, prefix: new HarmonyMethod(typeof(ModuleCache), nameof(Prefix)));
             installed = true;
         }
+
+#if RW17
+        // The same assembly bytes can be loaded again later (Assembly.Load(byte[]) gives a new assembly each time), after its module
+        // was cached. Harmony then finds more than one module with that MVID, so the cached one is dropped and left to Harmony.
+        private static void OnAssemblyLoad(object sender, AssemblyLoadEventArgs args)
+        {
+            try
+            {
+                foreach (var module in args.LoadedAssembly.GetLoadedModules())
+                {
+                    var key = module.ModuleVersionId.ToString();
+                    lock (modules)
+                    {
+                        if (modules.TryGetValue(key, out var cached) && !ReferenceEquals(cached, module))
+                        {
+                            modules.Remove(key);
+                            ambiguous.Add(key);
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                lock (modules)
+                {
+                    broken = true;
+                    modules.Clear();
+                }
+                RLOLog.Warning($"Harmony module cache: checking a newly loaded assembly failed ({e.GetType().Name}: {e.Message}). This speedup is skipped and the original code runs; nothing is broken.");
+            }
+        }
+#endif
 
         public static bool Prefix(string moduleGUID, int token, ref MethodInfo __result)
         {
@@ -77,6 +112,9 @@ namespace RimWorldLoadingOptimizer
                         return true;
                     }
                     module = entry.module;
+                    // Stored under the same lock as the lookup, so an assembly loaded in between is seen by OnAssemblyLoad.
+                    modules[moduleGUID] = module;
+                    misses++;
                 }
 #else
                 module = AccessTools.AllAssemblies().SelectMany(a => a.GetLoadedModules()).FirstOrDefault(m => m.ModuleVersionId.ToString() == moduleGUID);
@@ -84,12 +122,12 @@ namespace RimWorldLoadingOptimizer
                 {
                     return true;
                 }
-#endif
                 lock (modules)
                 {
                     modules[moduleGUID] = module;
                     misses++;
                 }
+#endif
             }
             else
             {

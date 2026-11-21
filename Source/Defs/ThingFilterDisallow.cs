@@ -33,12 +33,13 @@ namespace RimWorldLoadingOptimizer
             var resolve = AccessTools.Method(typeof(ThingFilter), nameof(ThingFilter.ResolveReferences));
             allDefs = AccessTools.PropertyGetter(typeof(DefDatabase<ThingDef>), nameof(DefDatabase<ThingDef>.AllDefsListForReading));
             var field = AccessTools.Field(typeof(ThingFilter), "allowedDefs");
-            if (resolve == null || allDefs == null || field == null || field.FieldType != typeof(HashSet<ThingDef>))
+            var setAllow = AccessTools.Method(typeof(ThingFilter), nameof(ThingFilter.SetAllow), new[] { typeof(ThingDef), typeof(bool) });
+            if (resolve == null || allDefs == null || setAllow == null || field == null || field.FieldType != typeof(HashSet<ThingDef>))
             {
                 VersionCheck.Skip(Feature, "a method or field it needs no longer exists");
                 return;
             }
-            if (!VersionCheck.Pattern(Feature, resolve, code => code.Count(i => i.Calls(allDefs)) == 11, "walks every ThingDef in exactly eleven places, eight of them only to disallow"))
+            if (!VersionCheck.Pattern(Feature, resolve, code => DisallowsWhereExpected(code, setAllow), "walks every ThingDef in exactly eleven places, eight of them only to disallow"))
             {
                 return;
             }
@@ -47,10 +48,28 @@ namespace RimWorldLoadingOptimizer
             {
                 resolve,
                 AccessTools.Method(typeof(ThingFilter), nameof(ThingFilter.Allows), new[] { typeof(ThingDef) }),
-                AccessTools.Method(typeof(ThingFilter), nameof(ThingFilter.SetAllow), new[] { typeof(ThingDef), typeof(bool) }),
+                setAllow,
             };
             harmony.Patch(resolve, transpiler: new HarmonyMethod(typeof(ThingFilterDisallow), nameof(Transpiler)));
             StartupPhaseFixes.Reports.Add(Stats);
+        }
+
+        private static bool DisallowsWhereExpected(List<CodeInstruction> code, MethodInfo setAllow)
+        {
+            var seen = 0;
+            for (var i = 0; i < code.Count; i++)
+            {
+                if (!code[i].Calls(allDefs))
+                {
+                    continue;
+                }
+                var set = code.FindIndex(i, c => c.Calls(setAllow));
+                if (set < 0 || code[set - 1].opcode != (RemovalLoops.Contains(seen++) ? OpCodes.Ldc_I4_0 : OpCodes.Ldc_I4_1))
+                {
+                    return false;
+                }
+            }
+            return seen == 11;
         }
 
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)

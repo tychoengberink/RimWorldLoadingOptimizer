@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -29,7 +30,7 @@ namespace RimWorldLoadingOptimizer
         }
 
         private static readonly Dictionary<AssetBundle, HashSet<string>> bundleNames = new Dictionary<AssetBundle, HashSet<string>>(ReferenceComparer<AssetBundle>.Instance);
-        private static MethodBase[] bundleWatched;
+        private static Fingerprint.FrameGuard bundleGuard;
         private static SelfCheck bundleCheck;
         private static Dictionary<string, Texture2D> bundleCache;
         private static AccessTools.FieldRef<int> bundleCacheStamp;
@@ -38,8 +39,15 @@ namespace RimWorldLoadingOptimizer
         private static int[] bundleCounts;
         private static HashSet<string> bundleItems;
         private static string bundleContentPath;
-        private static int bundlesCheckedFrame = -1;
-        private static bool bundlesUnpatched;
+        private static readonly List<string> bundleUsed = new List<string>();
+        private static readonly HashSet<string> bundleUsedSet = new HashSet<string>();
+        private static readonly HashSet<string> bundleAheadFound = new HashSet<string>();
+        private static string[] bundleAhead = Array.Empty<string>();
+        private static int bundleAheadNext, bundleAheadAsked;
+        private static long bundleAheadTicks;
+        private static bool bundleAheadRunning;
+
+        private static string BundleListPath => Path.Combine(GenFilePaths.SaveDataFolderPath, "RimWorldLoadingOptimizer", "bundle-textures.txt");
 
         // ContentFinder.TryFindAssetInModBundlesUncached builds two paths per mod and asks every bundle of every mod for each
         // texture extension. A bundle only finds a name its reader holds (case-insensitively, as given or with '\' turned into '/'),
@@ -76,20 +84,93 @@ namespace RimWorldLoadingOptimizer
             {
                 bundleCacheStamp = AccessTools.StaticFieldRefAccess<int>(stampField);
                 uncached = AccessTools.MethodDelegate<Func<string, Texture2D>>(BundlesUncached);
-                bundleWatched = new MethodBase[] { BundlesCached, BundlesUncached, BundlesStamp, BundleLoad, BundleNames, assetNames, lookup, load, add };
+                bundleGuard = new Fingerprint.FrameGuard(BundlesCached, BundlesUncached, BundlesStamp, BundleLoad, BundleNames, assetNames, lookup, load, add);
                 bundleCache = (Dictionary<string, Texture2D>)cacheField.GetValue(null);
             }
             catch (Exception e)
             {
                 bundleCache = null;
                 RLOLog.Detail($"Fast content bundle lookups: could not reach the bundle cache ({e.Message}). This speedup is skipped and the original code runs; nothing is broken.");
+                return;
+            }
+            try
+            {
+                if (File.Exists(BundleListPath))
+                {
+                    bundleAhead = File.ReadAllLines(BundleListPath);
+                }
+            }
+            catch (IOException)
+            {
+            }
+            MainMenu.Then(SaveBundleList);
+            StartupPhaseFixes.Reports.Add(BundleAheadStats);
+        }
+
+        internal static void LoadBundleTexturesAhead(long budget)
+        {
+            if (bundleCache == null || bundleAheadNext >= bundleAhead.Length)
+            {
+                return;
+            }
+            var start = Stopwatch.GetTimestamp();
+            bundleAheadRunning = true;
+            try
+            {
+                while (bundleAheadNext < bundleAhead.Length && Stopwatch.GetTimestamp() - start < budget)
+                {
+                    var path = bundleAhead[bundleAheadNext++];
+                    if (NativeBundles(path) != null)
+                    {
+                        bundleAheadFound.Add(path);
+                    }
+                }
+            }
+            finally
+            {
+                bundleAheadRunning = false;
+                bundleAheadTicks += Stopwatch.GetTimestamp() - start;
             }
         }
+
+        private static Texture2D Used(string itemPath, Texture2D texture)
+        {
+            if (bundleAheadRunning || (object)texture == null || !bundleUsedSet.Add(itemPath))
+            {
+                return texture;
+            }
+            bundleUsed.Add(itemPath);
+            if (bundleAheadFound.Contains(itemPath))
+            {
+                bundleAheadAsked++;
+            }
+            return texture;
+        }
+
+        private static void SaveBundleList()
+        {
+            var lines = bundleUsed.ToArray();
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(BundleListPath));
+                    File.WriteAllLines(BundleListPath, lines);
+                }
+                catch (Exception e)
+                {
+                    RLOLog.Detail($"bundle textures loaded ahead: could not save the list for the next start: {e.Message}");
+                }
+            });
+        }
+
+        private static string BundleAheadStats() =>
+            $"bundle textures loaded ahead: {bundleAheadFound.Count} of {bundleAhead.Length} on the last start's list while the XML was loading ({bundleAheadTicks * 1.0 / Stopwatch.Frequency:F1} s on the main thread), {bundleAheadAsked} of them asked for so far; {bundleUsed.Count} bundle textures asked for so far and listed for the next start";
 
         // ContentFinder<Texture2D>.TryFindAssetInModBundles with the same cache and stamp, around the faster search.
         private static Texture2D NativeBundles(string itemPath)
         {
-            if (bundleCache == null || bundleCheck.IsOff || itemPath == null || !UnityData.IsInMainThread || !BundlesUnpatched())
+            if (bundleCache == null || bundleCheck.IsOff || itemPath == null || !UnityData.IsInMainThread || !bundleGuard.Ours)
             {
                 return ContentFinder<Texture2D>.TryFindAssetInModBundles(itemPath);
             }
@@ -114,7 +195,7 @@ namespace RimWorldLoadingOptimizer
             }
             if (bundleCache.TryGetValue(itemPath, out var cached) && ((object)cached == null || cached != null))
             {
-                return cached;
+                return Used(itemPath, cached);
             }
             BundleLookups++;
             var found = InSomeBundle(itemPath) ? SearchBundles(itemPath) : null;
@@ -130,18 +211,7 @@ namespace RimWorldLoadingOptimizer
                 bundleCheck.Report(identical, $"bundles {itemPath}");
             }
             bundleCache[itemPath] = found;
-            return found;
-        }
-
-        private static bool BundlesUnpatched()
-        {
-            var frame = Time.frameCount;
-            if (frame != bundlesCheckedFrame)
-            {
-                bundlesCheckedFrame = frame;
-                bundlesUnpatched = bundleWatched.All(Fingerprint.OnlyOurs);
-            }
-            return bundlesUnpatched;
+            return Used(itemPath, found);
         }
 
         private static bool IndexBundles(List<ModContentPack> mods, string contentPath)

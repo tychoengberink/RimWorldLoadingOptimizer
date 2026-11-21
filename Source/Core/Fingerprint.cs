@@ -7,6 +7,7 @@ using System.Reflection.Emit;
 using System.Security.Cryptography;
 using System.Text;
 using HarmonyLib;
+using UnityEngine;
 using Verse;
 
 namespace RimWorldLoadingOptimizer
@@ -19,7 +20,7 @@ namespace RimWorldLoadingOptimizer
 
         public static string Of(MethodBase method)
         {
-            var il = method?.GetMethodBody()?.GetILAsByteArray();
+            var il = OriginalBody.Of(method)?.GetILAsByteArray();
             return il == null ? null : Hash(il);
         }
 
@@ -35,7 +36,7 @@ namespace RimWorldLoadingOptimizer
         {
             try
             {
-                var body = method?.GetMethodBody();
+                var body = OriginalBody.Of(method);
                 var il = body?.GetILAsByteArray();
                 if (il == null)
                 {
@@ -302,7 +303,7 @@ namespace RimWorldLoadingOptimizer
 
         public static bool OnlyOurs(MethodBase method)
         {
-            var info = Harmony.GetPatchInfo(method);
+            var info = method == null ? null : Harmony.GetPatchInfo(method);
             return info == null || info.Owners.All(o => o == RLOMod.HarmonyId);
         }
 
@@ -337,6 +338,32 @@ namespace RimWorldLoadingOptimizer
                         settled = reached;
                     }
                     return state == 1;
+                }
+            }
+        }
+
+        public sealed class FrameGuard
+        {
+            private readonly MethodBase[] methods;
+            private int frame = -1;
+            private bool ours;
+
+            public FrameGuard(params MethodBase[] methods)
+            {
+                this.methods = methods;
+            }
+
+            public bool Ours
+            {
+                get
+                {
+                    var now = Time.frameCount;
+                    if (now != frame)
+                    {
+                        frame = now;
+                        ours = methods.All(OnlyOurs);
+                    }
+                    return ours;
                 }
             }
         }

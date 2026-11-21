@@ -52,13 +52,20 @@ namespace RimWorldLoadingOptimizer
             }
 #if RW17
             var generateMethod = AccessTools.Method(T("HarmonyLib.MethodCreatorConfig"), "GenerateMethod");
+            var bodyGenerator = harmonyAssembly.GetType("HarmonyLib.MethodBodyGenerator");
+            var generateBody = bodyGenerator == null ? null : AccessTools.Method(bodyGenerator, "GenerateBody");
 #else
             MethodBase generateMethod = null;
+            MethodBase generateBody = null;
 #endif
             var hooked = new List<MethodBase>(imports) { resolve, prepare, create, transpile, generate, update };
             if (generateMethod != null)
             {
                 hooked.Add(generateMethod);
+            }
+            if (generateBody != null)
+            {
+                hooked.Add(generateBody);
             }
             check = new SelfCheck("Harmony identity map", VersionCheck.Code(hooked.ToArray()));
             var post = new HarmonyMethod(typeof(HarmonyIdentityMap), nameof(ImportPost));
@@ -77,6 +84,10 @@ namespace RimWorldLoadingOptimizer
             if (generateMethod != null)
             {
                 Scope(generateMethod, nameof(GeneratePre), nameof(GenerateFin));
+            }
+            if (generateBody != null)
+            {
+                Scope(generateBody, nameof(GeneratePre), nameof(GenerateFin));
             }
         }
 

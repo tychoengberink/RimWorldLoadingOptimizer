@@ -15,6 +15,7 @@ namespace RimWorldLoadingOptimizer
         private static AccessTools.FieldRef<ResearchProjectDef, float> x, y;
         private static Action<ResearchProjectDef> clamp;
         private static SelfCheck check;
+        private static Fingerprint.Guard guard;
         private static int projects, groups, longest;
         private static long ticks;
 
@@ -33,13 +34,14 @@ namespace RimWorldLoadingOptimizer
             y = AccessTools.FieldRefAccess<ResearchProjectDef, float>(yField);
             clamp = AccessTools.MethodDelegate<Action<ResearchProjectDef>>(clampMethod);
             check = new SelfCheck(Feature, VersionCheck.Code(method, clampMethod), 1);
+            guard = new Fingerprint.Guard(method);
             harmony.Patch(method, prefix: new HarmonyMethod(typeof(ResearchCoordinates), nameof(Prefix)), postfix: new HarmonyMethod(typeof(ResearchCoordinates), nameof(Postfix)));
             StartupPhaseFixes.Reports.Add(Stats);
         }
 
         public static bool Prefix(ref float[] __state)
         {
-            if (check.IsOff)
+            if (check.IsOff || !guard.Ours)
             {
                 return true;
             }
@@ -175,6 +177,6 @@ namespace RimWorldLoadingOptimizer
             check.Report(true);
         }
 
-        public static string Stats() => $"research tree layout: {projects:N0} projects in {groups} tabs relaxed per tab in {ticks / (double)Stopwatch.Frequency:F2} s, most passes {longest}";
+        public static string Stats() => $"research tree layout: {projects:N0} projects in {groups} tabs relaxed per tab in {ticks / (double)Stopwatch.Frequency:F2} s, most passes {longest}" + (guard.Blocked ? " (left to vanilla: other patches present)" : "");
     }
 }

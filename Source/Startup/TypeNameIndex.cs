@@ -146,6 +146,16 @@ namespace RimWorldLoadingOptimizer
             try
             {
                 types = assembly.IsDynamic || simpleName == "netstandard" || simpleName == "mscorlib" || simpleName.StartsWith("System", StringComparison.Ordinal) || simpleName.StartsWith("Microsoft", StringComparison.Ordinal) ? null : assembly.GetTypes();
+#if RW17
+                var forwarded = types == null || assembly != typeof(Def).Assembly ? null : assembly.GetForwardedTypes();
+                if (forwarded != null && forwarded.Length > 0)
+                {
+                    var all = new Type[types.Length + forwarded.Length];
+                    types.CopyTo(all, 0);
+                    forwarded.CopyTo(all, types.Length);
+                    types = all;
+                }
+#endif
             }
             catch
             {

@@ -22,6 +22,7 @@ namespace RimWorldLoadingOptimizer
         public static readonly bool NoBoost = On("RLO_NO_BOOST");
         public static readonly bool NoPrefetch = On("RLO_NO_PREFETCH");
         public static readonly bool KeepStartupPatches = On("RLO_KEEP_STARTUP_PATCHES");
+        public static readonly long LazyIdleMs = long.TryParse(Environment.GetEnvironmentVariable("RLO_LAZY_IDLE_MS"), out var ms) && ms >= 0 ? ms : 6;
         public static readonly bool GraphicsProfile = On("RLO_GRAPHICS_PROFILE");
         public static readonly bool ThreadTimeline = On("RLO_THREAD_TIMELINE");
         public static readonly bool FilterDigest = On("RLO_FILTER_DIGEST");

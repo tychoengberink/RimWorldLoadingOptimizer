@@ -240,7 +240,7 @@ namespace RimWorldLoadingOptimizer
                 return list;
             }
             entry.TailStart = start;
-            entry.Locals = __originalMethod.GetMethodBody().LocalVariables.OrderBy(l => l.LocalIndex).ToArray();
+            entry.Locals = OriginalBody.Of(__originalMethod).LocalVariables.OrderBy(l => l.LocalIndex).ToArray();
             entry.Tail = list.Skip(start).Select(Copy).ToList();
             Insert(list, start, entry, generator);
             entry.CctorPatched = true;
@@ -281,7 +281,7 @@ namespace RimWorldLoadingOptimizer
             {
                 return "the slow part of the static constructor was not found as expected";
             }
-            if (list.Any(i => i.blocks.Count > 0) || method.GetMethodBody().ExceptionHandlingClauses.Count > 0)
+            if (list.Any(i => i.blocks.Count > 0) || OriginalBody.Of(method).ExceptionHandlingClauses.Count > 0)
             {
                 return "the static constructor has exception handlers";
             }

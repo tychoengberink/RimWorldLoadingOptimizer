@@ -33,11 +33,10 @@ namespace RimWorldLoadingOptimizer
 #if RW17
         public bool backgroundGc = true;
         public bool soundReadAhead = false;
-        public bool precompilePatched = true;
         public bool backgroundJitProfile = true;
         public bool harmonyRebuildCaches = true;
         public bool shadowedUploads = true;
-        public bool harmonyCoalesce = false;
+        public bool harmonyLazy = false;
         public bool atlasPageBuffers = true;
         public bool meshPool = true;
         public bool atlasStamps = true;
@@ -170,13 +169,9 @@ namespace RimWorldLoadingOptimizer
 #if RW17
             Try("GC latency until the main menu", settings.backgroundGc, GcLatency.Install);
             Try("background JIT profile", settings.backgroundJitProfile, JitProfile.Install);
-            Try("pre-compile patched methods", settings.precompilePatched, PrecompilePatched.Install);
 #endif
             var harmony = new Harmony(content.PackageIdPlayerFacing);
             HarmonyId = harmony.Id;
-#if RW17
-            Try("Harmony dependency name index", settings.harmonyRebuildCaches, () => HarmonyDependencyIndex.Install(harmony));
-#endif
             MainMenu.Install(harmony);
 #if RW17
             if (GraphicsProfile.Wanted)
@@ -206,12 +201,12 @@ namespace RimWorldLoadingOptimizer
 #endif
             ModConstructorSpeedups.On = settings.fasterModConstructors;
 #if RW17
+            Try("Harmony type token cache", settings.harmonyIdentityMap, () => TypeTokenCache.Install(harmony));
             Try("Harmony patch state reuse", settings.harmonyRebuildCaches, () => PatchInfoReuse.Install(harmony));
-            Try("Harmony assembly name cache", settings.harmonyRebuildCaches, () => HarmonyAssemblyNames.Install(harmony));
             Try("Harmony rebuild timing", settings.startupReport, () => HarmonyRebuildTiming.Install(harmony));
 #endif
-            Try("reflection cache", ModConstructorSpeedups.Enabled("reflcache"), () => ReflCache.Install(harmony));
 #if !RW17
+            Try("reflection cache", ModConstructorSpeedups.Enabled("reflcache"), () => ReflCache.Install(harmony));
             Try("assembly list cache", ModConstructorSpeedups.Enabled("asmcache"), () => AsmCache.Install(harmony));
 #endif
             Try("assembly type cache", ModConstructorSpeedups.Enabled("earlytypes"), () => TypesCache.Install(harmony));
@@ -234,8 +229,7 @@ namespace RimWorldLoadingOptimizer
             }
             Try("Harmony identity map", settings.harmonyIdentityMap, () => HarmonyIdentityMap.Install(harmony));
 #if RW17
-            Try("Harmony rebuild coalescing", settings.harmonyCoalesce, () => Coalesce.Install(harmony));
-            Try("lazy Harmony replacements", settings.harmonyRebuildCaches && !settings.harmonyCoalesce, () => HarmonyLazy.Install(harmony));
+            Try("lazy Harmony replacements", settings.harmonyLazy, () => HarmonyLazy.Install(harmony));
 #endif
             Try("mod constructor speedups", EarlyModSupport.Needed(settings), () => EarlyModSupport.InstallEarly(harmony));
 #if !NATIVE_ASSETS
@@ -256,6 +250,7 @@ namespace RimWorldLoadingOptimizer
             Try("startup report", settings.startupReport, () => StartupProfiler.Install(harmony));
 #if RW17
             Try("GC per phase", settings.startupReport, () => GcPhases.Install(harmony));
+            Try("background JIT profile per phase", settings.backgroundJitProfile, () => JitProfile.Hook(harmony));
             Try("atlas cache miss report", settings.startupReport, () => AtlasMisses.Install(harmony));
             Try("atlas page buffers", settings.atlasPageBuffers, () => AtlasPageBuffers.Install(harmony));
             Try("atlas source stamps", settings.atlasStamps, () => AtlasStamps.Install(harmony));
@@ -447,14 +442,13 @@ namespace RimWorldLoadingOptimizer
 #endif
             list.CheckboxLabeled("Type name index", ref settings.typeIndex, "Answer AccessTools.TypeByName lookups for types that are not found directly from one index, instead of listing every type of every assembly per call (mods probing for absent mods).");
             list.CheckboxLabeled("Faster def loading", ref settings.defLoadingFixes, "Faster reading of long XML lists, one-pass surgery recipe checks, indexed type name lookups, and Missile Girl's cache file written in the background. Same results.");
-            list.CheckboxLabeled("Load sounds and textures during XML loading", ref settings.earlyContent, "Load every mod's sounds and textures while the game reads and patches the XML, instead of waiting until the XML is done. Same order, same content.");
+            list.CheckboxLabeled("Load sounds and textures during XML loading", ref settings.earlyContent, "Load every mod's sounds and textures while the game reads and patches the XML, instead of waiting until the XML is done. Same order, same content. On RimWorld 1.7 the textures that came out of mod asset bundles on the last start are looked up in that time as well.");
 #if RW17
             list.CheckboxLabeled("Skip the forced memory clean-up at the end of loading", ref settings.backgroundGc, "Just before the main menu the game forces a full memory clean-up and waits for it (several seconds with many mods). Skip it; the runtime cleans up as usual while you play. Same game; memory is freed a little later.");
             list.CheckboxLabeled("Decode mod sounds ahead", ref settings.soundReadAhead, "While mod data loads, a background thread already opens and decodes the mods' sound files, so the game finds them ready instead of loading them one by one. Uses at most 256 MB of extra memory during loading. Sounds are identical.");
-            list.CheckboxLabeled("Pre-compile patched methods", ref settings.precompilePatched, "Remembers which methods were patched by mods at the main menu and compiles them on spare CPU cores early in the next start, so less compiling happens on the loading thread. Only the timing of compilation changes.");
             list.CheckboxLabeled("Background JIT profile", ref settings.backgroundJitProfile, "Records which game and mod code gets compiled during startup and lets the .NET runtime compile it again on a background thread from the next start on. Only the timing of compilation changes.");
-            list.CheckboxLabeled("Faster Harmony patch rebuilds", ref settings.harmonyRebuildCaches, "Every time a mod patches a method, Harmony rebuilds that method from scratch. Skip three repeated steps of that rebuild: decoding the stored patch list a second time, working out the name of every loaded assembly again, and comparing the generated code's references with every loaded assembly (an index by name answers that). Same patches, same generated code.");
-            list.CheckboxLabeled("Merge repeated Harmony rebuilds (test)", ref settings.harmonyCoalesce, "When a mod patches the same game method from several patch classes, Harmony rebuilds and recompiles that method once per class. Build it once, at the end of that mod's patching, instead. Patch errors still appear exactly where they would otherwise, and the final code is identical. Off by default until it is verified in a full start.");
+            list.CheckboxLabeled("Faster Harmony patch rebuilds", ref settings.harmonyRebuildCaches, "Every time a mod patches a method, Harmony rebuilds that method from scratch. Skip a repeated step of that rebuild: decoding the stored patch list a second time. Same patches, same generated code.");
+            list.CheckboxLabeled("Build Harmony replacements at the first call (test)", ref settings.harmonyLazy, "Harmony rebuilds a patched method every time a mod patches it, although most patched methods are never called before the main menu. For methods whose exact patches were already built on the last start, put a small stand-in in place and build the real replacement when the method is first called. Patches with a transpiler and methods known to be called during loading are built right away as before. Moves part of the work from startup to the main menu, where the remaining replacements are built a few milliseconds per frame, and to the first time a method runs if a game is loaded before that is done.");
             list.CheckboxLabeled("Reuse buffers for cached atlas pages", ref settings.atlasPageBuffers, "When the game loads its baked texture atlases from its cache, reuse one buffer for every page instead of allocating a new 85 MB block per page. Less memory churn and fewer long memory clean-ups during atlas baking. Same atlases.");
             list.CheckboxLabeled("Pool small mesh buffers while graphics memory is full", ref settings.meshPool, "With many mod textures the graphics card's memory budget is used up, and the engine's memory allocator then gives every small mesh buffer its own allocation from the driver (tens of thousands, about 15 s in the frame before the main menu, plus wasted graphics memory). While that is the case, and only until shortly after the main menu, small mesh buffers are placed in shared 32 MB blocks instead. Same buffers, same rendering; only where they sit in graphics memory changes. Switch this off if you see graphics problems.");
             list.CheckboxLabeled("Read atlas source file details in parallel", ref settings.atlasStamps, "Before the texture atlases are baked, read the size and date of every source texture file on worker threads instead of one by one on the main thread. The game's atlas cache keys come out the same.");
@@ -471,7 +465,7 @@ namespace RimWorldLoadingOptimizer
             list.CheckboxLabeled("Faster mod constructors", ref settings.fasterModConstructors, "Makes the first part of startup, where every mod sets itself up, faster by remembering answers that mods ask the game for again and again. Part of it needs Prepatcher. Same results.");
             list.CheckboxLabeled("Show the RimWorld Loading Optimizer banner while loading", ref settings.loadingBanner, "A bar at the top of the loading screen that shows RimWorld Loading Optimizer is active, live counters, and the last measured result on this PC.");
             list.CheckboxLabeled("Faster content lookups and loading screen", ref settings.startupPhases, "Skips mods without asset bundles when the game looks up textures and sounds, caches Assembly.GetTypes, indexes designators per category, and lets the loading screen run 0.25 s of work per frame instead of 0.1 s. Same results, verified.");
-            list.CheckboxLabeled("Faster Harmony patching", ref settings.harmonyIdentityMap, "When a mod patches a method, Harmony converts every referenced method, field and type to Mono.Cecil and back. RimWorld Loading Optimizer remembers the original object so the way back is a lookup instead of a search. The generated code is identical.");
+            list.CheckboxLabeled("Faster Harmony patching", ref settings.harmonyIdentityMap, "When a mod patches a method, Harmony converts every referenced method, field and type to Mono.Cecil and back. RimWorld Loading Optimizer remembers the original object so the way back is a lookup instead of a search. On RimWorld 1.7 it also remembers the type and method tokens the game's runtime makes for a patched method, instead of letting the runtime search for them again for every patch, and lets the runtime make the tokens of the last start ahead on a worker thread. The generated code is identical.");
             list.CheckboxLabeled("Harmony module lookup cache", ref settings.harmonyModuleCache, "Cache Harmony's module lookups that otherwise scan every loaded assembly for each patch.");
             list.CheckboxLabeled("Reuse parsed patch files", ref settings.gagarinFast, "Parse each mod's patch files once per start and reuse them. With Missile Girl support switched on below, also load Missile Girl's def cache straight into the def document.");
             list.CheckboxLabeled("DDS fallback to PNG", ref settings.ddsFallback, "Load the PNG when a shipped DDS file cannot be loaded.");
