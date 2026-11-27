@@ -13,21 +13,25 @@ namespace RimWorldLoadingOptimizer
         private static readonly Dictionary<long, (int key, uint step)> resume = new Dictionary<long, (int, uint)>();
         private static bool installed;
         private static SelfCheck check;
+        private static Fingerprint.Guard guard;
         private static long calls, resumed, steps, savedSteps;
         private static readonly MismatchLog mismatches = new MismatchLog("think key");
 
         public static void Install(Harmony harmony)
         {
+            var assign = AccessTools.Method(typeof(ThinkTreeKeyAssigner), nameof(ThinkTreeKeyAssigner.AssignSingleKey));
+            var next = AccessTools.Method(typeof(ThinkTreeKeyAssigner), "NextUnusedKeyFor");
             check = new SelfCheck("Think tree keys", VersionCheck.Code(
-                AccessTools.Method(typeof(ThinkTreeKeyAssigner), nameof(ThinkTreeKeyAssigner.AssignSingleKey)),
-                AccessTools.Method(typeof(ThinkTreeKeyAssigner), "NextUnusedKeyFor"),
+                assign,
+                next,
                 AccessTools.PropertyGetter(typeof(Rand), nameof(Rand.Int)),
                 AccessTools.Method(typeof(Rand), nameof(Rand.PushState), new[] { typeof(int) }),
                 AccessTools.Method(typeof(Gen), nameof(Gen.HashCombineInt), new[] { typeof(int), typeof(int) }),
                 AccessTools.Method(typeof(GenText), nameof(GenText.StableStringHash))));
             assignedKeys = (HashSet<int>)AccessTools.Field(typeof(ThinkTreeKeyAssigner), "assignedKeys").GetValue(null);
             setKey = AccessTools.MethodDelegate<Action<ThinkNode, int>>(AccessTools.Method(typeof(ThinkNode), "SetUniqueSaveKey"));
-            harmony.Patch(AccessTools.Method(typeof(ThinkTreeKeyAssigner), nameof(ThinkTreeKeyAssigner.AssignSingleKey)), prefix: new HarmonyMethod(typeof(ThinkKeys), nameof(AssignSingleKeyPrefix)),
+            guard = new Fingerprint.Guard(assign, next);
+            harmony.Patch(assign, prefix: new HarmonyMethod(typeof(ThinkKeys), nameof(AssignSingleKeyPrefix)),
                 postfix: new HarmonyMethod(typeof(ThinkKeys), nameof(AssignSingleKeyPostfix)));
             harmony.Patch(AccessTools.Method(typeof(ThinkTreeKeyAssigner), nameof(ThinkTreeKeyAssigner.Reset)), postfix: new HarmonyMethod(typeof(ThinkKeys), nameof(ResetPostfix)));
             installed = true;
@@ -41,7 +45,7 @@ namespace RimWorldLoadingOptimizer
         public static bool AssignSingleKeyPrefix(ThinkNode node, int startHash, out (bool checking, long id, int key, uint step) __state)
         {
             __state = default;
-            if (check.IsOff)
+            if (check.IsOff || !guard.Ours)
             {
                 return true;
             }
@@ -99,7 +103,7 @@ namespace RimWorldLoadingOptimizer
         public static string Stats()
         {
             return installed
-                ? $"think keys: {calls} single assigns, {resumed} resumed, {steps} probes, {savedSteps} probes skipped, {mismatches.Count} verify mismatches"
+                ? $"think keys: {calls} single assigns, {resumed} resumed, {steps} probes, {savedSteps} probes skipped, {mismatches.Count} verify mismatches" + (guard.Blocked ? " (left to vanilla: other patches present)" : "")
                 : "think keys: off";
         }
     }

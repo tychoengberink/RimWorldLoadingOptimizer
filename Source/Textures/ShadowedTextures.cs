@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
-using KTrie;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using Verse;
@@ -11,9 +10,6 @@ namespace RimWorldLoadingOptimizer
 {
     public static class ShadowedTextures
     {
-        private static readonly AccessTools.FieldRef<ModContentHolder<Texture2D>, StringTrieSet> Trie =
-            AccessTools.FieldRefAccess<ModContentHolder<Texture2D>, StringTrieSet>("contentListTrie");
-
         public static bool IncludeCodeMods;
 
         public static void Release()
@@ -30,11 +26,7 @@ namespace RimWorldLoadingOptimizer
 
         private static void ReleaseInternal()
         {
-#if RW17
             var winners = new Dictionary<string, Texture2D>();
-#else
-            var winners = new HashSet<string>();
-#endif
             var released = new List<Texture2D>();
             var keptForCode = new List<Texture2D>();
             var meleePaths = MeleeWeaponPaths();
@@ -46,16 +38,15 @@ namespace RimWorldLoadingOptimizer
                 var hasCode = mods[i].assemblies.loadedAssemblies.Count > 0;
                 foreach (var path in holder.contentList.Keys.ToList())
                 {
-#if RW17
-                    if (winners.TryAdd(path, holder.contentList[path]))
-#else
+#if !RW17
                     if ((object)holder.contentList[path] == null)
                     {
                         continue;
                     }
-                    if (winners.Add(path))
 #endif
+                    if (!winners.ContainsKey(path))
                     {
+                        winners[path] = holder.contentList[path];
                         continue;
                     }
                     if (hasCode && !IncludeCodeMods)
@@ -68,7 +59,6 @@ namespace RimWorldLoadingOptimizer
                         keptForMelee++;
                         continue;
                     }
-#if RW17
                     var winner = winners[path];
                     var shadowed = holder.contentList[path];
                     if (winner == null || shadowed == null || winner.name != shadowed.name)
@@ -77,11 +67,6 @@ namespace RimWorldLoadingOptimizer
                     }
                     released.Add(shadowed);
                     holder.contentList[path] = winner;
-#else
-                    released.Add(holder.contentList[path]);
-                    holder.contentList.Remove(path);
-                    Trie(holder).Remove(path);
-#endif
                 }
             }
 

@@ -44,30 +44,8 @@ namespace RimWorldLoadingOptimizer
         public static int Hits;
         public static int Builds;
 
-#if RW17
-        // List<T> counts every change through its own methods in _version, so a thing replaced in place is seen
-        // right away instead of at the next timed identity check.
-        private static bool versions;
-
-        [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_version")]
-        private static extern ref int Version(List<ThingDef> list);
-#endif
-
         public static void Install(Harmony harmony)
         {
-#if RW17
-            try
-            {
-                var probe = new List<ThingDef>();
-                var before = Version(probe);
-                probe.Add(null);
-                versions = Version(probe) != before;
-            }
-            catch (Exception)
-            {
-                versions = false;
-            }
-#endif
             getter = AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.DescendantThingDefs));
             var children = AccessTools.PropertyGetter(typeof(ThingCategoryDef), nameof(ThingCategoryDef.ThisAndChildCategoryDefs));
             if (getter == null || children == null)
@@ -103,9 +81,13 @@ namespace RimWorldLoadingOptimizer
             var now = Environment.TickCount;
             if (cache.TryGetValue(__instance, out var entry) && Unchanged(entry.Shape))
             {
-                if (unchecked(now - entry.IdentityCheckedAt) <= 1000 || Identity(__instance) == entry.Identity)
+                var due = unchecked(now - entry.IdentityCheckedAt) > 1000;
+                if (!due || Identity(__instance) == entry.Identity)
                 {
-                    entry.IdentityCheckedAt = now;
+                    if (due)
+                    {
+                        entry.IdentityCheckedAt = now;
+                    }
                     Interlocked.Increment(ref Hits);
                     __result = Checked(__instance, entry.Defs);
                     return false;
@@ -178,7 +160,7 @@ namespace RimWorldLoadingOptimizer
                 node.Children = node.Category.childCategories;
                 node.ThingCount = node.Things.Count;
 #if RW17
-                node.ThingVersion = versions ? Version(node.Things) : 0;
+                node.ThingVersion = ListVersion.Available ? ListVersion.Of(node.Things) : 0;
 #endif
                 node.FirstChild = nodes.Count;
                 nodes[i] = node;
@@ -205,7 +187,7 @@ namespace RimWorldLoadingOptimizer
                     return false;
                 }
 #if RW17
-                if (versions && Version(node.Things) != node.ThingVersion)
+                if (ListVersion.Available && ListVersion.Of(node.Things) != node.ThingVersion)
                 {
                     return false;
                 }

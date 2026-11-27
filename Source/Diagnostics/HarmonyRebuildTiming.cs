@@ -33,7 +33,7 @@ namespace RimWorldLoadingOptimizer
             var harmonyAssembly = typeof(Harmony).Assembly;
             Type T(string name) => harmonyAssembly.GetType(name);
             var loader = T("HarmonyLib.GeneratedAssemblyLoader");
-            var ctors = loader?.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) ?? new ConstructorInfo[0];
+            var ctors = loader?.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.Where(c => c.GetParameters().Length > 0).ToArray() ?? new ConstructorInfo[0];
             var update = AccessTools.Method(T("HarmonyLib.PatchFunctions"), "UpdateWrapper");
             var create = AccessTools.Method(T("HarmonyLib.MethodCreator"), "CreateReplacement");
             var copy = AccessTools.Method(T("HarmonyLib.MethodBodyReader"), "FinalizeILCodes");
@@ -41,7 +41,7 @@ namespace RimWorldLoadingOptimizer
             var slow = loader == null ? null : AccessTools.Method(loader, "Generate", new[] { T("MonoMod.Utils.DynamicMethodDefinition"), typeof(IEnumerable<Assembly>) });
             var scan = ctors.Length == 1 ? ctors[0] : null;
             var load = loader == null ? null : AccessTools.Method(loader, "LoadCollectible");
-            var detour = AccessTools.Method(T("HarmonyLib.PatchTools"), "DetourMethod");
+            var detour = AccessTools.Method(T("HarmonyLib.PatchTools"), "DetourMethod") ?? AccessTools.Method(T("HarmonyLib.MethodBodyPatching"), "Install");
             assemblyReferences = AccessTools.Property(T("Mono.Cecil.ModuleDefinition"), "AssemblyReferences");
             dependencies = loader == null ? null : AccessTools.Field(loader, "dependencies");
             state = AccessTools.Field(T("HarmonyLib.HarmonySharedState"), "state")?.GetValue(null) as Dictionary<MethodBase, byte[]>;

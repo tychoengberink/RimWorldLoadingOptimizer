@@ -13,6 +13,7 @@ namespace RimWorldLoadingOptimizer
         private static readonly MismatchLog mismatches = new MismatchLog("surgery index");
         private static long ticks;
         private static SelfCheck check;
+        private static Fingerprint.Guard guard;
 
         public static void Install(Harmony harmony)
         {
@@ -28,14 +29,16 @@ namespace RimWorldLoadingOptimizer
             }
             UnlockedCache = AccessTools.FieldRefAccess<ResearchProjectDef, List<Def>>(unlockedField);
             SurgeryCache = AccessTools.FieldRefAccess<RecipeDef, bool?>(surgeryField);
-            check = new SelfCheck("Surgery index", VersionCheck.Code(unlocked, surgery, AccessTools.EnumeratorMoveNext(allUsers)));
+            var allUsersNext = AccessTools.EnumeratorMoveNext(allUsers);
+            check = new SelfCheck("Surgery index", VersionCheck.Code(unlocked, surgery, allUsersNext));
+            guard = new Fingerprint.Guard(surgery, allUsers, allUsersNext);
             harmony.Patch(unlocked, prefix: new HarmonyMethod(typeof(SurgeryIndex), nameof(Prefix)));
             StartupPhaseFixes.Reports.Add(Stats);
         }
 
         public static void Prefix(ResearchProjectDef __instance)
         {
-            if (check.IsOff || UnlockedCache(__instance) != null)
+            if (check.IsOff || UnlockedCache(__instance) != null || !guard.Ours)
             {
                 return;
             }
@@ -116,6 +119,6 @@ namespace RimWorldLoadingOptimizer
             ticks += Stopwatch.GetTimestamp() - start;
         }
 
-        public static string Stats() => $"surgery index: {builds} builds, {filled} recipes filled in {StartupPhaseFixes.Seconds(ticks):F2} s" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "");
+        public static string Stats() => $"surgery index: {builds} builds, {filled} recipes filled in {StartupPhaseFixes.Seconds(ticks):F2} s" + (DevSwitches.Verify ? $", verify mismatches {mismatches.Count}" : "") + (guard.Blocked ? " (left to vanilla: other patches present)" : "");
     }
 }

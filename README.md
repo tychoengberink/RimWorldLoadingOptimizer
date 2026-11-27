@@ -6,26 +6,33 @@ Load-time and memory optimizer for RimWorld with very large mod lists. It patche
 
 All numbers below come from the Progression packs 1–3 mod list ([1/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521297585), [2/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3521319712), [3/3](https://steamcommunity.com/sharedfiles/filedetails/?id=3637541646)) with RimWorld Loading Optimizer 5.3 and its default settings.
 
+They were measured with Harmony 3.0.1. Harmony 3.0.2 and newer install patches through the game's own method-body replacement, which takes longer on large mod lists; the numbers below have not been measured again with it.
+
 Every speedup has a verification mode that recomputes the result the original way; all reported 0 mismatches in the 5.3 verification starts on 1.7.
 
 ## Benchmarks
 
-"Off" = 5.3 with every speedup switched off (`RLO_ALL_OFF=1`); the mod stays loaded for the measurement and the log reports. "On" = 5.3 with its default settings. Warm = Missile Girl's XML cache was used (a normal start); cold = it was not (first start after a mod or mod-list change). Loading Progress, Missile Girl and Performance Optimizer were active in every start.
-
-Mac: Apple M5 Pro, 24 GB unified memory, macOS, Steam closed.
+"Off" = 5.5.0 with every speedup switched off (`RLO_ALL_OFF=1`); the mod stays loaded for the measurement and the log reports. "On" = 5.5.0 with its support for seven other mods (Vehicle Framework, Missile Girl, Giddy-Up 2, Worksites Expanded, TD Find Lib, Cherry Picker, Alien Worlds Framework) and the startup report switched on, and everything else at its default. Warm = Missile Girl's XML cache was used (a normal start); cold = it was not (first start after a mod or mod-list change). Loading Progress, Missile Girl and Performance Optimizer were active in every start.
 
 ### RimWorld 1.7
 
+Mac: Apple M5 Pro, 24 GB unified memory, macOS.
+
 | Start | Off | On | Change | Peak memory (off → on) |
 |---|---|---|---|---|
-| cold | 2:19 | **1:26** | −38% | 24.0 → 22.0 GB |
-| warm | 1:50 | **1:11** | −36% | 24.3 → 24.3 GB |
+| cold | 4:07 | **1:29** | −64% | 18.8 → 16.2 GB |
+| warm | 2:57 | **1:13** | −59% | 17.3 → 15.0 GB |
 
-RimWorld 1.7.4981 (unstable branch), 1,482 mods. The error log is identical with RimWorld Loading Optimizer on and off.
+Windows PC: AMD Ryzen 7 5800X3D, 32 GB, GeForce RTX 5080, Windows 11.
 
-Times are to the main menu. "–" means not measured.
+| Start | Off | On | Change | Peak memory (off → on) |
+|---|---|---|---|---|
+| cold | 5:38 | **2:45** | −51% | 18.2 → 18.3 GB |
+| warm | 5:04 | **2:30** | −51% | 17.8 → 18.2 GB |
 
-The full test setup, the phase times and the single starts are in [BENCHMARK.md](BENCHMARK.md).
+RimWorld 1.7.5014 (unstable branch), 1,553 mods (listed in [MODLIST.md](MODLIST.md)), measured on 20 November 2026 with one start each. The error log shows the same errors with RimWorld Loading Optimizer on and off.
+
+Times are to the main menu; the times in seconds are in [BENCHMARK.md](BENCHMARK.md).
 
 ## Measure it on your own PC
 
@@ -50,6 +57,26 @@ DOTNET_GCgen0size=0x4000000 %command%
 
 On the Progression packs list (1,495 mods, Mac) this took the main menu from 55.2 to 53.5 s, with about 300 instead of 2,400 small collections. Remove it if you see memory problems.
 
+## Optional: server garbage collector (1.7, large mod lists)
+
+RimWorld 1.7 starts with the workstation garbage collector. The server garbage collector collects on several cores and has a much larger budget. Like the budget above it is set at launch; a mod cannot switch it on once the game runs. RimWorld Loading Optimizer passes it on when the game restarts itself (with at least 15 GB of memory and 4 cores; half the cores as collector heaps, at most 8), but a normal start never restarts. To use it from the first start, in Steam: right-click RimWorld → Properties → Launch Options:
+
+```
+DOTNET_gcServer=1 DOTNET_GCHeapCount=8 %command%
+```
+
+Measured on the Progression packs list (1,495 mods, Mac, 24 GB, RimWorld 1.7.5013, Harmony 3.0.3, RimWorld Loading Optimizer 5.5.0 with the same settings in every start):
+
+| | Workstation (2 starts) | Server (2 starts) |
+|---|---|---|
+| Main menu | 90.6 and 89.6 s | 63.7 and 64.4 s |
+| Pauses for garbage collection while loading | 15.4 and 16.1 s | 2.8 and 2.9 s |
+| Small collections | about 2,300 | about 30 |
+| Full collections that ran in the background | 0 of 8 | 7 of 8 and 3 of 7 |
+| Peak memory | 14.3 and 14.4 GB | 16.4 and 15.6 GB |
+
+The server starts were restarted starts that RimWorld Loading Optimizer had given these same two variables. The second workstation start also set `DOTNET_GCName=libclrgc.dylib`, the other collector that ships with the game; it changed nothing. With the server collector the budget is 200 MB, so the option above is not needed with it. It uses 1 to 2 GB more memory on this list; remove it if you see memory problems. Seen once in 12 starts with the server collector on RimWorld 1.7.5013: the game's own field injection failed right after the mod assemblies were loaded ("the GC in use can't migrate instances"), and the mods that rely on it logged errors until the next start. It was not seen in 67 server starts on 1.7.5000 and 1.7.5011, nor in about 130 workstation starts (2 of them on 1.7.5013). Whether the server collector or the new game build causes it is not known. Both options are written the way Steam takes them on Mac and Linux; they have not been tried on Windows.
+
 ## Features
 
 | Feature | What it patches | Effect |
@@ -66,9 +93,11 @@ On the Progression packs list (1,495 mods, Mac) this took the main menu from 55.
 | Faster early content loading | Faster Game Loading's early loader budget | While defs still load, mod content may use 250 ms per frame instead of 50 ms, and no frames are skipped |
 | Atlas cache | `GlobalTextureAtlasManager.BakeStaticAtlases` | Stores the baked static atlases (pixels, rects, masks) on disk, keyed by every input texture (mod, path, size, format, file size and time; for textures from asset bundles the bundle file's size and time, for the game's built-in textures their resource path) and the relevant settings, and loads them on the next start instead of baking (~12 s and ~10 GB of peak memory saved; about 3.5 GB on disk for the Progression packs list, under `RimWorldLoadingOptimizer/atlas`). If the baked atlases are not readable on a system (seen on Windows), caching switches itself off until the game, mods, settings or RimWorld Loading Optimizer change |
 | Load mod content during XML loading | The queued `ModContentPack.ReloadContent` steps | Mod sounds and textures load on the main thread while the game reads and patches the XML on its loading thread, instead of after it. A bar on the loading screen shows the progress |
+| Bundle textures ahead (1.7) | Nothing new: runs in the frames of the feature above, through the game's own bundle lookup | The textures that graphics took from mod asset bundles on the last start are looked up again while the XML still loads. The game unpacks and converts such a texture on the main thread at its first lookup; the bundle reader keeps it, so the later lookup returns the same texture (1,076 textures, 3.6 s of main-thread work moved out of the phase after the defs). Follows the same setting |
 | Think tree keys | `ThinkTreeKeyAssigner.AssignSingleKey` | Vanilla re-probes every taken key for each copied node (258 M probes); resuming each probe chain gives the identical keys with 119 k probes (−4.4 s) |
 | Harmony module cache | `AccessTools.GetMethodByModuleAndToken` | Caches the module scan Harmony repeats for every existing patch whenever a method is patched again |
-| Faster Harmony patching | MonoMod `MMReflectionImporter.ImportReference`, `ReflectionHelper._ResolveReflection` | Harmony turns every method, field and type a patch uses into Mono.Cecil and back; RimWorld Loading Optimizer remembers the object it came from, so the way back is a lookup. Same generated code (verified: 497,711 lookups, 0 mismatches). Scenario 2 warm: −7 s |
+| Faster Harmony patching | MonoMod `MMReflectionImporter.ImportReference`, `ReflectionHelper._ResolveReflection` | Harmony turns every method, field and type a patch uses into Mono.Cecil and back; RimWorld Loading Optimizer remembers the object it came from, so the way back is a lookup. With Harmony 3.0.2 and newer that way back is taken twice, once when the replacement is built and once when Harmony writes the patched body for the game; both are lookups. Same generated code (verified with Harmony 3.0.3: 727,036 lookups, 0 mismatches) |
+| Harmony tokens (1.7) | The runtime's `MethodBodyUpdater.GetNamedTypeToken` and `GetMethodToken` | Harmony 3 writes a patched method's new body into the game's runtime, which needs a token for every patch method and its class. The runtime made the class's token again for every patch method and searched the module's whole list of assembly references each time. RimWorld Loading Optimizer remembers type and method tokens per module (installing 14,800 patches: 43 s to 21 s on a list with 1,553 mods). The tokens Harmony asked for are listed in `harmony-tokens.txt`, and at the next start a worker thread lets the runtime make them in the same order, so the loading threads find them ready (2.6 s to 0.2 s). Follows the "Faster Harmony patching" setting; self-checked, both tokens must point at the same type or method |
 | Fast content lookups | `ContentFinder` call sites in Graphic classes, Def `PostLoad`, `MaterialPool`, `AudioGrain_Folder` | Texture and sound lookups no longer walk the asset-bundle list of every mod (almost none have bundles) and folder lookups skip mods that have nothing under that path. Same results (verified) |
 | Assembly type cache | `Assembly.GetTypes()` | Mono rebuilds the type array through a slow hash table on every call; RimWorld Loading Optimizer returns a copy of the first result. Assemblies that throw are never cached |
 | Designator index | `DesignationCategoryDef.ResolveDesignators` | One pass over all buildable defs instead of one per category |
@@ -77,12 +106,12 @@ On the Progression packs list (1,495 mods, Mac) this took the main menu from 55.
 | Category sets | `ThingCategoryDef.DescendantThingDefs` results | `Contains` checks on category lists answered from a hash set; follows the Category cache setting |
 | Type name index | `AccessTools.TypeByName` | Lookups that miss the fast paths are answered from an index in Harmony's exact order instead of listing all types of all assemblies per call |
 | Patch file reuse | `ModContentPack.LoadPatches`, `DirectXmlLoader.XmlAssetsInModFolder` | Patch files parsed during def loading are reused instead of parsed a second time |
-| Harmony dependency name index (1.7) | Harmony 3 `GeneratedAssemblyLoader` constructor (`AppDomain.GetAssemblies` call) | Each generated method binds its references from an index of loaded assemblies by name instead of comparing them with every loaded assembly; Harmony's own name and hash checks still run (3.5 s to 0.1 s) |
 | XML previous-sibling cursor (1.7) | `XmlLinkedNode.PreviousSibling` (startup only) | Walks forward from the last previous sibling found instead of from the first child; removing or inserting many nodes in document order is no longer quadratic (Adaptive Storage Framework's def replacement: ~20 s to 0.4 s on cold starts), same nodes |
 | Mesh buffer pool (1.7) | Waylith `MeshUploader.AllocateMeshBuffer` | While the device-local memory budget is used up, and only until 10 s after the main menu, small mesh buffers (up to 256 KB) are placed in a VMA pool with 32 MB blocks instead of one driver allocation each (the frame before the main menu: ~16 s to 0.1 s). Each buffer stays its own VkBuffer; the pool is emptied and destroyed before the allocator. Own setting |
 | Mesh upload timing (1.7) | Waylith `MeshUploader` upload methods | Report only: times mesh uploads for the first 10 s after startup (main menu or straight into a game). Changes nothing |
 | Atlas source stamps (1.7) | `StaticTextureAtlas.TryWriteSourceStamp` | File size and date of every atlas source texture are read on worker threads before baking; same cache key bytes. Own setting |
 | GC latency (1.7) | `GCSettings.LatencyMode` | SustainedLowLatency from RimWorld Loading Optimizer's start until the main menu, so the runtime avoids blocking full memory clean-ups while loading; set back at the main menu. Follows the "skip the forced memory clean-up" setting |
+| Background JIT profile (1.7) | `DeepProfiler.Start` until the main menu, only to know the loading phase | The .NET runtime records which methods get compiled during startup and compiles them again on a background thread on the next start. One profile per loading phase and one more per 500 static constructors, because the runtime keeps at most 16,384 records per profile (about 55,000 methods on a list with 1,553 mods). Only the timing of compilation changes. The files are `startup-<phase>-<n>.jitprofile` under `RimWorldLoadingOptimizer` in the save data folder. Own setting |
 | Startup report | `RuntimeHelpers.RunClassConstructor` | Logs the slowest mod static constructors |
 | Game sound read-ahead (1.7) | `UnityEngine.Resources.LoadStubResource` (its `AudioClip.Load` call) | Once the defs are loaded, the game's own sound files that the sub-sounds' grains will ask for are opened on worker threads with the game's `AudioClip.Open` (at most 128 MB waiting); the clip is then built from that on the thread that asks, exactly as `AudioClip.Load` builds it. Anything not ready is opened by the game as before |
 
@@ -110,7 +139,7 @@ Each of these targets one mod, can be switched on separately in Mod Settings, an
 
 On by default since 5.4, each with its own switch in Mod Settings: PA Dynamic Seed Icons image read-ahead and the game sound read-ahead above. Keeping Missile Girl's rebuilt cache usable (writes its mod list again and drops stale hashes after a rebuild, with Missile Girl's own functions; works around a Missile Girl issue) is one of the switches below the Missile Girl support and is on when that support is on.
 
-Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assembly.FullName`, `Assembly.GetTypes`, `Type.ContainsGenericParameters`, `Type.GetGenericArguments`, `XmlChildNodes.Item`, `XmlLinkedNode.PreviousSibling`, `Thread.Sleep`) only exist during startup and are removed when the main menu opens, or when a game finishes loading if startup goes straight into one.
+Patches on .NET methods that every mod calls (`Assembly.GetTypes`, `XmlChildNodes.Item`, `XmlLinkedNode.PreviousSibling`, `Thread.Sleep`) only exist during startup and are removed when the main menu opens, or when a game finishes loading if startup goes straight into one.
 
 ## Safety rules the code follows
 
@@ -126,7 +155,7 @@ Patches on .NET methods that every mod calls (`AppDomain.GetAssemblies`, `Assemb
   - a speedup that changes one call checks that the call it needs is still there (and only that);
   - a speedup that replaces a result lets the original run next to it for its first results (200 by default, fewer for expensive ones), compares them, and only takes over when all of them match. On any difference it switches off for that start and the original code runs (`[RLO] <feature>: a result differed from the original code …`);
   - a passed check is remembered for that exact code and that build of RimWorld Loading Optimizer in `RimWorldLoadingOptimizer/verified-code.txt`, so the comparison runs once after every game, mod or RimWorld Loading Optimizer update;
-  - two speedups also depend on internals a comparison cannot fully cover, so they additionally check that the Harmony or System.Xml methods they build on still make exactly the calls they were written around: Harmony rebuild coalescing (test, off by default), and reading Missile Girl's cache on several threads, which also compares its first read of every new code version with Missile Girl's own read and uses Missile Girl's result for that start.
+  - two speedups also depend on internals a comparison cannot fully cover, so they additionally check that the Harmony or System.Xml methods they build on still make exactly the calls they were written around: building Harmony replacements at the first call (test, off by default), and reading Missile Girl's cache on several threads, which also compares its first read of every new code version with Missile Girl's own read and uses Missile Girl's result for that start.
   The startup report lists the checks in `code checks:` and `self-checks:` lines. Re-implemented game getters also step aside when another mod patches the same method, also when that mod adds its patch later during startup.
 - **Other optimizers:** when another optimizer (for example Performance Fish or Performance Optimizer) replaces or rewrites a method that a speedup also works on, that speedup steps aside and leaves the method to the other optimizer. Patches that only add work before or after a method don't count.
 - **Atlas cache files:** each cached atlas carries a 64-bit checksum that is verified while loading; a damaged or truncated file is rebaked instead of shown.
@@ -150,6 +179,7 @@ Environment variables for testing; none are needed for normal play.
 | `RLO_CONSTRUCTOR_TIMING=1` | Times selected mod static constructors |
 | `RLO_CONSTRUCTOR_FIXES_OFF=a,b` | Switches off single mod-constructor speedups: `reflcache`, `asmcache`, `earlytypes`, `loadfrom`, `ilscan`, `cai`, or `all` |
 | `RLO_KEEP_STARTUP_PATCHES=1` | Keeps the startup-only patches after the main menu instead of removing them (for crash testing) |
+| `RLO_LAZY_IDLE_MS=0` | With "Build Harmony replacements at the first call (test)": milliseconds per frame for building the replacements that are still waiting in the main menu (default 6; 0 switches it off, a large value builds them all in the first frame, for measuring) |
 | `RLO_STARTUP_FRAME=0.4` | Seconds of loading work per frame during startup (default 0.25) |
 
 ## Changelog
